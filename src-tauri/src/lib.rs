@@ -250,7 +250,7 @@ fn open_window(app: &AppHandle, port: u16) {
     };
 
     let _ = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
-        .title("melodown")
+        .title("SoundTube")
         .inner_size(1180.0, 820.0)
         .min_inner_size(520.0, 560.0)
         .center()
@@ -261,7 +261,7 @@ fn fail(app: &AppHandle, message: &str) {
     append_log(&log_path(app), &format!("[fatal] {message}\n"));
     app.dialog()
         .message(message)
-        .title("melodown")
+        .title("SoundTube")
         .kind(MessageDialogKind::Error)
         .blocking_show();
     app.exit(1);

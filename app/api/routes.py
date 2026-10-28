@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.artwork import extract_cover
-from app.core.library import resolve_track_path, scan_library
+from app.core.library import invalidate_cache, resolve_track_path, scan_library
 from app.core.runner import runner
 from app.core.tagging import guess_image_mime
 from app.db import get_session
@@ -165,6 +165,27 @@ async def library(refresh: bool = False) -> LibraryResponse:
         total_size=sum(track.size for track in tracks),
         entries=entries,
     )
+
+
+@router.delete("/library", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_track(path: str) -> Response:
+    """Удаляет файл трека с диска. Папки артиста и альбома остаются."""
+    file = resolve_track_path(path)
+    if file is None:
+        raise HTTPException(status_code=404, detail="Файл не найден")
+
+    try:
+        await asyncio.to_thread(file.unlink)
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Файл занят: остановите воспроизведение и попробуйте снова",
+        ) from exc
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"Не удалось удалить файл: {exc}") from exc
+
+    invalidate_cache()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/stream")

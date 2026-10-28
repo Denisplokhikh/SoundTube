@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#141518" />
-    <title>melodown</title>
+    <title>SoundTube</title>
     <script>
       try {
         const theme = localStorage.getItem("melodown.theme");
@@ -29,8 +29,7 @@
             </svg>
           </div>
           <div class="brand-text">
-            <span class="brand-name">melodown</span>
-            <span class="brand-sub">локальная фонотека</span>
+            <span class="brand-name">SoundTube</span>
           </div>
         </div>
 
@@ -164,6 +163,7 @@
             <span>Название</span>
             <span class="col-album">Альбом</span>
             <span class="col-dur">Время</span>
+            <span class="col-actions"></span>
           </div>
           <div id="track-list" class="track-list"></div>
         </section>
@@ -215,6 +215,11 @@
           <div class="now-title" id="now-title">Ничего не играет</div>
           <div class="now-artist" id="now-artist">Выберите трек в библиотеке</div>
         </div>
+        <button id="expand" class="icon-btn small now-expand" type="button" title="Полноэкранный режим">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M9 4H4v5M15 4h5v5M15 20h5v-5M9 20H4v-5" />
+          </svg>
+        </button>
       </div>
 
       <div class="player-center">
@@ -271,6 +276,91 @@
         <input id="volume" type="range" min="0" max="100" value="80" aria-label="Громкость" />
       </div>
     </footer>
+
+    <div
+      id="fullscreen-player"
+      class="fullscreen"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Полноэкранный плеер"
+      aria-hidden="true"
+      inert
+    >
+      <div class="fs-backdrop" aria-hidden="true">
+        <img id="fs-bg" alt="" />
+      </div>
+
+      <header class="fs-head">
+        <button id="fs-close" class="icon-btn small" type="button" title="Свернуть (Esc)">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
+        <span class="fs-label">Сейчас играет</span>
+        <span class="fs-head-spacer" aria-hidden="true"></span>
+      </header>
+
+      <div class="fs-body">
+        <div class="cover fs-cover">
+          <span class="cover-note">♪</span>
+          <img id="fs-cover" alt="" />
+        </div>
+
+        <div class="fs-meta">
+          <h2 id="fs-title">Ничего не играет</h2>
+          <p id="fs-artist">Выберите трек в библиотеке</p>
+          <p id="fs-album" class="fs-album"></p>
+        </div>
+
+        <div class="fs-progress">
+          <input
+            id="fs-seek"
+            type="range"
+            min="0"
+            max="1000"
+            value="0"
+            step="1"
+            aria-label="Позиция"
+          />
+          <div class="fs-times">
+            <span id="fs-current-time">0:00</span>
+            <span id="fs-total-time">0:00</span>
+          </div>
+        </div>
+
+        <div class="fs-controls">
+          <button id="fs-shuffle" class="icon-btn small" type="button" title="Перемешать">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
+            </svg>
+          </button>
+          <button id="fs-prev" class="icon-btn" type="button" title="Предыдущий">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="filled">
+              <path d="M19 20 9 12l10-8v16zM5 4v16h2V4z" />
+            </svg>
+          </button>
+          <button id="fs-play" class="play-btn fs-play-btn" type="button" title="Играть">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-play filled">
+              <path d="M8 5v14l11-7z" />
+            </svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-pause filled">
+              <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" />
+            </svg>
+          </button>
+          <button id="fs-next" class="icon-btn" type="button" title="Следующий">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="filled">
+              <path d="M5 4l10 8-10 8V4zM17 4h2v16h-2z" />
+            </svg>
+          </button>
+          <button id="fs-repeat" class="icon-btn small" type="button" title="Повтор выключен">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" />
+            </svg>
+            <span class="repeat-one">1</span>
+          </button>
+        </div>
+      </div>
+    </div>
 
     <div id="toast" class="toast" hidden></div>
     <audio id="audio" preload="metadata"></audio>

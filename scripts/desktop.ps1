@@ -12,8 +12,19 @@ $triple = (& rustc -Vv | Select-String -Pattern '^host:').Line -replace '^host:\
 $suffix = if ($triple -like "*-windows-*") { ".exe" } else { "" }
 $sidecar = "src-tauri\binaries\melodown-server-$triple$suffix"
 
-if (-not (Test-Path $sidecar)) {
-    Write-Host "Sidecar не найден, собираю..." -ForegroundColor Cyan
+$stale = -not (Test-Path $sidecar)
+if (-not $stale) {
+    $sidecarTime = (Get-Item $sidecar).LastWriteTimeUtc
+    $newestSource = Get-ChildItem -Recurse -File web, app, "scripts\server_entry.py" |
+        Sort-Object LastWriteTimeUtc -Descending |
+        Select-Object -First 1
+    if ($newestSource -and $newestSource.LastWriteTimeUtc -gt $sidecarTime) {
+        $stale = $true
+    }
+}
+
+if ($stale) {
+    Write-Host "Sidecar устарел или не найден, собираю..." -ForegroundColor Cyan
     & powershell -ExecutionPolicy Bypass -File scripts\build-sidecar.ps1
 }
 

@@ -35,7 +35,7 @@ async def lifespan(_app: FastAPI):
 
 
 app = FastAPI(
-    title="melodown",
+    title="SoundTube",
     version=__version__,
     description="Self-hosted archive for YouTube Music and SoundCloud playlists",
     lifespan=lifespan,

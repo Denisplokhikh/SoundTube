@@ -15,6 +15,8 @@ const state = {
   seeking: false,
   jobs: [],
   jobDetails: new Map(),
+  jobDetailSignatures: new Map(),
+  jobsSignature: "",
   expandedJobs: new Set(),
   previousJobStatuses: new Map(),
   pollTimer: null,
@@ -26,6 +28,7 @@ const state = {
   font: document.documentElement.dataset.font || "mono",
   radius: document.documentElement.dataset.radius || "normal",
   settingsOpen: false,
+  fullscreen: false,
 };
 
 const THEMES = [
@@ -312,7 +315,7 @@ function trackRow(track, index) {
       </div>
       <div class="cover thumb">
         <span class="cover-note">♪</span>
-        <img src="${artworkUrl(track)}" alt="" loading="lazy" onerror="this.remove()" />
+        <img src="${artworkUrl(track)}" alt="" width="38" height="38" loading="lazy" decoding="async" onerror="this.remove()" />
       </div>
       <div class="t-main">
         <div class="t-title">${esc(track.title)}</div>
@@ -320,8 +323,83 @@ function trackRow(track, index) {
       </div>
       <div class="t-album">${esc(track.album || "")}</div>
       <div class="t-duration">${formatTime(track.duration)}</div>
+      <div class="t-actions">
+        <button
+          class="row-delete"
+          type="button"
+          data-delete="${esc(track.id)}"
+          title="Удалить файл с диска"
+          aria-label="Удалить ${esc(track.title)} с диска"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6" />
+          </svg>
+        </button>
+      </div>
     </div>
   `;
+}
+
+function resetNowPlaying() {
+  state.currentId = null;
+  state.queue = [];
+  state.queueIndex = -1;
+  state.playing = false;
+
+  audio.pause();
+  audio.removeAttribute("src");
+  audio.load();
+
+  $("#now-title").textContent = "Ничего не играет";
+  $("#now-artist").textContent = "Выберите трек в библиотеке";
+  $("#now-cover").removeAttribute("src");
+
+  $("#fs-title").textContent = "Ничего не играет";
+  $("#fs-artist").textContent = "Выберите трек в библиотеке";
+  $("#fs-album").textContent = "";
+  $("#fs-cover").removeAttribute("src");
+  $("#fs-bg").removeAttribute("src");
+
+  $("#total-time").textContent = "0:00";
+  $("#fs-total-time").textContent = "0:00";
+
+  setPlaying(false);
+  updateTimeline();
+  document.title = "SoundTube";
+  markCurrentRow();
+}
+
+async function deleteTrack(trackId) {
+  const track = state.tracks.find((item) => item.id === trackId);
+  if (!track) return;
+
+  const confirmed = window.confirm(
+    `Удалить файл «${track.title}»?\nОн будет удалён с диска без возможности восстановления.`,
+  );
+  if (!confirmed) return;
+
+  const isCurrent = trackId === state.currentId;
+  if (isCurrent) resetNowPlaying();
+
+  try {
+    await api(`/api/library?path=${encodeURIComponent(track.relative_path)}`, { method: "DELETE" });
+  } catch (error) {
+    showToast(error.message);
+    return;
+  }
+
+  state.tracks = state.tracks.filter((item) => item.id !== trackId);
+
+  const queueIndex = state.queue.findIndex((item) => item.id === trackId);
+  if (queueIndex >= 0) {
+    state.queue.splice(queueIndex, 1);
+    if (queueIndex < state.queueIndex) state.queueIndex -= 1;
+  }
+
+  state.totalSize = state.tracks.reduce((sum, item) => sum + item.size, 0);
+  updateStats();
+  renderTracks();
+  showToast(`Удалено: ${track.title}`);
 }
 
 async function loadLibrary(force = false) {
@@ -352,8 +430,15 @@ function startTrack(track) {
     });
 
   updateNowPlaying(track);
-  renderTracks();
+  markCurrentRow();
   document.title = `${track.title} — ${track.artist}`;
+}
+
+/** Обновляет подсветку текущего трека без перерисовки всего списка. */
+function markCurrentRow() {
+  for (const row of document.querySelectorAll("#track-list .track-row")) {
+    row.classList.toggle("current", row.dataset.id === state.currentId);
+  }
 }
 
 function updateNowPlaying(track) {
@@ -366,6 +451,19 @@ function updateNowPlaying(track) {
   image.onerror = () => image.removeAttribute("src");
   image.src = artworkUrl(track);
 
+  const cover = $("#fs-cover");
+  cover.onerror = () => cover.removeAttribute("src");
+  cover.src = artworkUrl(track);
+
+  const backdrop = $("#fs-bg");
+  backdrop.onerror = () => backdrop.removeAttribute("src");
+  backdrop.src = artworkUrl(track);
+
+  $("#fs-title").textContent = track.title;
+  $("#fs-artist").textContent = track.artist;
+  $("#fs-album").textContent = track.album || "";
+  $("#fs-title").title = track.title;
+
   if ("mediaSession" in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: track.title,
@@ -373,6 +471,52 @@ function updateNowPlaying(track) {
       album: track.album || "",
       artwork: [{ src: artworkUrl(track), sizes: "512x512" }],
     });
+  }
+}
+
+function currentTrack() {
+  if (!state.currentId) return null;
+  return (
+    state.tracks.find((track) => track.id === state.currentId) ||
+    state.queue.find((track) => track.id === state.currentId) ||
+    null
+  );
+}
+
+function syncFullscreen() {
+  const track = currentTrack();
+  if (track) {
+    updateNowPlaying(track);
+  } else {
+    $("#fs-title").textContent = "Ничего не играет";
+    $("#fs-artist").textContent = "Выберите трек в библиотеке";
+    $("#fs-album").textContent = "";
+    $("#fs-cover").removeAttribute("src");
+    $("#fs-bg").removeAttribute("src");
+  }
+
+  $("#fullscreen-player").classList.toggle("playing", state.playing);
+  $("#fs-shuffle").classList.toggle("active", state.shuffle);
+  updateRepeatUI();
+  $("#fs-total-time").textContent = formatTime(audio.duration);
+  updateTimeline();
+}
+
+function setFullscreen(open) {
+  if (state.fullscreen === open) return;
+  state.fullscreen = open;
+
+  const node = $("#fullscreen-player");
+  node.classList.toggle("is-open", open);
+  node.setAttribute("aria-hidden", open ? "false" : "true");
+
+  if (open) {
+    node.removeAttribute("inert");
+    syncFullscreen();
+    $("#fs-close").focus({ preventScroll: true });
+  } else {
+    node.setAttribute("inert", "");
+    $("#expand").focus({ preventScroll: true });
   }
 }
 
@@ -457,19 +601,21 @@ function prevTrack() {
 function setPlaying(playing) {
   state.playing = playing;
   $("#player").classList.toggle("playing", playing);
+  $("#fullscreen-player").classList.toggle("playing", playing);
   $("#track-list").classList.toggle("is-playing", playing);
 }
 
 function updateRepeatUI() {
-  const button = $("#repeat");
-  button.classList.toggle("mode-all", state.repeat === "all");
-  button.classList.toggle("mode-one", state.repeat === "one");
-  button.title =
-    state.repeat === "all"
-      ? "Повтор: весь список"
-      : state.repeat === "one"
-        ? "Повтор: один трек"
-        : "Повтор выключен";
+  for (const button of document.querySelectorAll("#repeat, #fs-repeat")) {
+    button.classList.toggle("mode-all", state.repeat === "all");
+    button.classList.toggle("mode-one", state.repeat === "one");
+    button.title =
+      state.repeat === "all"
+        ? "Повтор: весь список"
+        : state.repeat === "one"
+          ? "Повтор: один трек"
+          : "Повтор выключен";
+  }
 }
 
 function cycleRepeat() {
@@ -481,7 +627,19 @@ function cycleRepeat() {
 function toggleShuffle() {
   state.shuffle = !state.shuffle;
   localStorage.setItem("melodown.shuffle", state.shuffle ? "1" : "0");
-  $("#shuffle").classList.toggle("active", state.shuffle);
+  for (const button of document.querySelectorAll("#shuffle, #fs-shuffle")) {
+    button.classList.toggle("active", state.shuffle);
+  }
+}
+
+function renderTimeline(ratio, current) {
+  for (const selector of ["#seek", "#fs-seek"]) {
+    const node = $(selector);
+    node.value = Math.round(ratio * 1000);
+    node.style.setProperty("--filled", `${ratio * 100}%`);
+  }
+  $("#current-time").textContent = formatTime(current);
+  $("#fs-current-time").textContent = formatTime(current);
 }
 
 function updateTimeline() {
@@ -489,9 +647,7 @@ function updateTimeline() {
   const current = audio.currentTime || 0;
   const ratio = duration ? current / duration : 0;
 
-  $("#seek").value = Math.round(ratio * 1000);
-  $("#seek").style.setProperty("--filled", `${ratio * 100}%`);
-  $("#current-time").textContent = formatTime(current);
+  renderTimeline(ratio, current);
 }
 
 function setVolume(value) {
@@ -591,6 +747,13 @@ function renderJobs() {
   container.innerHTML = state.jobs.map(jobCard).join("");
 }
 
+/** Подпись списка задач: пока она не меняется, DOM не перестраиваем. */
+function jobsSignature(jobs) {
+  return jobs
+    .map((job) => `${job.id}:${job.status}:${job.completed}:${job.failed}:${job.total}:${job.error || ""}`)
+    .join("|");
+}
+
 function schedulePoll() {
   if (state.pollTimer) {
     clearTimeout(state.pollTimer);
@@ -620,7 +783,11 @@ async function loadJobs(silent = false) {
     }
 
     state.jobs = jobs;
-    renderJobs();
+    const signature = jobsSignature(jobs);
+    if (signature !== state.jobsSignature) {
+      state.jobsSignature = signature;
+      renderJobs();
+    }
     schedulePoll();
 
     for (const jobId of state.expandedJobs) {
@@ -637,8 +804,11 @@ async function loadJobs(silent = false) {
 async function loadJobDetail(jobId) {
   try {
     const detail = await api(`/api/jobs/${jobId}`);
+    const signature = (detail.tracks || []).map((track) => track.status).join(",");
+    const changed = state.jobDetailSignatures.get(jobId) !== signature;
     state.jobDetails.set(jobId, detail);
-    if (state.expandedJobs.has(jobId)) renderJobs();
+    state.jobDetailSignatures.set(jobId, signature);
+    if (changed && state.expandedJobs.has(jobId)) renderJobs();
   } catch (error) {
     showToast(error.message);
   }
@@ -658,6 +828,7 @@ async function retryJob(jobId) {
   try {
     await api(`/api/jobs/${jobId}/retry`, { method: "POST" });
     state.jobDetails.delete(jobId);
+    state.jobDetailSignatures.delete(jobId);
     await loadJobs();
   } catch (error) {
     showToast(error.message);
@@ -670,6 +841,7 @@ async function deleteJob(jobId) {
     await api(`/api/jobs/${jobId}`, { method: "DELETE" });
     state.expandedJobs.delete(jobId);
     state.jobDetails.delete(jobId);
+    state.jobDetailSignatures.delete(jobId);
     await loadJobs();
   } catch (error) {
     showToast(error.message);
@@ -757,6 +929,31 @@ function setupMediaSession() {
   }
 }
 
+function togglePlay() {
+  if (!audio.src) {
+    playAll();
+    return;
+  }
+  if (audio.paused) audio.play();
+  else audio.pause();
+}
+
+function bindSeek(node) {
+  node.addEventListener("input", () => {
+    state.seeking = true;
+    const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+    const ratio = Number(node.value) / 1000;
+    renderTimeline(ratio, ratio * duration);
+  });
+
+  node.addEventListener("change", () => {
+    const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
+    if (duration) audio.currentTime = (Number(node.value) / 1000) * duration;
+    state.seeking = false;
+    updateTimeline();
+  });
+}
+
 function bindEvents() {
   document.querySelectorAll(".nav-item[data-view]").forEach((button) => {
     button.addEventListener("click", () => switchView(button.dataset.view));
@@ -782,8 +979,12 @@ function bindEvents() {
   $(".settings-backdrop").addEventListener("click", () => setSettingsOpen(false));
 
   document.addEventListener("keydown", (event) => {
-    if (event.code !== "Escape" || !state.settingsOpen) return;
-    setSettingsOpen(false);
+    if (event.code !== "Escape") return;
+    if (state.fullscreen) {
+      setFullscreen(false);
+      return;
+    }
+    if (state.settingsOpen) setSettingsOpen(false);
   });
 
   $("#search").addEventListener("input", renderTracks);
@@ -791,45 +992,42 @@ function bindEvents() {
   $("#library-refresh").addEventListener("click", () => loadLibrary(true));
 
   $("#track-list").addEventListener("click", (event) => {
+    const remove = event.target.closest(".row-delete");
+    if (remove) {
+      deleteTrack(remove.dataset.delete);
+      return;
+    }
     const row = event.target.closest(".track-row");
     if (row) playFromList(row.dataset.id);
   });
 
   $("#track-list").addEventListener("keydown", (event) => {
     if (event.code !== "Enter" && event.code !== "Space") return;
+    if (event.target.closest(".row-delete")) return;
     const row = event.target.closest(".track-row");
     if (!row) return;
     event.preventDefault();
     playFromList(row.dataset.id);
   });
 
-  $("#play").addEventListener("click", () => {
-    if (!audio.src) {
-      playAll();
-      return;
-    }
-    if (audio.paused) audio.play();
-    else audio.pause();
-  });
+  $("#play").addEventListener("click", togglePlay);
+  $("#fs-play").addEventListener("click", togglePlay);
 
   $("#next").addEventListener("click", () => nextTrack());
   $("#prev").addEventListener("click", prevTrack);
   $("#shuffle").addEventListener("click", toggleShuffle);
   $("#repeat").addEventListener("click", cycleRepeat);
 
-  $("#seek").addEventListener("input", () => {
-    state.seeking = true;
-    const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
-    const time = (Number($("#seek").value) / 1000) * duration;
-    $("#current-time").textContent = formatTime(time);
-    $("#seek").style.setProperty("--filled", `${(Number($("#seek").value) / 1000) * 100}%`);
-  });
+  $("#fs-next").addEventListener("click", () => nextTrack());
+  $("#fs-prev").addEventListener("click", prevTrack);
+  $("#fs-shuffle").addEventListener("click", toggleShuffle);
+  $("#fs-repeat").addEventListener("click", cycleRepeat);
 
-  $("#seek").addEventListener("change", () => {
-    const duration = Number.isFinite(audio.duration) ? audio.duration : 0;
-    if (duration) audio.currentTime = (Number($("#seek").value) / 1000) * duration;
-    state.seeking = false;
-  });
+  bindSeek($("#seek"));
+  bindSeek($("#fs-seek"));
+
+  $(".now").addEventListener("click", () => setFullscreen(true));
+  $("#fs-close").addEventListener("click", () => setFullscreen(false));
 
   $("#volume").addEventListener("input", () => {
     audio.muted = false;
@@ -850,7 +1048,9 @@ function bindEvents() {
   });
 
   audio.addEventListener("loadedmetadata", () => {
-    $("#total-time").textContent = formatTime(audio.duration);
+    const total = formatTime(audio.duration);
+    $("#total-time").textContent = total;
+    $("#fs-total-time").textContent = total;
     updateTimeline();
   });
 
@@ -893,7 +1093,9 @@ function init() {
   const stored = localStorage.getItem("melodown.volume");
   const volume = stored === null ? 0.8 : Number(stored);
   setVolume(Number.isFinite(volume) ? volume : 0.8);
-  $("#shuffle").classList.toggle("active", state.shuffle);
+  for (const button of document.querySelectorAll("#shuffle, #fs-shuffle")) {
+    button.classList.toggle("active", state.shuffle);
+  }
   updateRepeatUI();
   renderThemes();
   applyTheme(state.theme, false);
