@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# Runtime data
+data/
+library/
+cookies/
+*.db
+*.db-journal
+*.log
+
+# Electron
+desktop/node_modules/
+desktop/dist/
+desktop/out/
+
+# Local config
+.env
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>melodown</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo">♪</span>
+        <div>
+          <h1>melodown</h1>
+          <p class="tagline">локальный архив плейлистов</p>
+        </div>
+      </div>
+      <span id="server-status" class="pill pill-muted">проверяю…</span>
+    </header>
+
+    <main>
+      <form id="import-form" class="import">
+        <input
+          id="url"
+          name="url"
+          type="text"
+          inputmode="url"
+          autocomplete="off"
+          spellcheck="false"
+          placeholder="Ссылка на плейлист или трек: music.youtube.com, youtube.com, soundcloud.com"
+          required
+        />
+        <select id="format" name="format" title="Формат файла">
+          <option value="">как есть</option>
+          <option value="mp3">mp3</option>
+          <option value="m4a">m4a</option>
+          <option value="opus">opus</option>
+          <option value="flac">flac</option>
+        </select>
+        <button id="submit" type="submit">Скачать</button>
+      </form>
+
+      <p id="error" class="error" hidden></p>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="jobs" type="button">Загрузки</button>
+        <button class="tab" data-tab="library" type="button">Библиотека</button>
+      </nav>
+
+      <section id="jobs-view">
+        <div id="jobs" class="jobs"></div>
+      </section>
+
+      <section id="library-view" hidden>
+        <div class="library-head">
+          <div>
+            <strong id="library-count">0</strong>
+            <span id="library-size" class="muted"></span>
+          </div>
+          <button id="library-refresh" class="ghost" type="button">Обновить</button>
+        </div>
+        <div id="library" class="library"></div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span id="music-dir" class="muted"></span>
+      <span class="muted">только для личного архива · MIT</span>
+    </footer>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,16 @@
+services:
+  melodown:
+    build: .
+    container_name: melodown
+    ports:
+      - "127.0.0.1:8765:8765"
+    volumes:
+      - ./data:/data
+      - ./library:/music
+    environment:
+      MELODOWN_MUSIC_DIR: /music
+      MELODOWN_DATA_DIR: /data
+      MELODOWN_AUDIO_FORMAT: original
+      MELODOWN_MAX_CONCURRENT_JOBS: "1"
+      MELODOWN_MAX_CONCURRENT_TRACKS: "1"
+    restart: unless-stopped
