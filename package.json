@@ -1,0 +1,16 @@
+{
+  "name": "melodown",
+  "productName": "melodown",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Desktop shell (Tauri) for the melodown local server",
+  "scripts": {
+    "tauri": "tauri",
+    "desktop": "tauri dev",
+    "desktop:build": "tauri build",
+    "build:server": "powershell -ExecutionPolicy Bypass -File scripts/build-sidecar.ps1"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -17,7 +18,10 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
 )
 
-WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+if getattr(sys, "frozen", False):
+    WEB_DIR = Path(sys._MEIPASS).resolve() / "web"
+else:
+    WEB_DIR = Path(__file__).resolve().parent.parent / "web"
 
 
 @asynccontextmanager
@@ -48,11 +52,12 @@ def main() -> None:
 
     from app.config import settings
 
+    # Pass the app object instead of an import string so the same entry point
+    # works inside a PyInstaller bundle.
     uvicorn.run(
-        "app.main:app",
+        app,
         host=settings.host,
         port=settings.port,
-        reload=False,
     )
 
 

@@ -1,14 +1,30 @@
 from __future__ import annotations
 
+import os
+import sys
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PROJECT_ROOT = Path(__file__).resolve().parent.parent
+FROZEN = bool(getattr(sys, "frozen", False))
+PROJECT_ROOT = (
+    Path(sys._MEIPASS).resolve() if FROZEN else Path(__file__).resolve().parent.parent
+)
 
 AUDIO_FORMATS = ("original", "mp3", "m4a", "opus", "flac")
+
+
+def _default_data_dir() -> Path:
+    """Keep runtime data out of the temporary PyInstaller bundle."""
+    if not FROZEN:
+        return PROJECT_ROOT / "data"
+
+    base = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_DATA_HOME")
+    if base:
+        return Path(base) / "melodown" / "data"
+    return Path.home() / ".melodown" / "data"
 
 
 class Settings(BaseSettings):
@@ -23,7 +39,7 @@ class Settings(BaseSettings):
     port: int = 8765
 
     music_dir: Path = Path.home() / "Music" / "Melodown"
-    data_dir: Path = PROJECT_ROOT / "data"
+    data_dir: Path = Field(default_factory=_default_data_dir)
 
     audio_format: str = "original"
     audio_quality: str = "0"

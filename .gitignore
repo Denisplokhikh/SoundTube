@@ -15,10 +15,13 @@ cookies/
 *.db-journal
 *.log
 
-# Electron
-desktop/node_modules/
-desktop/dist/
-desktop/out/
+# Node / Tauri
+node_modules/
+src-tauri/target/
+src-tauri/gen/
+src-tauri/binaries/
+dist/
+build/
 
 # Local config
 .env

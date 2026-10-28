@@ -1,17 +1,18 @@
 from __future__ import annotations
 
 import asyncio
-import os
-from datetime import datetime, timezone
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
+from app.core.artwork import extract_cover
+from app.core.library import resolve_track_path, scan_library
 from app.core.runner import runner
+from app.core.tagging import guess_image_mime
 from app.db import get_session
 from app.models import Job, Track
 from app.platforms import ResolveError, UnsupportedURL, detect_platform, resolve
@@ -26,7 +27,6 @@ from app.schemas import (
 
 router = APIRouter(prefix="/api")
 
-AUDIO_SUFFIXES = {".mp3", ".m4a", ".flac", ".opus", ".ogg", ".aac", ".wav", ".webm"}
 MAX_JOBS = 100
 MAX_LIBRARY_ENTRIES = 5000
 
@@ -156,42 +156,39 @@ async def delete_job(job_id: str, session: AsyncSession = Depends(get_session)) 
 
 
 @router.get("/library", response_model=LibraryResponse)
-async def library(limit: int = 1000) -> LibraryResponse:
-    root = settings.music_dir
-    limit = max(1, min(limit, MAX_LIBRARY_ENTRIES))
-    entries: list[LibraryEntry] = []
-    total_size = 0
-
-    if root.exists():
-        for directory, _dirs, files in os.walk(root):
-            for filename in files:
-                path = Path(directory) / filename
-                if path.suffix.lower() not in AUDIO_SUFFIXES:
-                    continue
-                try:
-                    stat = path.stat()
-                    relative = path.relative_to(root)
-                except OSError:
-                    continue
-
-                total_size += stat.st_size
-                entries.append(
-                    LibraryEntry(
-                        path=str(path),
-                        relative_path=relative.as_posix(),
-                        artist=relative.parts[0] if len(relative.parts) > 1 else "Unknown",
-                        title=path.stem,
-                        size=stat.st_size,
-                        modified=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
-                    )
-                )
-
-    entries.sort(key=lambda entry: entry.relative_path.lower())
+async def library(refresh: bool = False) -> LibraryResponse:
+    tracks = await asyncio.to_thread(scan_library, refresh)
+    entries = [LibraryEntry.model_validate(track) for track in tracks[:MAX_LIBRARY_ENTRIES]]
     return LibraryResponse(
-        root=str(root),
-        total=len(entries),
-        total_size=total_size,
-        entries=entries[:limit],
+        root=str(settings.music_dir),
+        total=len(tracks),
+        total_size=sum(track.size for track in tracks),
+        entries=entries,
+    )
+
+
+@router.get("/stream")
+async def stream(path: str) -> FileResponse:
+    file = resolve_track_path(path)
+    if file is None:
+        raise HTTPException(status_code=404, detail="Файл не найден")
+    return FileResponse(file)
+
+
+@router.get("/artwork")
+async def artwork(path: str) -> Response:
+    file = resolve_track_path(path)
+    if file is None:
+        raise HTTPException(status_code=404, detail="Файл не найден")
+
+    cover = await asyncio.to_thread(extract_cover, file)
+    if not cover:
+        raise HTTPException(status_code=404, detail="Обложка не найдена")
+
+    return Response(
+        content=cover,
+        media_type=guess_image_mime(cover),
+        headers={"Cache-Control": "public, max-age=604800"},
     )
 
 

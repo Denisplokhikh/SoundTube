@@ -69,12 +69,17 @@ class JobOut(JobSummary):
 
 
 class LibraryEntry(BaseModel):
-    path: str
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
     relative_path: str
-    artist: str
     title: str
+    artist: str
+    album: str | None = None
+    duration: float | None = None
     size: int
     modified: datetime
+    extension: str
 
 
 class LibraryResponse(BaseModel):

@@ -17,7 +17,7 @@ Self-hosted архив музыки: вставляете ссылку на пл
 - Повтор упавших треков, удаление задач
 - Форматы: как есть (без перекодирования), mp3, m4a, opus, flac
 - Веб-интерфейс, работает и с телефона в локальной сети
-- Electron-обёртка для запуска как обычного приложения
+- Электронная обёртка для запуска как обычного приложения
 - Docker-образ
 
 Чего пока нет: Spotify, VK, Яндекс.Музыка, поиск по названию, синхронизация с Navidrome/Jellyfin, мобильный клиент. См. [Roadmap](#roadmap).
@@ -28,7 +28,7 @@ Self-hosted архив музыки: вставляете ссылку на пл
 
 - Python 3.11+ и [uv](https://docs.astral.sh/uv/)
 - **ffmpeg** в `PATH` (нужен для конвертации и извлечения аудио)
-- Node.js 20+ — только если нужен Electron
+- Node.js 20+, [Rust](https://rustup.rs) и WebView2 — только для сборки desktop-приложения (WebView2 уже есть в Windows 10/11)
 
 Проверка:
 
@@ -62,15 +62,27 @@ powershell -ExecutionPolicy Bypass -File scripts\start.ps1
 
 По умолчанию музыка складывается в `~/Music/Melodown` (`C:\Users\<вы>\Music\Melodown`).
 
-### Запуск как приложение (Electron)
+### Запуск как приложение (Tauri)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\desktop.ps1
 ```
 
-Скрипт поставит Electron и запустит окно. Electron сам поднимает Python-сервер на `127.0.0.1:8765` и гасит его при закрытии.
+Скрипт собирает Python-сервер в один `.exe` через PyInstaller, кладёт его в `src-tauri\binaries\` как sidecar, ставит Tauri CLI и открывает окно. Tauri сам поднимает сервер на `127.0.0.1:8765`, гасит его при закрытии, а логи сервера пишет в `%LOCALAPPDATA%\app.melodown.desktop\logs\server.log`.
 
-> npm 11+ блокирует postinstall-скрипты пакетов, поэтому Electron может не скачать свой бинарник. Скрипт автоматически одобряет его через `npm install-scripts approve electron`. Если ставите вручную — выполните эту команду после `npm install`.
+Первый запуск занимает несколько минут: компилируется Rust-оболочка и собирается sidecar.
+
+Сборка установщика:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-desktop.ps1
+```
+
+Готовые файлы появятся в `src-tauri\target\release\bundle\` (MSI/NSIS на Windows).
+
+Если сервер уже запущен вручную (`uv run uvicorn app.main:app`), Tauri переиспользует его вместо sidecar — удобно при разработке интерфейса.
+
+> В установленном приложении база и временные файлы лежат в `%LOCALAPPDATA%\app.melodown.desktop\data`, музыка — по-прежнему в `~/Music/Melodown`. При запуске из репозитория (`tauri dev` + Python из `.venv`) используется `data/` проекта.
 
 ### Docker
 
@@ -178,7 +190,7 @@ Cookies — это доступ к аккаунту. Не коммитьте и�
 - [ ] Плагин Яндекс.Музыки
 - [ ] Плагин VK
 - [ ] Отдельный экран настроек в UI
-- [ ] Сборка Electron-приложения (`electron-builder`)
+- [x] Desktop-приложение на Tauri
 - [ ] PWA-манифест для установки на телефон
 
 ---
@@ -202,7 +214,8 @@ app/
   db.py, models.py   SQLite + SQLAlchemy
   main.py            FastAPI + статика
 web/                 интерфейс без сборки (HTML/CSS/JS)
-desktop/             Electron-обёртка
+src-tauri/           Tauri-оболочка (Rust), конфиг и sidecar
+melodown-server.spec PyInstaller-сборка Python-сервера
 tests/               pytest
 ```
 

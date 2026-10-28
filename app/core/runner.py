@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.core.downloader import download_track
+from app.core.library import invalidate_cache
 from app.db import SessionLocal
 from app.models import Job, Track
 from app.platforms.base import TrackSpec
@@ -154,6 +155,7 @@ class JobRunner:
                 track.error = None
                 await session.commit()
         await self._refresh_counters(job_id)
+        invalidate_cache()
 
     async def _refresh_counters(self, job_id: str) -> None:
         async with SessionLocal() as session:
