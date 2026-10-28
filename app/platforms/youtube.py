@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from app.core import ytdlp
 from app.platforms.base import Collection, ResolveError, TrackSpec, clean_text
@@ -19,6 +19,27 @@ HOSTS = (
 def matches(url: str) -> bool:
     host = (urlparse(url).hostname or "").lower()
     return any(host == candidate or host.endswith(f".{candidate}") for candidate in HOSTS)
+
+
+def is_radio_url(url: str) -> bool:
+    """YouTube radio/mix links (list=RD...) are endless auto-generated playlists."""
+    query = parse_qs(urlparse(url).query)
+    return any(value.startswith("RD") for value in query.get("list", []))
+
+
+def single_video_url(url: str) -> str | None:
+    parsed = urlparse(url)
+    query = parse_qs(parsed.query)
+
+    video_id = (query.get("v") or [None])[0]
+    if video_id:
+        return f"https://www.youtube.com/watch?v={video_id}"
+
+    if parsed.hostname and parsed.hostname.endswith("youtu.be"):
+        candidate = parsed.path.strip("/").split("/")[0]
+        if candidate:
+            return f"https://www.youtube.com/watch?v={candidate}"
+    return None
 
 
 def _track_from_entry(entry: dict) -> TrackSpec | None:
@@ -53,6 +74,11 @@ def _track_from_entry(entry: dict) -> TrackSpec | None:
 
 
 def resolve(url: str) -> Collection:
+    if is_radio_url(url):
+        video_url = single_video_url(url)
+        if video_url:
+            url = video_url
+
     try:
         info = ytdlp.extract_flat(url, NAME)
     except Exception as exc:  # yt-dlp raises a wide range of errors

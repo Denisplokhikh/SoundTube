@@ -1,6 +1,10 @@
 from app.platforms import detect_platform
 from app.platforms.soundcloud import _track_from_entry as soundcloud_track
-from app.platforms.youtube import _track_from_entry as youtube_track
+from app.platforms.youtube import (
+    _track_from_entry as youtube_track,
+    is_radio_url,
+    single_video_url,
+)
 
 
 def test_detects_youtube_music_playlist():
@@ -50,3 +54,29 @@ def test_soundcloud_entry_keeps_url():
     assert track is not None
     assert track.url == "https://soundcloud.com/artist/song"
     assert track.source_id == "42"
+
+
+def test_radio_mix_link_is_detected():
+    assert is_radio_url(
+        "https://www.youtube.com/watch?v=UTNP93A_FJI&list=RDUTNP93A_FJI&start_radio=1"
+    )
+
+
+def test_regular_playlist_is_not_radio():
+    assert not is_radio_url("https://www.youtube.com/playlist?list=PL123")
+
+
+def test_radio_link_collapses_to_single_video():
+    assert (
+        single_video_url(
+            "https://www.youtube.com/watch?v=UTNP93A_FJI&list=RDUTNP93A_FJI&start_radio=1"
+        )
+        == "https://www.youtube.com/watch?v=UTNP93A_FJI"
+    )
+
+
+def test_short_link_collapses_to_single_video():
+    assert (
+        single_video_url("https://youtu.be/abc123?list=RDabc123")
+        == "https://www.youtube.com/watch?v=abc123"
+    )
