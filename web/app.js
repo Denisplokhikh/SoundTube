@@ -244,7 +244,6 @@ function resetNowPlaying() {
   $("#fs-artist").textContent = "Выберите трек в библиотеке";
   $("#fs-album").textContent = "";
   $("#fs-cover").removeAttribute("src");
-  $("#fs-bg").removeAttribute("src");
 
   $("#total-time").textContent = "0:00";
   $("#fs-total-time").textContent = "0:00";
@@ -344,10 +343,6 @@ function updateNowPlaying(track) {
   cover.onerror = () => cover.removeAttribute("src");
   cover.src = artworkUrl(track);
 
-  const backdrop = $("#fs-bg");
-  backdrop.onerror = () => backdrop.removeAttribute("src");
-  backdrop.src = artworkUrl(track);
-
   $("#fs-title").textContent = track.title;
   $("#fs-artist").textContent = track.artist;
   $("#fs-album").textContent = track.album || "";
@@ -383,6 +378,15 @@ const vis = {
   prev: null,
   failed: false,
   paletteToken: 0,
+};
+
+/** Четыре пятна на фоне полноэкранного плеера: дрейф, цвета, сила свечения. */
+const ambient = {
+  items: [],
+  tones: [],
+  last: 0,
+  time: 0,
+  flash: 0,
 };
 
 function clamp(value, min, max) {
@@ -445,7 +449,7 @@ function loadCover(url) {
   });
 }
 
-/** Три самых заметных цвета обложки: мелкое полотно + группировка по оттенку. */
+/** Четыре самых заметных цвета обложки: мелкое полотно + группировка по оттенку. */
 async function extractPalette(url) {
   const image = await loadCover(url);
   const size = 32;
@@ -476,7 +480,7 @@ async function extractPalette(url) {
 
   const ranked = [...buckets.values()]
     .sort((a, b) => b.weight - a.weight)
-    .slice(0, 3)
+    .slice(0, 4)
     .map((bucket) => ({
       h: bucket.h / bucket.weight,
       s: clamp(bucket.s / bucket.weight, 0.5, 0.95),
@@ -491,9 +495,9 @@ function hueDistance(a, b) {
   return diff > 180 ? 360 - diff : diff;
 }
 
-/** Разводим близкие оттенки и добиваем палитру до трёх цветов. */
+/** Разводим близкие оттенки и добиваем палитру до четырёх цветов. */
 function padPalette(palette) {
-  const tones = palette.slice(0, 3).map((tone) => ({ ...tone }));
+  const tones = palette.slice(0, 4).map((tone) => ({ ...tone }));
 
   for (let i = 1; i < tones.length; i += 1) {
     let guard = 0;
@@ -506,8 +510,8 @@ function padPalette(palette) {
     }
   }
 
-  const shifts = [46, -52];
-  while (tones.length < 3) {
+  const shifts = [46, -52, 104, -108];
+  while (tones.length < 4) {
     const base = tones[0];
     const step = tones.length;
     tones.push({
@@ -521,15 +525,13 @@ function padPalette(palette) {
 }
 
 function paintPalette(palette) {
-  const tones = palette && palette.length ? padPalette([...palette]) : accentPalette();
+  const tones = padPalette(palette && palette.length ? [...palette] : accentPalette());
   const node = $("#fullscreen-player");
 
-  [1, 2, 3].forEach((index) => {
-    const tone = tones[(index - 1) % tones.length];
-    node.style.setProperty(`--c${index}`, hslColor(tone));
-  });
-
   node.style.setProperty("--glow", hslColor(tones[0], 0.32));
+
+  ambient.tones = tones;
+  if (state.fullscreen) ambient.flash = 1;
 }
 
 function rememberPalette(url, palette) {
@@ -561,7 +563,7 @@ async function refreshVisualPalette(track) {
   }
   if (token !== vis.paletteToken) return;
 
-  const tones = palette ? padPalette(palette) : accentPalette();
+  const tones = padPalette(palette ? [...palette] : accentPalette());
   rememberPalette(url, tones);
   paintPalette(tones);
 }
@@ -613,14 +615,41 @@ function bandLevel(bins, from, to) {
   return count ? sum / count / 255 : 0;
 }
 
-function visualTick() {
-  vis.raf = requestAnimationFrame(visualTick);
+/** Кратчайший путь по цветовому кругу. */
+function lerpHue(from, to, ratio) {
+  const delta = ((to - from + 540) % 360) - 180;
+  return from + delta * ratio;
+}
 
-  const now = performance.now();
-  if (now - vis.updatedAt < 40) return;
-  vis.updatedAt = now;
+/** Пятна живут в DOM постоянно, состояние — здесь. */
+function ensureBlobs() {
+  const nodes = document.querySelectorAll(".fs-aurora .fs-blob");
+  if (ambient.items.length === nodes.length) return;
 
-  if (!vis.analyser || audio.paused) return;
+  ambient.items = Array.from(nodes).map((node, index) => ({
+    node,
+    phase: index * 1.9 + Math.random() * 1.2,
+    x: (Math.random() - 0.5) * window.innerWidth * 0.3,
+    y: (Math.random() - 0.5) * window.innerHeight * 0.3,
+    tone: null,
+    glow: 0.2,
+    colorAt: -1,
+  }));
+}
+
+function updateAudioLevels() {
+  const node = $("#fullscreen-player");
+
+  if (!vis.analyser || audio.paused) {
+    vis.pulse *= 0.86;
+    vis.energy *= 0.9;
+    if (vis.pulse < 0.002) vis.pulse = 0;
+    if (vis.energy < 0.002) vis.energy = 0;
+    node.style.setProperty("--pulse", vis.pulse.toFixed(3));
+    node.style.setProperty("--energy", vis.energy.toFixed(3));
+    return;
+  }
+
   vis.analyser.getByteFrequencyData(vis.bins);
 
   const bins = vis.bins;
@@ -648,16 +677,100 @@ function visualTick() {
   const targetEnergy = clamp((mids - 0.45) * 1.3 + (air - 0.45) * 0.5, 0, 1);
   vis.energy += (targetEnergy - vis.energy) * 0.12;
 
-  const node = $("#fullscreen-player");
   node.style.setProperty("--pulse", vis.pulse.toFixed(3));
   node.style.setProperty("--energy", vis.energy.toFixed(3));
 }
 
+/** Дрейф четырёх пятен: каждое летит по своей медленной орбите. */
+function ambientTick(now) {
+  const items = ambient.items;
+  if (!items.length) return;
+
+  const dt = ambient.last ? clamp((now - ambient.last) / 1000, 0, 0.08) : 0.016;
+  ambient.last = now;
+  ambient.time += dt;
+
+  const time = ambient.time;
+  const width = window.innerWidth;
+  const height = window.innerHeight;
+  const pulse = clamp(vis.pulse, 0, 1);
+  const energy = clamp(vis.energy, 0, 1);
+  ambient.flash = Math.max(0, ambient.flash - dt * 1.4);
+  const flash = ambient.flash;
+  const palette = ambient.tones;
+  const still = ambient.reduced;
+
+  items.forEach((blob, index) => {
+    // позиция: лиссажу-орбита, догоняем её с мягким отставанием
+    const orbitX = Math.sin(time * (0.18 + index * 0.03) + blob.phase) * width * 0.3;
+    const orbitY =
+      Math.cos(time * (0.14 + index * 0.035) + blob.phase * 1.6) * height * 0.26;
+
+    if (!still) {
+      const ease = 1 - Math.exp(-dt * 0.9);
+      blob.x += (orbitX - blob.x) * ease;
+      blob.y += (orbitY - blob.y) * ease;
+    }
+
+    blob.node.style.translate = `${blob.x.toFixed(1)}px ${blob.y.toFixed(1)}px`;
+
+    // дыхание + удар: пятно раздувается и вспыхивает
+    const breathe = 0.5 + 0.5 * Math.sin(time * (0.45 + index * 0.08) + blob.phase * 2.2);
+    const kick = pulse * (0.5 + index * 0.12) + flash * (0.45 + index * 0.1);
+    blob.glow += (0.16 + energy * 0.18 + breathe * 0.1 + kick * 0.52 - blob.glow) * 0.35;
+    const glow = clamp(blob.glow, 0.08, 0.95);
+
+    if (!still) {
+      const scale = 0.94 + breathe * 0.05 + pulse * (0.05 + index * 0.012) + flash * 0.07;
+      blob.node.style.scale = scale.toFixed(3);
+    }
+    blob.node.style.opacity = glow.toFixed(3);
+
+    if (!palette.length) return;
+
+    // цвет: плавно перетекаем к палитре нового трека и медленно уводим оттенок
+    const target = palette[index % palette.length];
+    if (!blob.tone) {
+      blob.tone = { ...target };
+    } else {
+      const rate = 1 - Math.exp(-dt * 1.7);
+      blob.tone.h = lerpHue(blob.tone.h, target.h, rate);
+      blob.tone.s += (target.s - blob.tone.s) * rate;
+      blob.tone.l += (target.l - blob.tone.l) * rate;
+    }
+
+    // перекраска — дорогая операция (перерисовка большого пятна), поэтому реже кадров
+    if (time - blob.colorAt < 0.1) return;
+    blob.colorAt = time;
+
+    const shift = Math.sin(time * (0.17 + index * 0.03) + blob.phase) * 14;
+    blob.node.style.color = hslColor({
+      h: blob.tone.h + shift,
+      s: clamp(blob.tone.s * 1.3, 0.45, 0.95),
+      l: clamp(blob.tone.l + 0.1, 0.46, 0.72),
+    });
+  });
+}
+
+function visualTick(now) {
+  vis.raf = requestAnimationFrame(visualTick);
+
+  if (now - vis.updatedAt >= 40) {
+    vis.updatedAt = now;
+    updateAudioLevels();
+  }
+
+  ambientTick(now);
+}
+
 function startVisuals() {
   if (!state.fullscreen) return;
+  ensureBlobs();
+  ambient.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   resumeAudioGraph();
-  if (!vis.raf && vis.analyser) {
+  if (!vis.raf) {
     vis.updatedAt = 0;
+    ambient.last = 0;
     vis.raf = requestAnimationFrame(visualTick);
   }
 }
@@ -668,6 +781,14 @@ function stopVisuals() {
   vis.pulse = 0;
   vis.energy = 0;
   vis.fluxPeak = 0;
+  ambient.last = 0;
+  ambient.flash = 0;
+
+  for (const blob of ambient.items) {
+    blob.glow = 0.16;
+    blob.node.style.opacity = "0.16";
+    blob.node.style.scale = "1";
+  }
 
   const node = $("#fullscreen-player");
   node.style.setProperty("--pulse", "0");
@@ -693,7 +814,6 @@ function syncFullscreen() {
     $("#fs-artist").textContent = "Выберите трек в библиотеке";
     $("#fs-album").textContent = "";
     $("#fs-cover").removeAttribute("src");
-    $("#fs-bg").removeAttribute("src");
     paintPalette(null);
   }
 
@@ -810,10 +930,7 @@ function setPlaying(playing) {
   $("#fullscreen-player").classList.toggle("playing", playing);
   $("#track-list").classList.toggle("is-playing", playing);
 
-  if (state.fullscreen) {
-    if (playing) startVisuals();
-    else stopVisuals();
-  }
+  if (state.fullscreen && playing) startVisuals();
 }
 
 function updateRepeatUI() {
@@ -861,13 +978,34 @@ function updateTimeline() {
   renderTimeline(ratio, current);
 }
 
+/** Общая громкость: синхронизирует ползунки и кнопки звука в обоих плеерах. */
+function syncVolumeUI() {
+  const filled = `${audio.volume * 100}%`;
+  const percent = Math.round(audio.volume * 100);
+  for (const node of [$("#volume"), $("#fs-volume")]) {
+    node.value = percent;
+    node.style.setProperty("--filled", filled);
+  }
+
+  const muted = audio.muted || audio.volume === 0;
+  for (const node of [$("#mute"), $("#fs-mute")]) {
+    node.classList.toggle("muted", muted);
+    node.title = muted ? "Включить звук" : "Выключить звук";
+    node.setAttribute("aria-pressed", muted ? "true" : "false");
+  }
+}
+
 function setVolume(value) {
   const volume = Math.min(1, Math.max(0, value));
   audio.volume = volume;
+  if (volume > 0) audio.muted = false;
   localStorage.setItem("melodown.volume", String(volume));
-  $("#volume").value = Math.round(volume * 100);
-  $("#volume").style.setProperty("--filled", `${volume * 100}%`);
-  $("#mute").classList.toggle("muted", volume === 0 || audio.muted);
+  syncVolumeUI();
+}
+
+function toggleMute() {
+  audio.muted = !audio.muted;
+  syncVolumeUI();
 }
 
 /* ---------- загрузки ---------- */
@@ -1520,14 +1658,17 @@ function bindEvents() {
   $("#fs-close").addEventListener("click", () => setFullscreen(false));
 
   $("#volume").addEventListener("input", () => {
-    audio.muted = false;
     setVolume(Number($("#volume").value) / 100);
   });
 
-  $("#mute").addEventListener("click", () => {
-    audio.muted = !audio.muted;
-    $("#mute").classList.toggle("muted", audio.muted || audio.volume === 0);
+  $("#fs-volume").addEventListener("input", () => {
+    setVolume(Number($("#fs-volume").value) / 100);
   });
+
+  $("#mute").addEventListener("click", toggleMute);
+  $("#fs-mute").addEventListener("click", toggleMute);
+
+  audio.addEventListener("volumechange", syncVolumeUI);
 
   audio.addEventListener("play", () => {
     resumeAudioGraph();
