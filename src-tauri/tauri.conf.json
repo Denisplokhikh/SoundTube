@@ -25,6 +25,11 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "linux": {
+      "deb": {
+        "depends": ["ffmpeg"]
+      }
+    },
     "externalBin": ["binaries/melodown-server"]
   }
 }

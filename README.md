@@ -87,6 +87,34 @@ powershell -ExecutionPolicy Bypass -File scripts\build-desktop.ps1
 
 > В установленном приложении база и временные файлы лежат в `%LOCALAPPDATA%\app.melodown.desktop\data`, музыка — по-прежнему в `~/Music/Melodown`. При запуске из репозитория (`tauri dev` + Python из `.venv`) используется `data/` проекта.
 
+### Сборка под Linux (.deb / AppImage)
+
+Tauri не кросс-компилируется с Windows, поэтому сборка идёт внутри Linux. Проще всего — WSL2 с Ubuntu 22.04: собранное на 22.04 работает и на Debian 12 / Ubuntu 24.04+.
+
+```powershell
+wsl --install -d Ubuntu-22.04 --no-launch
+powershell -ExecutionPolicy Bypass -File scripts\build-linux.ps1
+```
+
+Скрипт один раз ставит системные зависимости (`apt`), Rust, Node.js 22 и `uv`, собирает Python-sidecar через PyInstaller, затем пакеты Tauri. Исходники синхронизируются в `~/build/soundtube` (нативная ФС WSL — сборка на `/mnt/c` заметно медленнее), готовые файлы возвращаются в `dist\linux\`:
+
+- `SoundTube_0.1.0_amd64.deb`
+- `SoundTube_0.1.0_amd64.AppImage`
+
+Опции: `-Distro Ubuntu-22.04`, `-Bundles deb`, `-InPlace`, `-SkipDeps`.
+
+Внутри Linux те же шаги напрямую:
+
+```bash
+sudo bash scripts/linux/deps.sh
+bash scripts/build-linux.sh              # сборка в ~/build/soundtube
+bash scripts/build-linux.sh --in-place   # сборка прямо в папке репозитория
+```
+
+`ffmpeg` нужен в рантайме (yt-dlp склеивает дорожки): для `.deb` он прописан в зависимостях, для AppImage установите отдельно. Для запуска AppImage на старых системах может понадобиться `libfuse2`.
+
+На Linux крестик закрывает приложение целиком, а не прячет в трей: в GNOME без расширения иконка трея не отображается, и окно было бы не вернуть.
+
 ### Docker
 
 ```bash
