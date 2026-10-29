@@ -821,6 +821,7 @@ async function loadJobs(silent = false) {
             : `Часть треков не скачалась: ${job.title}`,
         );
         if (state.view !== "downloads") loadLibrary(true);
+        loadPlaylists();
       }
       state.previousJobStatuses.set(job.id, job.status);
     }

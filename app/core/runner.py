@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.core.downloader import download_track
 from app.core.library import invalidate_cache
+from app.core.platform_playlists import add_to_platform_playlist
 from app.db import SessionLocal
 from app.models import Job, Track
 from app.platforms.base import TrackSpec
@@ -111,6 +112,7 @@ class JobRunner:
                 track.status = "skipped"
                 track.file_path = duplicate.file_path
                 track.error = "Уже есть в библиотеке"
+                await add_to_platform_playlist(session, platform, duplicate.file_path)
                 await session.commit()
                 await self._refresh_counters(job_id)
                 return
@@ -153,7 +155,8 @@ class JobRunner:
                 track.album = result.album
                 track.duration = result.duration
                 track.error = None
-                await session.commit()
+                await add_to_platform_playlist(session, platform, result.path)
+            await session.commit()
         await self._refresh_counters(job_id)
         invalidate_cache()
 
