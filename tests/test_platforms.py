@@ -1,5 +1,8 @@
+from app.core import ytdlp
 from app.platforms import detect_platform
+from app.platforms.soundcloud import _collect_tracks
 from app.platforms.soundcloud import _track_from_entry as soundcloud_track
+from app.platforms.soundcloud import _track_from_meta as soundcloud_meta
 from app.platforms.youtube import (
     _track_from_entry as youtube_track,
     is_radio_url,
@@ -54,6 +57,65 @@ def test_soundcloud_entry_keeps_url():
     assert track is not None
     assert track.url == "https://soundcloud.com/artist/song"
     assert track.source_id == "42"
+
+
+STATION_ENTRY = {
+    "id": "1957261763",
+    "_type": "url_transparent",
+    "url": "https://api-v2.soundcloud.com/tracks/1957261763",
+}
+
+
+def test_soundcloud_station_entry_becomes_track_from_api():
+    track = soundcloud_meta(
+        STATION_ENTRY,
+        {
+            "id": 1957261763,
+            "title": "Young White",
+            "user": {"username": "FallenCastle"},
+            "duration": 576714,
+            "permalink_url": "https://soundcloud.com/deadcastlefl/whitedistrictflow",
+        },
+    )
+    assert track is not None
+    assert track.title == "Young White"
+    assert track.artist == "FallenCastle"
+    assert track.duration == 576.714
+    assert track.url == "https://soundcloud.com/deadcastlefl/whitedistrictflow"
+    assert track.source_id == "1957261763"
+
+
+def test_soundcloud_station_entries_are_filled_in_order(monkeypatch):
+    entries = [
+        STATION_ENTRY,
+        {"id": 2, "title": "Заголовок из сета", "uploader": "B", "url": "https://soundcloud.com/a/b"},
+        {"id": "3", "url": "https://api-v2.soundcloud.com/tracks/3"},
+    ]
+    monkeypatch.setattr(
+        ytdlp,
+        "soundcloud_track_meta",
+        lambda ids: {
+            "1957261763": {
+                "id": 1957261763,
+                "title": "Первый",
+                "user": {"username": "A"},
+                "duration": 1000,
+                "permalink_url": "https://soundcloud.com/a/1",
+            },
+            "3": {
+                "id": 3,
+                "title": "Третий",
+                "user": {"username": "C"},
+                "duration": 2000,
+                "permalink_url": "https://soundcloud.com/c/3",
+            },
+        },
+    )
+
+    tracks = _collect_tracks(entries)
+
+    assert [track.title for track in tracks] == ["Первый", "Заголовок из сета", "Третий"]
+    assert [track.artist for track in tracks] == ["A", "B", "C"]
 
 
 def test_radio_mix_link_is_detected():

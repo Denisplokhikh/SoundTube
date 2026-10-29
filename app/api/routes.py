@@ -14,7 +14,7 @@ from app.core.library import invalidate_cache, resolve_track_path, scan_library
 from app.core.runner import runner
 from app.core.tagging import guess_image_mime
 from app.db import get_session
-from app.models import Job, Track
+from app.models import Job, Playlist, PlaylistTrack, Track
 from app.platforms import ResolveError, UnsupportedURL, detect_platform, resolve
 from app.schemas import (
     ImportRequest,
@@ -22,6 +22,11 @@ from app.schemas import (
     JobSummary,
     LibraryEntry,
     LibraryResponse,
+    PlaylistAddTracks,
+    PlaylistCreate,
+    PlaylistDetail,
+    PlaylistRename,
+    PlaylistSummary,
     TrackOut,
 )
 
@@ -211,6 +216,149 @@ async def artwork(path: str) -> Response:
         media_type=guess_image_mime(cover),
         headers={"Cache-Control": "public, max-age=604800"},
     )
+
+
+# ---------- плейлисты ----------
+
+
+def _playlist_summary(playlist: Playlist) -> PlaylistSummary:
+    return PlaylistSummary(
+        id=playlist.id,
+        name=playlist.name,
+        track_count=len(playlist.items),
+        cover_path=playlist.items[0].relative_path if playlist.items else None,
+    )
+
+
+async def _playlist_detail(playlist: Playlist) -> PlaylistDetail:
+    """Сопоставляет записи плейлиста с файлами на диске."""
+    index = {track.relative_path: track for track in await asyncio.to_thread(scan_library)}
+
+    entries: list[LibraryEntry] = []
+    missing = 0
+    for item in playlist.items:
+        track = index.get(item.relative_path)
+        if track is None:
+            missing += 1
+            continue
+        entries.append(LibraryEntry.model_validate(track))
+
+    summary = _playlist_summary(playlist)
+    return PlaylistDetail(
+        id=summary.id,
+        name=summary.name,
+        track_count=summary.track_count,
+        cover_path=summary.cover_path,
+        entries=entries,
+        missing=missing,
+    )
+
+
+async def _playlist_or_404(playlist_id: str, session: AsyncSession) -> Playlist:
+    playlist = await session.get(
+        Playlist, playlist_id, options=[selectinload(Playlist.items)]
+    )
+    if playlist is None:
+        raise HTTPException(status_code=404, detail="Плейлист не найден")
+    return playlist
+
+
+@router.get("/playlists", response_model=list[PlaylistSummary])
+async def list_playlists(
+    session: AsyncSession = Depends(get_session),
+) -> list[PlaylistSummary]:
+    result = await session.execute(select(Playlist).order_by(Playlist.created_at))
+    return [_playlist_summary(playlist) for playlist in result.scalars().unique().all()]
+
+
+@router.post(
+    "/playlists", response_model=PlaylistSummary, status_code=status.HTTP_201_CREATED
+)
+async def create_playlist(
+    payload: PlaylistCreate,
+    session: AsyncSession = Depends(get_session),
+) -> PlaylistSummary:
+    playlist = Playlist(name=payload.name)
+    session.add(playlist)
+    await session.commit()
+    await session.refresh(playlist, attribute_names=["items"])
+    return _playlist_summary(playlist)
+
+
+@router.get("/playlists/{playlist_id}", response_model=PlaylistDetail)
+async def get_playlist(
+    playlist_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> PlaylistDetail:
+    return await _playlist_detail(await _playlist_or_404(playlist_id, session))
+
+
+@router.patch("/playlists/{playlist_id}", response_model=PlaylistSummary)
+async def rename_playlist(
+    playlist_id: str,
+    payload: PlaylistRename,
+    session: AsyncSession = Depends(get_session),
+) -> PlaylistSummary:
+    playlist = await _playlist_or_404(playlist_id, session)
+    playlist.name = payload.name
+    await session.commit()
+    await session.refresh(playlist, attribute_names=["items"])
+    return _playlist_summary(playlist)
+
+
+@router.delete("/playlists/{playlist_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_playlist(
+    playlist_id: str,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    playlist = await _playlist_or_404(playlist_id, session)
+    await session.delete(playlist)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/playlists/{playlist_id}/tracks", response_model=PlaylistDetail)
+async def add_playlist_tracks(
+    playlist_id: str,
+    payload: PlaylistAddTracks,
+    session: AsyncSession = Depends(get_session),
+) -> PlaylistDetail:
+    playlist = await _playlist_or_404(playlist_id, session)
+
+    existing = {item.relative_path for item in playlist.items}
+    position = max((item.position for item in playlist.items), default=-1) + 1
+
+    added = 0
+    for path in dict.fromkeys(payload.paths):
+        if path in existing or resolve_track_path(path) is None:
+            continue
+        playlist.items.append(PlaylistTrack(relative_path=path, position=position))
+        existing.add(path)
+        position += 1
+        added += 1
+
+    if added:
+        await session.commit()
+        await session.refresh(playlist, attribute_names=["items"])
+
+    return await _playlist_detail(playlist)
+
+
+@router.delete("/playlists/{playlist_id}/tracks", status_code=status.HTTP_204_NO_CONTENT)
+async def remove_playlist_track(
+    playlist_id: str,
+    path: str,
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    playlist = await _playlist_or_404(playlist_id, session)
+
+    for item in list(playlist.items):
+        if item.relative_path == path:
+            playlist.items.remove(item)
+            await session.commit()
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    raise HTTPException(status_code=404, detail="Трека нет в этом плейлисте")
 
 
 __all__ = ["router", "TrackOut"]

@@ -48,6 +48,18 @@
           </button>
         </nav>
 
+        <div class="side-section">
+          <div class="side-head">
+            <span>Плейлисты</span>
+            <button id="playlist-new" type="button" title="Создать плейлист" aria-label="Создать плейлист">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </button>
+          </div>
+          <ul class="playlists" id="playlists"></ul>
+        </div>
+
         <div class="sidebar-bottom">
           <div class="sidebar-stats">
             <div class="stat">
@@ -60,22 +72,6 @@
             </div>
           </div>
 
-          <button
-            id="settings-toggle"
-            class="nav-item settings-toggle"
-            type="button"
-            aria-controls="settings"
-            aria-expanded="false"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="3.2" />
-              <path
-                d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"
-              />
-            </svg>
-            Настройки
-          </button>
-
           <div class="sidebar-foot">
             <span class="dot" id="status-dot"></span>
             <span id="server-status">подключаюсь…</span>
@@ -83,76 +79,60 @@
         </div>
       </aside>
 
-      <aside class="settings" id="settings" aria-label="Настройки" aria-hidden="true" inert>
-        <div class="settings-inner">
-          <header class="settings-head">
-            <h2>Настройки</h2>
-            <button id="settings-close" class="icon-btn small" type="button" title="Закрыть">
+      <main class="main">
+        <header class="topbar" id="topbar">
+          <label class="search">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-3.5-3.5" />
+            </svg>
+            <input
+              id="search"
+              type="search"
+              placeholder="Трек, артист, альбом"
+              autocomplete="off"
+              spellcheck="false"
+            />
+          </label>
+          <div class="top-actions">
+            <button id="library-refresh" class="icon-btn" type="button" title="Пересканировать папку">
               <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 6l12 12M18 6 6 18" />
+                <path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6" />
               </svg>
             </button>
-          </header>
-
-          <div class="settings-body">
-            <section class="setting">
-              <div class="setting-head">
-                <span>Тема</span>
-                <span class="setting-value" id="theme-name">Графит</span>
-              </div>
-              <div id="themes" class="theme-list" role="radiogroup" aria-label="Тема оформления"></div>
-            </section>
-
-            <section class="setting">
-              <div class="setting-head">
-                <span>Шрифт</span>
-                <span class="setting-value" id="font-name">Моноширинный</span>
-              </div>
-              <div id="fonts" class="segmented" role="radiogroup" aria-label="Шрифт интерфейса"></div>
-            </section>
-
-            <section class="setting">
-              <div class="setting-head">
-                <span>Углы</span>
-                <span class="setting-value" id="radius-name">Обычные</span>
-              </div>
-              <div id="radii" class="segmented" role="radiogroup" aria-label="Скругление углов"></div>
-            </section>
+            <button
+              id="settings-toggle"
+              class="icon-btn"
+              type="button"
+              title="Настройки"
+              aria-controls="settings"
+              aria-expanded="false"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="12" cy="12" r="3.2" />
+                <path
+                  d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"
+                />
+              </svg>
+            </button>
+            <span class="avatar" title="SoundTube" aria-hidden="true">ST</span>
           </div>
-        </div>
-      </aside>
+        </header>
 
-      <main class="main">
-        <section id="view-library" class="view">
+        <section id="view-tracks" class="view">
           <header class="view-head">
             <div class="view-title">
-              <h1>Библиотека</h1>
-              <p class="sub" id="library-sub">Сканирую папку…</p>
+              <h1 id="tracks-title">Библиотека</h1>
+              <p class="sub" id="tracks-sub">Сканирую папку…</p>
             </div>
             <div class="head-actions">
-              <label class="search">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" />
-                  <path d="m20 20-3.5-3.5" />
-                </svg>
-                <input
-                  id="search"
-                  type="search"
-                  placeholder="Трек, артист, альбом"
-                  autocomplete="off"
-                  spellcheck="false"
-                />
-              </label>
+              <button id="playlist-rename" class="ghost" type="button" hidden>Переименовать</button>
+              <button id="playlist-remove" class="ghost danger" type="button" hidden>Удалить</button>
               <button id="play-all" class="primary" type="button">
                 <svg viewBox="0 0 24 24" aria-hidden="true" class="filled">
                   <path d="M8 5v14l11-7z" />
                 </svg>
                 Играть всё
-              </button>
-              <button id="library-refresh" class="icon-btn" type="button" title="Пересканировать папку">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6" />
-                </svg>
               </button>
             </div>
           </header>
@@ -201,6 +181,45 @@
           <div id="jobs" class="jobs"></div>
         </section>
       </main>
+
+      <aside class="settings" id="settings" aria-label="Настройки" aria-hidden="true" inert>
+        <div class="settings-inner">
+          <header class="settings-head">
+            <h2>Настройки</h2>
+            <button id="settings-close" class="icon-btn small" type="button" title="Закрыть">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6l12 12M18 6 6 18" />
+              </svg>
+            </button>
+          </header>
+
+          <div class="settings-body">
+            <section class="setting">
+              <div class="setting-head">
+                <span>Тема</span>
+                <span class="setting-value" id="theme-name">Графит</span>
+              </div>
+              <div id="themes" class="theme-list" role="radiogroup" aria-label="Тема оформления"></div>
+            </section>
+
+            <section class="setting">
+              <div class="setting-head">
+                <span>Шрифт</span>
+                <span class="setting-value" id="font-name">Моноширинный</span>
+              </div>
+              <div id="fonts" class="segmented" role="radiogroup" aria-label="Шрифт интерфейса"></div>
+            </section>
+
+            <section class="setting">
+              <div class="setting-head">
+                <span>Углы</span>
+                <span class="setting-value" id="radius-name">Обычные</span>
+              </div>
+              <div id="radii" class="segmented" role="radiogroup" aria-label="Скругление углов"></div>
+            </section>
+          </div>
+        </div>
+      </aside>
     </div>
 
     <div class="settings-backdrop" aria-hidden="true"></div>

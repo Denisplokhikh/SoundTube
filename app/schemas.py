@@ -87,3 +87,35 @@ class LibraryResponse(BaseModel):
     total: int
     total_size: int
     entries: list[LibraryEntry]
+
+
+class PlaylistSummary(BaseModel):
+    id: str
+    name: str
+    track_count: int
+    cover_path: str | None = None
+
+
+class PlaylistDetail(PlaylistSummary):
+    entries: list[LibraryEntry] = Field(default_factory=list)
+    missing: int = 0
+
+
+class PlaylistCreate(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+
+    @field_validator("name")
+    @classmethod
+    def _clean_name(cls, value: str) -> str:
+        value = " ".join(value.split())
+        if not value:
+            raise ValueError("Название не может быть пустым")
+        return value
+
+
+class PlaylistRename(PlaylistCreate):
+    pass
+
+
+class PlaylistAddTracks(BaseModel):
+    paths: list[str] = Field(min_length=1, max_length=2000)

@@ -22,6 +22,11 @@ const state = {
   pollTimer: null,
   libraryLoaded: false,
   libraryDirty: false,
+  playlists: [],
+  playlistId: null,
+  playlistName: "",
+  playlistTracks: [],
+  playlistMissing: 0,
   toastTimer: null,
   theme: document.documentElement.dataset.theme || "graphite",
   themeTimer: null,
@@ -271,15 +276,30 @@ function setSettingsOpen(open) {
 function updateStats() {
   $("#stat-tracks").textContent = state.tracks.length;
   $("#stat-size").textContent = formatSize(state.totalSize);
-  $("#library-sub").textContent = state.tracks.length
+  if (state.view === "playlist") return;
+  $("#tracks-sub").textContent = state.tracks.length
     ? `${state.tracks.length} треков · ${formatSize(state.totalSize)}`
     : "Пока пусто";
 }
 
+function plural(count, one, few, many) {
+  const mod10 = count % 10;
+  const mod100 = count % 100;
+  if (mod10 === 1 && mod100 !== 11) return one;
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few;
+  return many;
+}
+
+/** Треки текущего экрана: библиотека или открытый плейлист. */
+function activeTracks() {
+  return state.view === "playlist" ? state.playlistTracks : state.tracks;
+}
+
 function filteredTracks() {
   const query = $("#search").value.trim().toLowerCase();
-  if (!query) return state.tracks;
-  return state.tracks.filter((track) =>
+  const source = activeTracks();
+  if (!query) return source;
+  return source.filter((track) =>
     `${track.title} ${track.artist} ${track.album || ""}`.toLowerCase().includes(query),
   );
 }
@@ -291,7 +311,11 @@ function renderTracks() {
   container.classList.toggle("is-playing", state.playing);
 
   if (!list.length) {
-    if (!state.tracks.length) {
+    if (state.view === "playlist") {
+      container.innerHTML = state.playlistTracks.length
+        ? '<div class="empty"><strong>Ничего не найдено</strong>Попробуйте изменить запрос.</div>'
+        : '<div class="empty"><strong>Плейлист пуст</strong>Откройте библиотеку и добавьте треки через меню «⋯» в строке трека.</div>';
+    } else if (!state.tracks.length) {
       container.innerHTML =
         '<div class="empty"><strong>Библиотека пуста</strong>Перейдите в «Загрузки» и вставьте ссылку на плейлист.</div>';
     } else {
@@ -306,6 +330,33 @@ function renderTracks() {
 
 function trackRow(track, index) {
   const current = track.id === state.currentId;
+  const action =
+    state.view === "playlist"
+      ? `<button
+          class="row-action"
+          type="button"
+          data-remove="${esc(track.id)}"
+          title="Убрать из плейлиста"
+          aria-label="Убрать ${esc(track.title)} из плейлиста"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M6 6l12 12M18 6 6 18" />
+          </svg>
+        </button>`
+      : `<button
+          class="row-action"
+          type="button"
+          data-more="${esc(track.id)}"
+          title="Ещё"
+          aria-label="Действия с ${esc(track.title)}"
+        >
+          <svg viewBox="0 0 24 24" class="filled" aria-hidden="true">
+            <circle cx="5" cy="12" r="1.6" />
+            <circle cx="12" cy="12" r="1.6" />
+            <circle cx="19" cy="12" r="1.6" />
+          </svg>
+        </button>`;
+
   return `
     <div class="track-row${current ? " current" : ""}" data-id="${esc(track.id)}" data-index="${index}"
          role="button" tabindex="0" aria-label="${esc(track.title)} — ${esc(track.artist)}">
@@ -323,19 +374,7 @@ function trackRow(track, index) {
       </div>
       <div class="t-album">${esc(track.album || "")}</div>
       <div class="t-duration">${formatTime(track.duration)}</div>
-      <div class="t-actions">
-        <button
-          class="row-delete"
-          type="button"
-          data-delete="${esc(track.id)}"
-          title="Удалить файл с диска"
-          aria-label="Удалить ${esc(track.title)} с диска"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6" />
-          </svg>
-        </button>
-      </div>
+      <div class="t-actions">${action}</div>
     </div>
   `;
 }
@@ -389,6 +428,7 @@ async function deleteTrack(trackId) {
   }
 
   state.tracks = state.tracks.filter((item) => item.id !== trackId);
+  state.playlistTracks = state.playlistTracks.filter((item) => item.id !== trackId);
 
   const queueIndex = state.queue.findIndex((item) => item.id === trackId);
   if (queueIndex >= 0) {
@@ -398,7 +438,9 @@ async function deleteTrack(trackId) {
 
   state.totalSize = state.tracks.reduce((sum, item) => sum + item.size, 0);
   updateStats();
+  updatePlaylistSubtitle();
   renderTracks();
+  loadPlaylists();
   showToast(`Удалено: ${track.title}`);
 }
 
@@ -478,6 +520,7 @@ function currentTrack() {
   if (!state.currentId) return null;
   return (
     state.tracks.find((track) => track.id === state.currentId) ||
+    state.playlistTracks.find((track) => track.id === state.currentId) ||
     state.queue.find((track) => track.id === state.currentId) ||
     null
   );
@@ -537,7 +580,7 @@ function playFromList(trackId) {
 
 function playAll() {
   if (!state.visible.length) {
-    showToast("В библиотеке нет треков");
+    showToast("Нет треков для воспроизведения");
     return;
   }
   state.queue = state.visible.slice();
@@ -777,7 +820,7 @@ async function loadJobs(silent = false) {
             ? `Скачано: ${job.title}`
             : `Часть треков не скачалась: ${job.title}`,
         );
-        if (state.view === "library") loadLibrary(true);
+        if (state.view !== "downloads") loadLibrary(true);
       }
       state.previousJobStatuses.set(job.id, job.status);
     }
@@ -877,20 +920,270 @@ async function submitImport(event) {
   }
 }
 
+/* ---------- плейлисты ---------- */
+
+function updatePlaylistSubtitle() {
+  if (state.view !== "playlist") return;
+  const count = state.playlistTracks.length;
+  const parts = [`${count} ${plural(count, "трек", "трека", "треков")}`];
+  if (state.playlistMissing) parts.push(`${state.playlistMissing} недоступно`);
+  $("#tracks-sub").textContent = parts.join(" · ");
+}
+
+function renderPlaylists() {
+  const list = $("#playlists");
+
+  if (!state.playlists.length) {
+    list.innerHTML = '<li class="playlists-empty">Пока пусто</li>';
+    list.classList.remove("is-scrollable");
+    return;
+  }
+
+  list.innerHTML = state.playlists
+    .map((playlist) => {
+      const active = state.view === "playlist" && playlist.id === state.playlistId;
+      const letter = esc((playlist.name || "?").trim().slice(0, 1).toUpperCase());
+      const thumb = playlist.cover_path
+        ? `<img src="/api/artwork?path=${encodeURIComponent(playlist.cover_path)}" alt="" loading="lazy" onerror="this.remove()" />`
+        : "";
+
+      return `
+        <li>
+          <button type="button" class="${active ? "is-active" : ""}" data-playlist="${esc(playlist.id)}">
+            <span class="pl-thumb">${letter}${thumb}</span>
+            <span class="pl-name">${esc(playlist.name)}</span>
+            <span class="pl-count">${playlist.track_count}</span>
+          </button>
+        </li>
+      `;
+    })
+    .join("");
+
+  list.classList.toggle(
+    "is-scrollable",
+    list.scrollHeight > list.clientHeight + 2 || list.scrollWidth > list.clientWidth + 2,
+  );
+}
+
+async function loadPlaylists() {
+  try {
+    state.playlists = await api("/api/playlists");
+    renderPlaylists();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function openPlaylist(playlistId) {
+  try {
+    const data = await api(`/api/playlists/${playlistId}`);
+    state.playlistId = data.id;
+    state.playlistName = data.name;
+    state.playlistTracks = data.entries;
+    state.playlistMissing = data.missing;
+    $("#search").value = "";
+    switchView("playlist");
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function createPlaylist(name, trackId = null) {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return null;
+
+  try {
+    const playlist = await api("/api/playlists", {
+      method: "POST",
+      body: JSON.stringify({ name: trimmed }),
+    });
+    await loadPlaylists();
+
+    if (trackId) {
+      const track = state.tracks.find((item) => item.id === trackId);
+      if (track) await addTrackToPlaylist(playlist.id, track);
+    }
+    return playlist;
+  } catch (error) {
+    showToast(error.message);
+    return null;
+  }
+}
+
+async function promptNewPlaylist(trackId = null) {
+  const name = window.prompt("Название плейлиста", "");
+  if (name === null) return;
+  const playlist = await createPlaylist(name, trackId);
+  if (playlist) showToast(`Плейлист «${playlist.name}» создан`);
+}
+
+async function addTrackToPlaylist(playlistId, track) {
+  const playlist = state.playlists.find((item) => item.id === playlistId);
+  const before = playlist ? playlist.track_count : 0;
+
+  try {
+    const detail = await api(`/api/playlists/${playlistId}/tracks`, {
+      method: "POST",
+      body: JSON.stringify({ paths: [track.relative_path] }),
+    });
+
+    const name = playlist ? playlist.name : "плейлист";
+    showToast(
+      detail.track_count > before
+        ? `Добавлено в «${name}»`
+        : `«${track.title}» уже в «${name}»`,
+    );
+    await loadPlaylists();
+
+    if (state.view === "playlist" && state.playlistId === playlistId) {
+      await openPlaylist(playlistId);
+    }
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function removeFromPlaylist(trackId) {
+  const track = state.playlistTracks.find((item) => item.id === trackId);
+  if (!track || !state.playlistId) return;
+
+  try {
+    await api(
+      `/api/playlists/${state.playlistId}/tracks?path=${encodeURIComponent(track.relative_path)}`,
+      { method: "DELETE" },
+    );
+
+    state.playlistTracks = state.playlistTracks.filter((item) => item.id !== trackId);
+    updatePlaylistSubtitle();
+    renderTracks();
+    await loadPlaylists();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function renameCurrentPlaylist() {
+  if (!state.playlistId) return;
+
+  const name = window.prompt("Новое название", state.playlistName);
+  if (name === null || !name.trim()) return;
+
+  try {
+    const playlist = await api(`/api/playlists/${state.playlistId}`, {
+      method: "PATCH",
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    state.playlistName = playlist.name;
+    $("#tracks-title").textContent = playlist.name;
+    await loadPlaylists();
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+async function deleteCurrentPlaylist() {
+  if (!state.playlistId) return;
+  if (!window.confirm(`Удалить плейлист «${state.playlistName}»?\nФайлы на диске останутся.`)) return;
+
+  try {
+    await api(`/api/playlists/${state.playlistId}`, { method: "DELETE" });
+    state.playlistId = null;
+    state.playlistName = "";
+    state.playlistTracks = [];
+    state.playlistMissing = 0;
+    await loadPlaylists();
+    switchView("library");
+    showToast("Плейлист удалён");
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+/* ---------- меню трека ---------- */
+
+let trackMenu = null;
+
+function closeTrackMenu() {
+  if (!trackMenu) return;
+  trackMenu.remove();
+  trackMenu = null;
+}
+
+function openTrackMenu(button, trackId) {
+  closeTrackMenu();
+  const track = state.tracks.find((item) => item.id === trackId);
+  if (!track) return;
+
+  const menu = document.createElement("div");
+  menu.className = "menu";
+  menu.setAttribute("role", "menu");
+  menu.dataset.track = trackId;
+  menu.innerHTML = `
+    <div class="menu-label">Добавить в плейлист</div>
+    ${state.playlists
+      .map(
+        (playlist) => `
+          <button class="menu-item" type="button" role="menuitem" data-add-to="${esc(playlist.id)}">
+            ${esc(playlist.name)}<span class="pl-count">${playlist.track_count}</span>
+          </button>
+        `,
+      )
+      .join("")}
+    <button class="menu-item" type="button" role="menuitem" data-new-playlist="1">+ Новый плейлист</button>
+    <div class="menu-sep"></div>
+    <button class="menu-item danger" type="button" role="menuitem" data-delete-disk="${esc(track.id)}">Удалить с диска</button>
+  `;
+
+  document.body.appendChild(menu);
+  trackMenu = menu;
+
+  const rect = button.getBoundingClientRect();
+  const width = menu.offsetWidth;
+  const height = menu.offsetHeight;
+
+  let left = rect.right - width;
+  if (left < 8) left = 8;
+
+  let top = rect.bottom + 6;
+  if (top + height > window.innerHeight - 8) {
+    top = Math.max(8, rect.top - height - 6);
+  }
+
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+  menu.querySelector(".menu-item")?.focus({ preventScroll: true });
+}
+
 /* ---------- навигация и события ---------- */
 
 function switchView(view) {
   state.view = view;
+
   document.querySelectorAll(".nav-item[data-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === view);
   });
-  $("#view-library").hidden = view !== "library";
+
+  $("#view-tracks").hidden = view === "downloads";
   $("#view-downloads").hidden = view !== "downloads";
+
+  const inPlaylist = view === "playlist";
+  $("#tracks-title").textContent = inPlaylist ? state.playlistName : "Библиотека";
+  $("#playlist-rename").hidden = !inPlaylist;
+  $("#playlist-remove").hidden = !inPlaylist;
+
+  if (inPlaylist) updatePlaylistSubtitle();
+  else updateStats();
+
+  $(".main").scrollTop = 0;
+  closeTrackMenu();
+  renderPlaylists();
 
   if (view === "library") {
     if (!state.libraryLoaded) loadLibrary();
     else if (state.libraryDirty) loadLibrary(true);
   }
+
+  renderTracks();
 }
 
 async function checkHealth() {
@@ -980,6 +1273,10 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.code !== "Escape") return;
+    if (trackMenu) {
+      closeTrackMenu();
+      return;
+    }
     if (state.fullscreen) {
       setFullscreen(false);
       return;
@@ -991,23 +1288,70 @@ function bindEvents() {
   $("#play-all").addEventListener("click", playAll);
   $("#library-refresh").addEventListener("click", () => loadLibrary(true));
 
+  $("#playlist-new").addEventListener("click", () => promptNewPlaylist());
+  $("#playlist-rename").addEventListener("click", renameCurrentPlaylist);
+  $("#playlist-remove").addEventListener("click", deleteCurrentPlaylist);
+
+  $("#playlists").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-playlist]");
+    if (button) openPlaylist(button.dataset.playlist);
+  });
+
   $("#track-list").addEventListener("click", (event) => {
-    const remove = event.target.closest(".row-delete");
-    if (remove) {
-      deleteTrack(remove.dataset.delete);
+    const more = event.target.closest("[data-more]");
+    if (more) {
+      event.stopPropagation();
+      openTrackMenu(more, more.dataset.more);
       return;
     }
+
+    const remove = event.target.closest("[data-remove]");
+    if (remove) {
+      event.stopPropagation();
+      removeFromPlaylist(remove.dataset.remove);
+      return;
+    }
+
     const row = event.target.closest(".track-row");
     if (row) playFromList(row.dataset.id);
   });
 
   $("#track-list").addEventListener("keydown", (event) => {
     if (event.code !== "Enter" && event.code !== "Space") return;
-    if (event.target.closest(".row-delete")) return;
+    if (event.target.closest(".row-action")) return;
     const row = event.target.closest(".track-row");
     if (!row) return;
     event.preventDefault();
     playFromList(row.dataset.id);
+  });
+
+  document.addEventListener("click", (event) => {
+    if (event.target.closest("[data-more]")) return;
+
+    const menu = event.target.closest(".menu");
+    if (!menu) {
+      closeTrackMenu();
+      return;
+    }
+
+    const item = event.target.closest("[data-add-to], [data-new-playlist], [data-delete-disk]");
+    if (!item) return;
+
+    const trackId = menu.dataset.track;
+    closeTrackMenu();
+
+    if (item.dataset.addTo) {
+      const track = state.tracks.find((entry) => entry.id === trackId);
+      if (track) addTrackToPlaylist(item.dataset.addTo, track);
+    } else if (item.dataset.newPlaylist) {
+      promptNewPlaylist(trackId);
+    } else if (item.dataset.deleteDisk) {
+      deleteTrack(item.dataset.deleteDisk);
+    }
+  });
+
+  $(".main").addEventListener("scroll", () => {
+    $("#topbar").classList.toggle("is-stuck", $(".main").scrollTop > 4);
   });
 
   $("#play").addEventListener("click", togglePlay);
@@ -1109,6 +1453,7 @@ function init() {
   bindEvents();
   setupMediaSession();
   checkHealth();
+  loadPlaylists();
   loadJobs();
   loadLibrary();
 

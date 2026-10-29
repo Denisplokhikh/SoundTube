@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
@@ -67,3 +67,44 @@ class Track(Base):
     error: Mapped[str | None] = mapped_column(Text)
 
     job: Mapped[Job] = relationship(back_populates="tracks")
+
+
+class Playlist(Base):
+    """Пользовательский плейлист. Треки ссылаются на файлы библиотеки."""
+
+    __tablename__ = "playlists"
+
+    id: Mapped[str] = mapped_column(
+        String(32), primary_key=True, default=lambda: uuid.uuid4().hex
+    )
+    name: Mapped[str] = mapped_column(Text, nullable=False)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
+
+    items: Mapped[list["PlaylistTrack"]] = relationship(
+        back_populates="playlist",
+        cascade="all, delete-orphan",
+        order_by="PlaylistTrack.position",
+        lazy="selectin",
+    )
+
+
+class PlaylistTrack(Base):
+    __tablename__ = "playlist_tracks"
+    __table_args__ = (
+        UniqueConstraint("playlist_id", "relative_path", name="uq_playlist_track"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    playlist_id: Mapped[str] = mapped_column(
+        ForeignKey("playlists.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    # путь относительно папки музыки: файлы — источник истины, id библиотеки нестабилен
+    relative_path: Mapped[str] = mapped_column(Text, nullable=False)
+    position: Mapped[int] = mapped_column(Integer, default=0)
+    added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    playlist: Mapped[Playlist] = relationship(back_populates="items")

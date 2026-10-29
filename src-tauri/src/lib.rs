@@ -9,7 +9,11 @@ use std::{
     time::{Duration, Instant},
 };
 
-use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder};
+use tauri::{
+    menu::{Menu, MenuItem},
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
+};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use tauri_plugin_shell::{
     process::{CommandChild, CommandEvent},
@@ -238,6 +242,50 @@ fn stop_server(state: &ServerState) {
     }
 }
 
+fn show_main_window(app: &AppHandle) {
+    match app.get_webview_window("main") {
+        Some(window) => {
+            let _ = window.show();
+            let _ = window.unminimize();
+            let _ = window.set_focus();
+        }
+        None => open_window(app, port()),
+    }
+}
+
+fn build_tray(app: &AppHandle) -> tauri::Result<()> {
+    let open = MenuItem::with_id(app, "open", "Открыть SoundTube", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Выход", true, None::<&str>)?;
+    let menu = Menu::with_items(app, &[&open, &quit])?;
+
+    let mut builder = TrayIconBuilder::with_id("main-tray")
+        .menu(&menu)
+        .show_menu_on_left_click(false)
+        .tooltip("SoundTube")
+        .on_menu_event(|app, event| match event.id.as_ref() {
+            "open" => show_main_window(app),
+            "quit" => app.exit(0),
+            _ => {}
+        })
+        .on_tray_icon_event(|tray, event| {
+            if let TrayIconEvent::Click {
+                button: MouseButton::Left,
+                button_state: MouseButtonState::Up,
+                ..
+            } = event
+            {
+                show_main_window(tray.app_handle());
+            }
+        });
+
+    if let Some(icon) = app.default_window_icon() {
+        builder = builder.icon(icon.clone());
+    }
+
+    builder.build(app)?;
+    Ok(())
+}
+
 fn open_window(app: &AppHandle, port: u16) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.show();
@@ -309,8 +357,18 @@ pub fn run() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .manage(ServerState::default())
+        .on_window_event(|window, event| {
+            // Крестик скрывает окно в трей, а не закрывает приложение.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        })
         .setup(|app| {
             let handle = app.handle().clone();
+            build_tray(&handle).unwrap_or_else(|error| {
+                append_log(&log_path(&handle), &format!("[tray] {error}\n"));
+            });
             std::thread::spawn(move || boot(handle));
             Ok(())
         })
