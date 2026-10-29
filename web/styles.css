@@ -1,114 +1,10 @@
 /* =========================================================
-   SoundTube — скины настольного плеера
-   Токены задают тему целиком; компоненты не знают о цветах.
+   SoundTube — терминальная тема плеера
+   Токены в :root задают оформление целиком; компоненты
+   не знают о цветах.
    ========================================================= */
 
 :root {
-  color-scheme: dark;
-  --bg: #141518;
-  --bg-deep: #101114;
-  --panel: #1b1d21;
-  --panel-2: #23262b;
-  --line: #2a2d33;
-  --line-2: #363a42;
-  --text: #e8e9ec;
-  --dim: #a0a4ad;
-  --faint: #6f747f;
-  --accent: #dda43f;
-  --accent-ink: #17130a;
-  --accent-soft: rgba(221, 164, 63, 0.14);
-  --ok: #5cb98d;
-  --warn: #dcb264;
-  --bad: #d96f6f;
-
-  --radius: 8px;
-  --radius-sm: 6px;
-  --player-height: 78px;
-  --fs-base: 13.5px;
-
-  --font-ui: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, "SFMono-Regular", monospace;
-  --font-display: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, "SFMono-Regular", monospace;
-}
-
-/* шрифт интерфейса: моноширинный по умолчанию, системный — по выбору */
-
-[data-font="system"] {
-  --font-ui: "Segoe UI Variable Text", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, -apple-system, sans-serif;
-}
-
-/* скругления */
-
-[data-radius="sharp"] {
-  --radius: 2px;
-  --radius-sm: 2px;
-}
-
-[data-radius="round"] {
-  --radius: 12px;
-  --radius-sm: 9px;
-}
-
-/* ---------- темы ---------- */
-
-[data-theme="paper"] {
-  color-scheme: light;
-  --bg: #f2f3f0;
-  --bg-deep: #e9ebe6;
-  --panel: #ffffff;
-  --panel-2: #f0f2ed;
-  --line: #dbdfd7;
-  --line-2: #c6cbc2;
-  --text: #1b1d19;
-  --dim: #5f645b;
-  --faint: #8b9087;
-  --accent: #2f6049;
-  --accent-ink: #f5fbf7;
-  --accent-soft: rgba(47, 96, 73, 0.11);
-  --ok: #2f7d5c;
-  --warn: #9a6c1c;
-  --bad: #b0443f;
-}
-
-[data-theme="midnight"] {
-  color-scheme: dark;
-  --bg: #0e141c;
-  --bg-deep: #0a0f15;
-  --panel: #131c26;
-  --panel-2: #1a2532;
-  --line: #212d3b;
-  --line-2: #2d3c4d;
-  --text: #dae3ef;
-  --dim: #8ea1b6;
-  --faint: #62758a;
-  --accent: #7fadd6;
-  --accent-ink: #07111a;
-  --accent-soft: rgba(127, 173, 214, 0.15);
-  --ok: #5fbfa3;
-  --warn: #d9b06a;
-  --bad: #dd7d7d;
-}
-
-[data-theme="vinyl"] {
-  color-scheme: dark;
-  --bg: #1a1613;
-  --bg-deep: #15110f;
-  --panel: #221c18;
-  --panel-2: #2b241f;
-  --line: #332b25;
-  --line-2: #42382f;
-  --text: #ece2d6;
-  --dim: #a89a8b;
-  --faint: #776b5e;
-  --accent: #c98a52;
-  --accent-ink: #1a120a;
-  --accent-soft: rgba(201, 138, 82, 0.16);
-  --ok: #86b78a;
-  --warn: #d5a95c;
-  --bad: #d97e6f;
-}
-
-[data-theme="terminal"] {
   color-scheme: dark;
   --bg: #0b0c0b;
   --bg-deep: #080908;
@@ -125,7 +21,14 @@
   --ok: #8ec98a;
   --warn: #cdb26a;
   --bad: #cf766f;
+
+  --radius: 8px;
+  --radius-sm: 6px;
+  --player-height: 78px;
   --fs-base: 13px;
+
+  --font-ui: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, "SFMono-Regular", monospace;
+  --font-display: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, "SFMono-Regular", monospace;
 }
 
 /* ---------- база ---------- */
@@ -179,11 +82,6 @@ svg.filled {
   outline-offset: 2px;
 }
 
-.theme-switching * {
-  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease,
-    fill 0.2s ease, stroke 0.2s ease !important;
-}
-
 .muted {
   color: var(--faint);
 }
@@ -194,13 +92,8 @@ svg.filled {
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr) 0;
-  transition: grid-template-columns 0.22s ease;
+  grid-template-columns: 232px minmax(0, 1fr);
   overflow: hidden;
-}
-
-.shell.settings-open {
-  grid-template-columns: 232px minmax(0, 1fr) 272px;
 }
 
 .sidebar {
@@ -325,160 +218,6 @@ svg.filled {
 .stat small {
   color: var(--faint);
   font-size: 11px;
-}
-
-/* ---------- панель настроек ---------- */
-
-.settings {
-  min-width: 0;
-  overflow: hidden;
-  background: var(--bg-deep);
-  border-left: 1px solid transparent;
-  transition: border-color 0.2s ease;
-}
-
-.shell.settings-open .settings {
-  border-left-color: var(--line);
-}
-
-.settings-inner {
-  width: 272px;
-  height: 100%;
-  margin-left: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-  padding: 20px 16px 16px;
-  overflow-y: auto;
-}
-
-.settings-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding-left: 2px;
-}
-
-.settings-head h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 15px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
-}
-
-.settings-body {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.setting {
-  display: grid;
-  gap: 7px;
-}
-
-.setting-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 0 2px;
-  font-size: 11.5px;
-  color: var(--faint);
-}
-
-.setting-value {
-  color: var(--dim);
-}
-
-/* список тем */
-
-.theme-list {
-  display: grid;
-  gap: 2px;
-}
-
-.theme-option {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  padding: 7px 9px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--dim);
-  font-size: 12.5px;
-  text-align: left;
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-
-.theme-option:hover {
-  background: var(--panel);
-  color: var(--text);
-}
-
-.theme-option.is-active {
-  background: var(--panel);
-  color: var(--text);
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-
-.theme-dot {
-  width: 13px;
-  height: 13px;
-  flex-shrink: 0;
-  border-radius: 50%;
-  background: var(--swatch, var(--accent));
-  box-shadow: 0 0 0 1px var(--line-2);
-}
-
-.theme-option .check {
-  width: 14px;
-  height: 14px;
-  margin-left: auto;
-  flex-shrink: 0;
-  color: var(--accent);
-  opacity: 0;
-}
-
-.theme-option.is-active .check {
-  opacity: 1;
-}
-
-/* сегментированный переключатель */
-
-.segmented {
-  display: flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--panel);
-}
-
-.segmented button {
-  flex: 1;
-  min-width: 0;
-  padding: 5px 4px;
-  border: 0;
-  border-radius: calc(var(--radius-sm) - 2px);
-  background: transparent;
-  color: var(--dim);
-  font-size: 11.5px;
-  cursor: pointer;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-
-.segmented button:hover {
-  color: var(--text);
-}
-
-.segmented button.is-active {
-  background: var(--accent-soft);
-  color: var(--accent);
 }
 
 /* ---------- плейлисты в сайдбаре ---------- */
@@ -622,10 +361,6 @@ svg.filled {
   font-size: 12px;
 }
 
-.settings-backdrop {
-  display: none;
-}
-
 .sidebar-foot {
   display: flex;
   align-items: center;
@@ -690,11 +425,6 @@ svg.filled {
 
 .topbar .icon-btn:hover {
   background: var(--panel-2);
-}
-
-.topbar .icon-btn.is-open {
-  background: var(--accent-soft);
-  color: var(--accent);
 }
 
 .avatar {
@@ -1669,7 +1399,7 @@ input[type="range"]::-moz-range-thumb {
   inset: -10%;
   z-index: 0;
   overflow: hidden;
-  opacity: 0.34;
+  opacity: 0.28;
   pointer-events: none;
   transition: opacity 0.4s ease;
 }
@@ -1682,8 +1412,106 @@ input[type="range"]::-moz-range-thumb {
   transform: scale(1.2);
 }
 
-[data-theme="paper"] .fs-backdrop {
-  opacity: 0.18;
+/* ---------- визуализация: цветные волны из палитры обложки ---------- */
+
+.fs-aurora {
+  position: absolute;
+  inset: -12%;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  opacity: calc(0.4 + var(--energy, 0) * 0.6);
+  transition: opacity 0.5s ease;
+}
+
+.fs-blob {
+  --k: 0.22;
+  position: absolute;
+  width: 66vmax;
+  height: 66vmax;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 50%,
+    var(--c1, #5f7f4f) 0%,
+    var(--c1, #5f7f4f) 34%,
+    transparent 70%
+  );
+  opacity: calc(0.12 + var(--pulse, 0) * 0.82);
+  scale: calc(1 + var(--pulse, 0) * var(--k));
+  transition: opacity 0.12s linear;
+  will-change: translate, scale, opacity;
+}
+
+.fs-blob[data-tone="1"] {
+  left: -18%;
+  top: -26%;
+  animation: fs-drift-a 23s ease-in-out infinite alternate;
+}
+
+.fs-blob[data-tone="2"] {
+  right: -24%;
+  top: 2%;
+  --k: 0.34;
+  background: radial-gradient(
+    circle at 50% 50%,
+    var(--c2, #4f6f8f) 0%,
+    var(--c2, #4f6f8f) 32%,
+    transparent 72%
+  );
+  animation: fs-drift-b 31s ease-in-out infinite alternate;
+}
+
+.fs-blob[data-tone="3"] {
+  left: 8%;
+  bottom: -30%;
+  --k: 0.17;
+  background: radial-gradient(
+    circle at 50% 50%,
+    var(--c3, #7f5f3f) 0%,
+    var(--c3, #7f5f3f) 30%,
+    transparent 74%
+  );
+  animation: fs-drift-c 27s ease-in-out infinite alternate;
+}
+
+@keyframes fs-drift-a {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: 11% 8%;
+  }
+}
+
+@keyframes fs-drift-b {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: -9% 12%;
+  }
+}
+
+@keyframes fs-drift-c {
+  from {
+    translate: 0 0;
+  }
+  to {
+    translate: 14% -7%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fs-blob {
+    animation: none !important;
+    scale: 1;
+    opacity: 0.28;
+  }
+
+  .fullscreen .fs-cover {
+    scale: 1;
+  }
 }
 
 .fs-head {
@@ -1728,7 +1556,12 @@ input[type="range"]::-moz-range-thumb {
   aspect-ratio: 1;
   border-radius: var(--radius);
   border-color: var(--line-2);
-  box-shadow: 0 26px 64px rgba(0, 0, 0, 0.45), 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  box-shadow:
+    0 26px 64px rgba(0, 0, 0, 0.45),
+    0 0 calc(26px + var(--pulse, 0) * 78px) var(--glow, transparent),
+    0 1px 0 rgba(255, 255, 255, 0.05) inset;
+  scale: calc(1 + var(--pulse, 0) * 0.016);
+  transition: box-shadow 0.12s linear;
 }
 
 .fs-cover .cover-note {
@@ -1921,8 +1754,7 @@ input[type="range"]::-moz-range-thumb {
 /* ---------- адаптив ---------- */
 
 @media (max-width: 860px) {
-  .shell,
-  .shell.settings-open {
+  .shell {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -1970,38 +1802,6 @@ input[type="range"]::-moz-range-thumb {
     margin-left: auto;
     display: flex;
     align-items: center;
-  }
-
-  .settings {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    z-index: 60;
-    width: 288px;
-    border-left: 1px solid var(--line);
-    box-shadow: 0 0 42px rgba(0, 0, 0, 0.45);
-    transform: translateX(100%);
-    visibility: hidden;
-    transition: transform 0.22s ease, visibility 0.22s ease;
-  }
-
-  .shell.settings-open .settings {
-    transform: none;
-    visibility: visible;
-  }
-
-  .settings-inner {
-    width: 288px;
-    padding-top: 14px;
-  }
-
-  .shell.settings-open + .settings-backdrop {
-    display: block;
-    position: fixed;
-    inset: 0;
-    z-index: 55;
-    background: rgba(0, 0, 0, 0.42);
   }
 
   .main {

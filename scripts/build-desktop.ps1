@@ -13,4 +13,4 @@ if (-not (Test-Path "node_modules")) {
     npm install
 }
 
-npm run desktop:build
+npm run tauri build

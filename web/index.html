@@ -1,20 +1,10 @@
 <!doctype html>
-<html lang="ru" data-theme="graphite">
+<html lang="ru">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#141518" />
+    <meta name="theme-color" content="#0b0c0b" />
     <title>SoundTube</title>
-    <script>
-      try {
-        const theme = localStorage.getItem("melodown.theme");
-        if (theme) document.documentElement.dataset.theme = theme;
-        const font = localStorage.getItem("melodown.font");
-        if (font) document.documentElement.dataset.font = font;
-        const radius = localStorage.getItem("melodown.radius");
-        if (radius) document.documentElement.dataset.radius = radius;
-      } catch (error) {}
-    </script>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -100,21 +90,6 @@
                 <path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6" />
               </svg>
             </button>
-            <button
-              id="settings-toggle"
-              class="icon-btn"
-              type="button"
-              title="Настройки"
-              aria-controls="settings"
-              aria-expanded="false"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="3.2" />
-                <path
-                  d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"
-                />
-              </svg>
-            </button>
             <span class="avatar" title="SoundTube" aria-hidden="true">ST</span>
           </div>
         </header>
@@ -181,48 +156,7 @@
           <div id="jobs" class="jobs"></div>
         </section>
       </main>
-
-      <aside class="settings" id="settings" aria-label="Настройки" aria-hidden="true" inert>
-        <div class="settings-inner">
-          <header class="settings-head">
-            <h2>Настройки</h2>
-            <button id="settings-close" class="icon-btn small" type="button" title="Закрыть">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M6 6l12 12M18 6 6 18" />
-              </svg>
-            </button>
-          </header>
-
-          <div class="settings-body">
-            <section class="setting">
-              <div class="setting-head">
-                <span>Тема</span>
-                <span class="setting-value" id="theme-name">Графит</span>
-              </div>
-              <div id="themes" class="theme-list" role="radiogroup" aria-label="Тема оформления"></div>
-            </section>
-
-            <section class="setting">
-              <div class="setting-head">
-                <span>Шрифт</span>
-                <span class="setting-value" id="font-name">Моноширинный</span>
-              </div>
-              <div id="fonts" class="segmented" role="radiogroup" aria-label="Шрифт интерфейса"></div>
-            </section>
-
-            <section class="setting">
-              <div class="setting-head">
-                <span>Углы</span>
-                <span class="setting-value" id="radius-name">Обычные</span>
-              </div>
-              <div id="radii" class="segmented" role="radiogroup" aria-label="Скругление углов"></div>
-            </section>
-          </div>
-        </div>
-      </aside>
     </div>
-
-    <div class="settings-backdrop" aria-hidden="true"></div>
 
     <footer class="player" id="player">
       <div class="now">
@@ -309,6 +243,12 @@
         <img id="fs-bg" alt="" />
       </div>
 
+      <div class="fs-aurora" aria-hidden="true">
+        <span class="fs-blob" data-tone="1"></span>
+        <span class="fs-blob" data-tone="2"></span>
+        <span class="fs-blob" data-tone="3"></span>
+      </div>
+
       <header class="fs-head">
         <button id="fs-close" class="icon-btn small" type="button" title="Свернуть (Esc)">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -377,6 +317,28 @@
             </svg>
             <span class="repeat-one">1</span>
           </button>
+        </div>
+
+        <div class="fs-volume">
+          <button id="fs-mute" class="icon-btn small" type="button" title="Звук">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-volume">
+              <path d="M11 5 6 9H2v6h4l5 4V5z" />
+              <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+            </svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-muted">
+              <path d="M11 5 6 9H2v6h4l5 4V5z" />
+              <path d="m16 9 5 6M21 9l-5 6" />
+            </svg>
+          </button>
+          <input
+            id="fs-volume"
+            type="range"
+            min="0"
+            max="100"
+            value="80"
+            step="1"
+            aria-label="Громкость"
+          />
         </div>
       </div>
     </div>

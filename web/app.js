@@ -28,32 +28,8 @@ const state = {
   playlistTracks: [],
   playlistMissing: 0,
   toastTimer: null,
-  theme: document.documentElement.dataset.theme || "graphite",
-  themeTimer: null,
-  font: document.documentElement.dataset.font || "mono",
-  radius: document.documentElement.dataset.radius || "normal",
-  settingsOpen: false,
   fullscreen: false,
 };
-
-const THEMES = [
-  { id: "graphite", name: "Графит", swatch: "#dda43f" },
-  { id: "paper", name: "Бумага", swatch: "#2f6049" },
-  { id: "midnight", name: "Полночь", swatch: "#7fadd6" },
-  { id: "vinyl", name: "Винил", swatch: "#c98a52" },
-  { id: "terminal", name: "Терминал", swatch: "#9dbf7f" },
-];
-
-const FONTS = [
-  { id: "mono", name: "Моноширинный" },
-  { id: "system", name: "Системный" },
-];
-
-const RADII = [
-  { id: "sharp", name: "Острые" },
-  { id: "normal", name: "Обычные" },
-  { id: "round", name: "Круглые" },
-];
 
 const STATUS_LABELS = {
   pending: "в очереди",
@@ -140,135 +116,6 @@ function showToast(message) {
   state.toastTimer = setTimeout(() => {
     node.hidden = true;
   }, 4200);
-}
-
-/* ---------- настройки оформления ---------- */
-
-function themeById(id) {
-  return THEMES.find((theme) => theme.id === id) || THEMES[0];
-}
-
-function setChoiceState(selector, attribute, activeId) {
-  document.querySelectorAll(selector).forEach((button) => {
-    const active = button.dataset[attribute] === activeId;
-    button.classList.toggle("is-active", active);
-    button.setAttribute("aria-checked", active ? "true" : "false");
-    button.tabIndex = active ? 0 : -1;
-  });
-}
-
-function applyTheme(id, persist = true) {
-  const theme = themeById(id);
-  const root = document.documentElement;
-
-  root.dataset.theme = theme.id;
-  state.theme = theme.id;
-  if (persist) localStorage.setItem("melodown.theme", theme.id);
-
-  const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) {
-    const background = getComputedStyle(root).getPropertyValue("--bg").trim();
-    if (background) meta.content = background;
-  }
-
-  const label = $("#theme-name");
-  if (label) label.textContent = theme.name;
-
-  setChoiceState("[data-theme-choice]", "themeChoice", theme.id);
-}
-
-function switchTheme(id) {
-  const root = document.documentElement;
-  root.classList.add("theme-switching");
-  applyTheme(id);
-
-  if (state.themeTimer) clearTimeout(state.themeTimer);
-  state.themeTimer = setTimeout(() => root.classList.remove("theme-switching"), 260);
-}
-
-function applyFont(id, persist = true) {
-  const font = FONTS.find((item) => item.id === id) || FONTS[0];
-
-  document.documentElement.dataset.font = font.id;
-  state.font = font.id;
-  if (persist) localStorage.setItem("melodown.font", font.id);
-
-  const label = $("#font-name");
-  if (label) label.textContent = font.name;
-
-  setChoiceState("[data-font-choice]", "fontChoice", font.id);
-}
-
-function applyRadius(id, persist = true) {
-  const radius = RADII.find((item) => item.id === id) || RADII[1];
-
-  document.documentElement.dataset.radius = radius.id;
-  state.radius = radius.id;
-  if (persist) localStorage.setItem("melodown.radius", radius.id);
-
-  const label = $("#radius-name");
-  if (label) label.textContent = radius.name;
-
-  setChoiceState("[data-radius-choice]", "radiusChoice", radius.id);
-}
-
-function renderThemes() {
-  $("#themes").innerHTML = THEMES.map(
-    (theme) => `
-      <button
-        class="theme-option${theme.id === state.theme ? " is-active" : ""}"
-        type="button"
-        data-theme-choice="${theme.id}"
-        role="radio"
-        aria-checked="${theme.id === state.theme}"
-        tabindex="${theme.id === state.theme ? 0 : -1}"
-      >
-        <span class="theme-dot" style="--swatch: ${theme.swatch}"></span>
-        <span>${esc(theme.name)}</span>
-        <svg class="check" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="m5 12.5 4.5 4.5L19 7" />
-        </svg>
-      </button>
-    `,
-  ).join("");
-}
-
-function renderSegmented(selector, options, attribute, activeId) {
-  $(selector).innerHTML = options
-    .map(
-      (option) => `
-        <button
-          class="${option.id === activeId ? "is-active" : ""}"
-          type="button"
-          ${attribute}="${option.id}"
-          role="radio"
-          aria-checked="${option.id === activeId}"
-          tabindex="${option.id === activeId ? 0 : -1}"
-        >${esc(option.name)}</button>
-      `,
-    )
-    .join("");
-}
-
-function setSettingsOpen(open) {
-  state.settingsOpen = open;
-
-  const panel = $("#settings");
-  const toggle = $("#settings-toggle");
-  const shell = $(".shell");
-
-  shell.classList.toggle("settings-open", open);
-  toggle.classList.toggle("is-open", open);
-  toggle.setAttribute("aria-expanded", open ? "true" : "false");
-  panel.setAttribute("aria-hidden", open ? "false" : "true");
-
-  if (open) {
-    panel.removeAttribute("inert");
-    $("#settings-close").focus({ preventScroll: true });
-  } else {
-    panel.setAttribute("inert", "");
-    if (panel.contains(document.activeElement)) toggle.focus({ preventScroll: true });
-  }
 }
 
 /* ---------- библиотека ---------- */
@@ -506,6 +353,8 @@ function updateNowPlaying(track) {
   $("#fs-album").textContent = track.album || "";
   $("#fs-title").title = track.title;
 
+  if (state.fullscreen) refreshVisualPalette(track);
+
   if ("mediaSession" in navigator) {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: track.title,
@@ -514,6 +363,315 @@ function updateNowPlaying(track) {
       artwork: [{ src: artworkUrl(track), sizes: "512x512" }],
     });
   }
+}
+
+/* ---------- визуализация полноэкранного плеера ---------- */
+
+const PALETTES = new Map();
+const PALETTE_LIMIT = 60;
+
+const vis = {
+  ctx: null,
+  analyser: null,
+  source: null,
+  bins: null,
+  raf: 0,
+  updatedAt: 0,
+  pulse: 0,
+  energy: 0,
+  fluxPeak: 0,
+  prev: null,
+  failed: false,
+  paletteToken: 0,
+};
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function rgbToHsl(red, green, blue) {
+  const r = red / 255;
+  const g = green / 255;
+  const b = blue / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const lightness = (max + min) / 2;
+  const delta = max - min;
+  if (!delta) return [0, 0, lightness];
+
+  const saturation = lightness > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+  let hue;
+  if (max === r) hue = ((g - b) / delta + (g < b ? 6 : 0)) / 6;
+  else if (max === g) hue = ((b - r) / delta + 2) / 6;
+  else hue = ((r - g) / delta + 4) / 6;
+
+  return [hue * 360, saturation, lightness];
+}
+
+function hslColor(tone, alpha = 1) {
+  const hue = ((tone.h % 360) + 360) % 360;
+  const saturation = Math.round(clamp(tone.s, 0, 1) * 100);
+  const lightness = Math.round(clamp(tone.l, 0.08, 0.82) * 100);
+  const head = `hsl(${hue.toFixed(0)} ${saturation}% ${lightness}%`;
+  return alpha >= 1 ? `${head})` : `${head} / ${alpha})`;
+}
+
+/** Палитра по умолчанию — из акцентного цвета темы. */
+function accentPalette() {
+  const value = getComputedStyle(document.documentElement).getPropertyValue("--accent").trim();
+  const match = /^#([0-9a-f]{6})$/i.exec(value);
+  const [h, s, l] = match
+    ? rgbToHsl(
+        parseInt(match[1].slice(0, 2), 16),
+        parseInt(match[1].slice(2, 4), 16),
+        parseInt(match[1].slice(4, 6), 16),
+      )
+    : [100, 0.3, 0.55];
+
+  return [
+    { h, s: clamp(s, 0.28, 0.7), l: clamp(l, 0.44, 0.6) },
+    { h: h + 46, s: clamp(s, 0.24, 0.6), l: 0.52 },
+    { h: h - 58, s: clamp(s, 0.2, 0.55), l: 0.48 },
+  ];
+}
+
+function loadCover(url) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.crossOrigin = "anonymous";
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("обложка не загрузилась"));
+    image.src = url;
+  });
+}
+
+/** Три самых заметных цвета обложки: мелкое полотно + группировка по оттенку. */
+async function extractPalette(url) {
+  const image = await loadCover(url);
+  const size = 32;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const context = canvas.getContext("2d", { willReadFrequently: true });
+  if (!context) return null;
+
+  context.drawImage(image, 0, 0, size, size);
+  const { data } = context.getImageData(0, 0, size, size);
+
+  const buckets = new Map();
+  for (let i = 0; i < data.length; i += 4) {
+    if (data[i + 3] < 200) continue;
+    const [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
+    if (l < 0.12 || l > 0.92) continue;
+
+    const weight = 0.25 + s * (1 - Math.abs(l - 0.5));
+    const key = Math.round(h / 30) % 12;
+    const bucket = buckets.get(key) || { weight: 0, h: 0, s: 0, l: 0 };
+    bucket.weight += weight;
+    bucket.h += h * weight;
+    bucket.s += s * weight;
+    bucket.l += l * weight;
+    buckets.set(key, bucket);
+  }
+
+  const ranked = [...buckets.values()]
+    .sort((a, b) => b.weight - a.weight)
+    .slice(0, 3)
+    .map((bucket) => ({
+      h: bucket.h / bucket.weight,
+      s: clamp(bucket.s / bucket.weight, 0.5, 0.95),
+      l: clamp(0.36 + (bucket.l / bucket.weight) * 0.42, 0.36, 0.62),
+    }));
+
+  return ranked.length ? ranked : null;
+}
+
+function hueDistance(a, b) {
+  const diff = Math.abs(a - b) % 360;
+  return diff > 180 ? 360 - diff : diff;
+}
+
+/** Разводим близкие оттенки и добиваем палитру до трёх цветов. */
+function padPalette(palette) {
+  const tones = palette.slice(0, 3).map((tone) => ({ ...tone }));
+
+  for (let i = 1; i < tones.length; i += 1) {
+    let guard = 0;
+    while (
+      guard < 6 &&
+      tones.slice(0, i).some((other) => hueDistance(other.h, tones[i].h) < 40)
+    ) {
+      tones[i].h += 46;
+      guard += 1;
+    }
+  }
+
+  const shifts = [46, -52];
+  while (tones.length < 3) {
+    const base = tones[0];
+    const step = tones.length;
+    tones.push({
+      h: base.h + shifts[step - 1],
+      s: clamp(base.s * 0.85, 0.3, 0.8),
+      l: clamp(base.l + 0.04 * step, 0.34, 0.62),
+    });
+  }
+
+  return tones;
+}
+
+function paintPalette(palette) {
+  const tones = palette && palette.length ? padPalette([...palette]) : accentPalette();
+  const node = $("#fullscreen-player");
+
+  [1, 2, 3].forEach((index) => {
+    const tone = tones[(index - 1) % tones.length];
+    node.style.setProperty(`--c${index}`, hslColor(tone));
+  });
+
+  node.style.setProperty("--glow", hslColor(tones[0], 0.32));
+}
+
+function rememberPalette(url, palette) {
+  PALETTES.set(url, palette);
+  if (PALETTES.size > PALETTE_LIMIT) {
+    PALETTES.delete(PALETTES.keys().next().value);
+  }
+}
+
+/** Подбирает цвета под текущий трек; сначала мгновенно, потом по обложке. */
+async function refreshVisualPalette(track) {
+  const token = ++vis.paletteToken;
+
+  if (!track) {
+    paintPalette(null);
+    return;
+  }
+
+  const url = artworkUrl(track);
+  const cached = PALETTES.get(url);
+  paintPalette(cached || null);
+  if (cached) return;
+
+  let palette = null;
+  try {
+    palette = await extractPalette(url);
+  } catch {
+    palette = null;
+  }
+  if (token !== vis.paletteToken) return;
+
+  const tones = palette ? padPalette(palette) : accentPalette();
+  rememberPalette(url, tones);
+  paintPalette(tones);
+}
+
+/** Один общий AudioContext: элемент звука отдаёт данные анализатору. */
+function ensureAudioGraph() {
+  if (vis.analyser || vis.failed) return vis.analyser;
+
+  const AudioCtor = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtor) {
+    vis.failed = true;
+    return null;
+  }
+
+  try {
+    const ctx = new AudioCtor();
+    const source = ctx.createMediaElementSource(audio);
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0.5;
+    source.connect(analyser);
+    analyser.connect(ctx.destination);
+
+    vis.ctx = ctx;
+    vis.source = source;
+    vis.analyser = analyser;
+    vis.bins = new Uint8Array(analyser.frequencyBinCount);
+    vis.prev = new Uint8Array(analyser.frequencyBinCount);
+    return analyser;
+  } catch {
+    vis.failed = true;
+    return null;
+  }
+}
+
+function resumeAudioGraph() {
+  if (vis.ctx && vis.ctx.state === "suspended") {
+    vis.ctx.resume().catch(() => {});
+  }
+}
+
+function bandLevel(bins, from, to) {
+  let sum = 0;
+  let count = 0;
+  for (let i = from; i < to && i < bins.length; i += 1) {
+    sum += bins[i];
+    count += 1;
+  }
+  return count ? sum / count / 255 : 0;
+}
+
+function visualTick() {
+  vis.raf = requestAnimationFrame(visualTick);
+
+  const now = performance.now();
+  if (now - vis.updatedAt < 40) return;
+  vis.updatedAt = now;
+
+  if (!vis.analyser || audio.paused) return;
+  vis.analyser.getByteFrequencyData(vis.bins);
+
+  const bins = vis.bins;
+  const prev = vis.prev;
+
+  // спектральный поток: сумма положительных приростов по бинам —
+  // ловит начало нот и удары даже на ровно громком сведении
+  let flux = 0;
+  for (let i = 1; i < 128; i += 1) {
+    const diff = bins[i] - prev[i];
+    if (diff > 0) flux += diff;
+    prev[i] = bins[i];
+  }
+  flux /= 127 * 255;
+
+  vis.fluxPeak = Math.max(flux, vis.fluxPeak * 0.975);
+  const norm = vis.fluxPeak > 0.0006 ? flux / vis.fluxPeak : 0;
+
+  const mids = bandLevel(bins, 7, 40);
+  const air = bandLevel(bins, 40, 140);
+
+  const targetPulse = clamp(Math.pow(norm, 0.5) * 1.05, 0, 1);
+  vis.pulse += (targetPulse - vis.pulse) * (targetPulse > vis.pulse ? 0.7 : 0.2);
+
+  const targetEnergy = clamp((mids - 0.45) * 1.3 + (air - 0.45) * 0.5, 0, 1);
+  vis.energy += (targetEnergy - vis.energy) * 0.12;
+
+  const node = $("#fullscreen-player");
+  node.style.setProperty("--pulse", vis.pulse.toFixed(3));
+  node.style.setProperty("--energy", vis.energy.toFixed(3));
+}
+
+function startVisuals() {
+  if (!state.fullscreen) return;
+  resumeAudioGraph();
+  if (!vis.raf && vis.analyser) {
+    vis.updatedAt = 0;
+    vis.raf = requestAnimationFrame(visualTick);
+  }
+}
+
+function stopVisuals() {
+  if (vis.raf) cancelAnimationFrame(vis.raf);
+  vis.raf = 0;
+  vis.pulse = 0;
+  vis.energy = 0;
+  vis.fluxPeak = 0;
+
+  const node = $("#fullscreen-player");
+  node.style.setProperty("--pulse", "0");
+  node.style.setProperty("--energy", "0");
 }
 
 function currentTrack() {
@@ -536,6 +694,7 @@ function syncFullscreen() {
     $("#fs-album").textContent = "";
     $("#fs-cover").removeAttribute("src");
     $("#fs-bg").removeAttribute("src");
+    paintPalette(null);
   }
 
   $("#fullscreen-player").classList.toggle("playing", state.playing);
@@ -556,8 +715,12 @@ function setFullscreen(open) {
   if (open) {
     node.removeAttribute("inert");
     syncFullscreen();
+    // открытие — жест пользователя: самое время разблокировать звук для анализатора
+    ensureAudioGraph();
+    startVisuals();
     $("#fs-close").focus({ preventScroll: true });
   } else {
+    stopVisuals();
     node.setAttribute("inert", "");
     $("#expand").focus({ preventScroll: true });
   }
@@ -646,6 +809,11 @@ function setPlaying(playing) {
   $("#player").classList.toggle("playing", playing);
   $("#fullscreen-player").classList.toggle("playing", playing);
   $("#track-list").classList.toggle("is-playing", playing);
+
+  if (state.fullscreen) {
+    if (playing) startVisuals();
+    else stopVisuals();
+  }
 }
 
 function updateRepeatUI() {
@@ -1253,36 +1421,13 @@ function bindEvents() {
     button.addEventListener("click", () => switchView(button.dataset.view));
   });
 
-  $("#themes").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-theme-choice]");
-    if (button) switchTheme(button.dataset.themeChoice);
-  });
-
-  $("#fonts").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-font-choice]");
-    if (button) applyFont(button.dataset.fontChoice);
-  });
-
-  $("#radii").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-radius-choice]");
-    if (button) applyRadius(button.dataset.radiusChoice);
-  });
-
-  $("#settings-toggle").addEventListener("click", () => setSettingsOpen(!state.settingsOpen));
-  $("#settings-close").addEventListener("click", () => setSettingsOpen(false));
-  $(".settings-backdrop").addEventListener("click", () => setSettingsOpen(false));
-
   document.addEventListener("keydown", (event) => {
     if (event.code !== "Escape") return;
     if (trackMenu) {
       closeTrackMenu();
       return;
     }
-    if (state.fullscreen) {
-      setFullscreen(false);
-      return;
-    }
-    if (state.settingsOpen) setSettingsOpen(false);
+    if (state.fullscreen) setFullscreen(false);
   });
 
   $("#search").addEventListener("input", renderTracks);
@@ -1384,7 +1529,11 @@ function bindEvents() {
     $("#mute").classList.toggle("muted", audio.muted || audio.volume === 0);
   });
 
-  audio.addEventListener("play", () => setPlaying(true));
+  audio.addEventListener("play", () => {
+    resumeAudioGraph();
+    setPlaying(true);
+  });
+
   audio.addEventListener("pause", () => setPlaying(false));
   audio.addEventListener("ended", () => nextTrack(true));
 
@@ -1442,14 +1591,6 @@ function init() {
     button.classList.toggle("active", state.shuffle);
   }
   updateRepeatUI();
-  renderThemes();
-  applyTheme(state.theme, false);
-
-  renderSegmented("#fonts", FONTS, "data-font-choice", state.font);
-  applyFont(state.font, false);
-
-  renderSegmented("#radii", RADII, "data-radius-choice", state.radius);
-  applyRadius(state.radius, false);
 
   bindEvents();
   setupMediaSession();
