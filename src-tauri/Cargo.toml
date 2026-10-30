@@ -1,6 +1,6 @@
 [package]
 name = "melodown"
-version = "0.1.0"
+version = "1.0.0"
 description = "melodown desktop shell"
 authors = ["melodown contributors"]
 edition = "2021"
