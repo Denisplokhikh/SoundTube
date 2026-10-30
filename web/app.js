@@ -1,6 +1,9 @@
 const $ = (selector) => document.querySelector(selector);
 const audio = $("#audio");
 
+// «Дзен»: столько миллисекунд без активности — и прячем весь интерфейс.
+const ZEN_IDLE_MS = 10_000;
+
 const state = {
   view: "library",
   tracks: [],
@@ -29,6 +32,8 @@ const state = {
   playlistMissing: 0,
   toastTimer: null,
   fullscreen: false,
+  zen: false,
+  zenTimer: null,
 };
 
 const STATUS_LABELS = {
@@ -358,6 +363,9 @@ function updateNowPlaying(track) {
       artwork: [{ src: artworkUrl(track), sizes: "512x512" }],
     });
   }
+
+  // метаданные меняют высоту скрытых блоков — центрируем обложку заново
+  updateZenShift();
 }
 
 /* ---------- визуализация полноэкранного плеера ---------- */
@@ -899,11 +907,71 @@ function setFullscreen(open) {
     ensureAudioGraph();
     startVisuals();
     $("#fs-close").focus({ preventScroll: true });
+    scheduleZen();
   } else {
+    exitZen({ restart: false });
+    clearZenTimer();
     stopVisuals();
     node.setAttribute("inert", "");
     $("#expand").focus({ preventScroll: true });
   }
+}
+
+function clearZenTimer() {
+  if (state.zenTimer) {
+    clearTimeout(state.zenTimer);
+    state.zenTimer = null;
+  }
+}
+
+/** Перезапускает отсчёт до «Дзена». Тикает только в полноэкранном плеере и пока играет музыка. */
+function scheduleZen() {
+  clearZenTimer();
+  if (!state.fullscreen || !state.playing || document.hidden) return;
+  state.zenTimer = setTimeout(enterZen, ZEN_IDLE_MS);
+}
+
+function enterZen() {
+  state.zenTimer = null;
+  if (state.zen || !state.fullscreen || !state.playing || document.hidden) return;
+  // не прячем интерфейс, пока открыто контекстное меню трека
+  if (trackMenu) {
+    scheduleZen();
+    return;
+  }
+
+  state.zen = true;
+  $("#fullscreen-player").classList.add("is-zen");
+  updateZenShift();
+  startVisuals();
+}
+
+/**
+ * «Дзен» оставляет только обложку, поэтому сдвигаем центр тела плеера так,
+ * чтобы обложка оказалась по центру, а не там, где её держали скрытые блоки.
+ */
+function updateZenShift() {
+  if (!state.zen) return;
+  const player = $("#fullscreen-player");
+  const body = player.querySelector(".fs-body");
+  const cover = player.querySelector(".fs-cover");
+  if (!body || !cover) return;
+
+  const shift = body.clientHeight / 2 - (cover.offsetTop + cover.offsetHeight / 2);
+  player.style.setProperty("--zen-shift", `${shift.toFixed(1)}px`);
+}
+
+function exitZen({ restart = true } = {}) {
+  if (!state.zen) return;
+  state.zen = false;
+  $("#fullscreen-player").classList.remove("is-zen");
+  if (restart) scheduleZen();
+}
+
+/** Любое движение мышью/клавишей возвращает интерфейс и сбрасывает таймер. */
+function noteActivity() {
+  exitZen({ restart: false });
+  scheduleZen();
 }
 
 function playFromList(trackId) {
@@ -991,6 +1059,13 @@ function setPlaying(playing) {
   $("#track-list").classList.toggle("is-playing", playing);
 
   if (state.fullscreen && playing) startVisuals();
+
+  if (playing) {
+    scheduleZen();
+  } else {
+    clearZenTimer();
+    exitZen({ restart: false });
+  }
 }
 
 function updateRepeatUI() {
@@ -1625,6 +1700,10 @@ function bindEvents() {
       closeTrackMenu();
       return;
     }
+    if (state.zen) {
+      exitZen();
+      return;
+    }
     if (state.fullscreen) setFullscreen(false);
   });
 
@@ -1716,6 +1795,23 @@ function bindEvents() {
 
   $(".now").addEventListener("click", () => setFullscreen(true));
   $("#fs-close").addEventListener("click", () => setFullscreen(false));
+
+  // «Дзен»: активность пользователя будит интерфейс и откладывает таймер
+  for (const type of ["pointermove", "pointerdown", "wheel", "keydown"]) {
+    document.addEventListener(type, noteActivity, { passive: true });
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) clearZenTimer();
+    else scheduleZen();
+  });
+
+  // размеры окна и высота скрытых блоков влияют на центр обложки в «Дзене»
+  window.addEventListener("resize", updateZenShift);
+  if ("ResizeObserver" in window) {
+    const details = $("#fullscreen-player").querySelector(".fs-details");
+    if (details) new ResizeObserver(updateZenShift).observe(details);
+  }
 
   $("#volume").addEventListener("input", () => {
     setVolume(Number($("#volume").value) / 100);
