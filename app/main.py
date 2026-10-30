@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -19,9 +20,38 @@ logging.basicConfig(
 )
 
 if getattr(sys, "frozen", False):
-    WEB_DIR = Path(sys._MEIPASS).resolve() / "web"
+    BUNDLED_WEB_DIR = Path(sys._MEIPASS).resolve() / "web"
 else:
-    WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+    BUNDLED_WEB_DIR = Path(__file__).resolve().parent.parent / "web"
+
+
+def resolve_web_dir() -> Path:
+    """Внешняя папка web/ перекрывает встроенную.
+
+    Позволяет править фронтенд без пересборки exe: достаточно положить
+    index.html/app.js/styles.css рядом с сервером или в %LOCALAPPDATA%\\melodown\\web
+    и перезапустить приложение. Путь можно задать и через MELODOWN_WEB_DIR.
+    """
+    override = os.environ.get("MELODOWN_WEB_DIR")
+    if override:
+        candidate = Path(override).expanduser()
+        if (candidate / "index.html").is_file():
+            return candidate.resolve()
+
+    if getattr(sys, "frozen", False):
+        base = os.environ.get("LOCALAPPDATA") or os.environ.get("XDG_DATA_HOME")
+        candidates = [
+            Path(sys.executable).resolve().parent / "web",
+            Path(base) / "melodown" / "web" if base else None,
+        ]
+        for candidate in candidates:
+            if candidate and (candidate / "index.html").is_file():
+                return candidate.resolve()
+
+    return BUNDLED_WEB_DIR
+
+
+WEB_DIR = resolve_web_dir()
 
 
 @asynccontextmanager
@@ -44,6 +74,7 @@ app = FastAPI(
 app.include_router(api_router)
 
 if WEB_DIR.exists():
+    logging.getLogger(__name__).info("frontend: %s", WEB_DIR)
     app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")
 
 
