@@ -1,7 +1,7 @@
 {
   "name": "melodown",
   "productName": "SoundTube",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Desktop shell (Tauri) for the SoundTube local server",
   "scripts": {
