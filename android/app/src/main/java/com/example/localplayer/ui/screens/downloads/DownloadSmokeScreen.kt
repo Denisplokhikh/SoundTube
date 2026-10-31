@@ -41,8 +41,6 @@ import com.example.localplayer.core.AppLog
 import com.example.localplayer.data.downloader.EngineState
 import com.example.localplayer.domain.model.DownloadState
 import com.example.localplayer.domain.model.DownloadTask
-import com.example.localplayer.domain.model.RepeatMode
-import com.example.localplayer.ui.player.PlayerViewModel
 
 /**
  * Отладочная панель шага 3: проверить движок и скачать трек по ссылке.
@@ -82,17 +80,15 @@ fun DownloadSmokeScreen(
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Text(
-            text = "SoundTube",
+            text = "Загрузки",
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.primary,
         )
         Text(
-            text = "Отладка шагов 3–4 · движок: ${engine.describe()}",
+            text = "Движок: ${engine.describe()}",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-
-        PlayerPanel()
 
         HorizontalDivider()
 
@@ -135,6 +131,10 @@ fun DownloadSmokeScreen(
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text("Докачать недостающее")
+        }
+
+        TextButton(onClick = viewModel::cleanupDuplicates, enabled = !busy) {
+            Text("Убрать дубли файлов")
         }
 
         message?.let { text ->
@@ -308,69 +308,6 @@ private fun EngineState.describe(): String = when (this) {
     is EngineState.Ready -> "готов${version?.let { " ($it)" } ?: ""}"
     EngineState.Updating -> "обновление…"
     is EngineState.Failed -> "ошибка: $message"
-}
-
-/** Мини-пульт для проверки шага 4: играем библиотеку, листаем, меняем режимы. */
-@Composable
-private fun PlayerPanel(viewModel: PlayerViewModel = hiltViewModel()) {
-    val state by viewModel.state.collectAsStateWithLifecycle()
-
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = when {
-                !state.isConnected -> "Плеер: подключение…"
-                state.hasTrack -> "Плеер: ${state.artist} — ${state.title}"
-                else -> "Плеер: очередь пуста"
-            },
-            style = MaterialTheme.typography.bodyMedium,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
-
-        if (state.hasTrack) {
-            LinearProgressIndicator(
-                progress = { state.progress },
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Text(
-                text = "${formatTime(state.positionMs)} / ${formatTime(state.durationMs)}" +
-                    " · ${state.currentIndex + 1} из ${state.queue.size}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = viewModel::playAll) { Text("Играть всё") }
-            TextButton(onClick = viewModel::previous, enabled = state.hasTrack) { Text("⏮") }
-            TextButton(onClick = viewModel::playPause, enabled = state.hasTrack) {
-                Text(if (state.isPlaying) "⏸" else "▶")
-            }
-            TextButton(onClick = viewModel::next, enabled = state.hasNext) { Text("⏭") }
-        }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = viewModel::toggleShuffle) {
-                Text(if (state.shuffle) "Перемешать: вкл" else "Перемешать: выкл")
-            }
-            TextButton(onClick = viewModel::cycleRepeat) {
-                Text("Повтор: ${state.repeatMode.label()}")
-            }
-        }
-    }
-}
-
-private fun RepeatMode.label(): String = when (this) {
-    RepeatMode.OFF -> "выкл"
-    RepeatMode.ALL -> "все"
-    RepeatMode.ONE -> "трек"
-}
-
-private fun formatTime(ms: Long): String {
-    val totalSeconds = (ms / 1000L).coerceAtLeast(0L)
-    val minutes = totalSeconds / 60L
-    val seconds = totalSeconds % 60L
-    return "%d:%02d".format(minutes, seconds)
 }
 
 /** Сколько строк журнала показывать: хвост, а не всю историю. */

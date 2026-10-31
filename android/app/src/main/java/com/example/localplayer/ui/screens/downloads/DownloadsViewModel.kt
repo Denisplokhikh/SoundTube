@@ -99,6 +99,27 @@ class DownloadsViewModel @Inject constructor(
 
     fun cancel(trackId: String) = repository.cancel(trackId)
 
+    init {
+        // Старые сборки сохраняли в очередь служебные названия («tracks — 1485911104»).
+        viewModelScope.launch { repository.fixLegacyTitles() }
+    }
+
+    /** Убрать файлы-копии `Название (2).m4a`, оставшиеся от старых сборок. */
+    fun cleanupDuplicates() {
+        if (_busy.value) return
+        viewModelScope.launch {
+            _busy.value = true
+            val removed = repository.removeDuplicateFiles()
+            _message.value = if (removed == 0) {
+                "Дублей не найдено"
+            } else {
+                "Убрано дублей: $removed"
+            }
+            _messageIsError.value = false
+            _busy.value = false
+        }
+    }
+
     fun clearMessage() {
         _message.value = null
         _messageIsError.value = false

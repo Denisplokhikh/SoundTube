@@ -21,9 +21,11 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.net.URI
 import java.util.concurrent.TimeUnit
@@ -62,6 +64,9 @@ class DownloadRepository @Inject constructor(
 
     val engineState: StateFlow<EngineState> = client.state
 
+    /** Два одновременных чтения ссылок = два yt-dlp и rate limit от площадки. */
+    private val readMutex = Mutex()
+
     suspend fun prepareEngine(): Result<Unit> = client.ensureInitialized()
 
     suspend fun updateEngine(): Result<Unit> = client.updateBinaries()
@@ -72,7 +77,7 @@ class DownloadRepository @Inject constructor(
         if (!TrackIds.looksLikeUrl(url)) return SubmitResult.InvalidUrl
 
         val infos = try {
-            fetchTracks(url)
+            readMutex.withLock { fetchTracks(url) }
         } catch (error: Exception) {
             AppLog.w("Не удалось прочитать ссылку", error)
             return SubmitResult.Failed(DownloadErrors.humanize(error.message))
@@ -88,7 +93,10 @@ class DownloadRepository @Inject constructor(
     }
 
     private suspend fun submitSingle(info: TrackMeta, url: String): SubmitResult {
-        val canonicalUrl = info.webpageUrl?.takeIf { it.isNotBlank() } ?: url
+        val canonicalUrl = info.webpageUrl
+            ?.takeIf { it.isNotBlank() }
+            ?.let { TrackIds.canonicalize(it) }
+            ?: TrackIds.canonicalize(url)
         val platform = platformFor(canonicalUrl)
         val sourceId = info.sourceId
 
@@ -104,7 +112,7 @@ class DownloadRepository @Inject constructor(
             return SubmitResult.AlreadyDownloaded(trackId, existing.title)
         }
 
-        val title = info.title?.takeIf { it.isNotBlank() } ?: "Без названия"
+        val title = info.displayTitle
         trackDao.upsert(info.toEntity(trackId, canonicalUrl, platform, existing))
 
         val uniqueName = AudioDownloadWorker.uniqueName(trackId)
@@ -143,7 +151,10 @@ class DownloadRepository @Inject constructor(
         var skipped = 0
 
         infos.take(MAX_PLAYLIST_TRACKS).forEach { info ->
-            val canonicalUrl = info.webpageUrl?.takeIf { it.isNotBlank() } ?: return@forEach
+            val canonicalUrl = info.webpageUrl
+                ?.takeIf { it.isNotBlank() }
+                ?.let { TrackIds.canonicalize(it) }
+                ?: return@forEach
             val platform = platformFor(canonicalUrl)
             val sourceId = info.sourceId
             val trackId = when {
@@ -168,7 +179,7 @@ class DownloadRepository @Inject constructor(
             )
             queued++
 
-            AppLog.i("В плейлисте ${queued + skipped}/${infos.size}: ${info.title ?: trackId}")
+            AppLog.i("В плейлисте ${queued + skipped}/${infos.size}: ${info.displayTitle}")
         }
 
         AppLog.i("Плейлист: в очередь $queued, уже было $skipped")
@@ -219,11 +230,8 @@ class DownloadRepository @Inject constructor(
         val now = System.currentTimeMillis()
         return TrackEntity(
             id = trackId,
-            title = title?.takeIf { it.isNotBlank() } ?: "Без названия",
-            artist = artist
-                ?.removeSuffix(" - Topic")
-                ?.takeIf { it.isNotBlank() }
-                ?: "Неизвестный исполнитель",
+            title = displayTitle,
+            artist = displayArtist,
             durationMs = durationMs,
             sourceUrl = canonicalUrl,
             sourcePlatform = platform.key,
@@ -236,31 +244,54 @@ class DownloadRepository @Inject constructor(
         )
     }
 
-    /** Очередь и история загрузок из WorkManager, с названиями из базы. */
-    fun observeTasks(): Flow<List<DownloadTask>> =
-        workManager.getWorkInfosByTagFlow(AudioDownloadWorker.TAG_DOWNLOAD).map { infos ->
-            val ids = infos.mapNotNull { it.trackIdOf() }.distinct()
-            if (ids.isEmpty()) return@map emptyList<DownloadTask>()
+    /**
+     * Очередь и история загрузок: состояние задач WorkManager плюс треки из базы,
+     * которые ещё не скачаны.
+     *
+     * База здесь обязательна. WorkManager чистит старые задачи и сбрасывает очередь
+     * (например, «Докачать недостающее» сначала отменяет всё), и тогда список внезапно
+     * пустел, хотя треки никуда не делись.
+     */
+    fun observeTasks(): Flow<List<DownloadTask>> = combine(
+        workManager.getWorkInfosByTagFlow(AudioDownloadWorker.TAG_DOWNLOAD),
+        trackDao.observeAll(),
+    ) { infos, tracks ->
+        val tracksById = tracks.associateBy(TrackEntity::id)
 
-            val tracks = trackDao.findByIds(ids).associateBy(TrackEntity::id)
+        val fromWork = infos.mapNotNull { workInfo ->
+            val trackId = workInfo.trackIdOf() ?: return@mapNotNull null
+            val track = tracksById[trackId] ?: return@mapNotNull null
+            DownloadTask(
+                trackId = trackId,
+                title = track.title,
+                artist = track.artist,
+                sourceUrl = track.sourceUrl,
+                state = workInfo.toDownloadState(track.sourceUrl, trackId),
+            )
+        }
 
-            infos.mapNotNull { workInfo ->
-                val trackId = workInfo.trackIdOf() ?: return@mapNotNull null
-                val track = tracks[trackId] ?: return@mapNotNull null
+        // Треки, по которым задачи уже нет: например, после перезапуска приложения
+        // или отмены цепочки. Показываем их как «в очереди», иначе они «исчезают».
+        val covered = fromWork.mapTo(HashSet()) { it.trackId }
+        val queued = tracks
+            .filter { it.localFilePath == null && it.id !in covered }
+            .map { track ->
                 DownloadTask(
-                    trackId = trackId,
+                    trackId = track.id,
                     title = track.title,
                     artist = track.artist,
                     sourceUrl = track.sourceUrl,
-                    state = workInfo.toDownloadState(track.sourceUrl, trackId),
+                    state = DownloadState.Idle,
                 )
             }
-                // У одного трека может быть несколько задач (повтор после ошибки) —
-                // показываем самую «живую».
-                .groupBy { it.trackId }
-                .map { (_, sameTrack) -> sameTrack.minBy { it.state.sortOrder() } }
-                .sortedWith(compareBy({ it.state.sortOrder() }, { it.title.lowercase() }))
-        }
+
+        (fromWork + queued)
+            // У одного трека может быть несколько задач (повтор после ошибки) —
+            // показываем самую «живую».
+            .groupBy { it.trackId }
+            .map { (_, sameTrack) -> sameTrack.minBy { it.state.sortOrder() } }
+            .sortedWith(compareBy({ it.state.sortOrder() }, { it.title.lowercase() }))
+    }
 
     suspend fun retry(trackId: String): Boolean {
         val track = trackDao.findAnyById(trackId) ?: return false
@@ -318,6 +349,58 @@ class DownloadRepository @Inject constructor(
         }
         AppLog.i("Докачка: в очередь ${pending.size}")
         return pending.size
+    }
+
+    /** Исправляет названия, которые старые сборки сохранили из служебных ссылок. */
+    suspend fun fixLegacyTitles(): Int = withContext(Dispatchers.IO) {
+        val fixed = trackDao.fixServiceTitles(System.currentTimeMillis())
+        if (fixed > 0) AppLog.i("Поправлены названия в очереди: $fixed")
+        fixed
+    }
+
+    /**
+     * Разовая уборка дублей, оставшихся от старых сборок.
+     *
+     * Раньше защита от повторного скачивания появилась позже первого прогона, поэтому
+     * на диске могли остаться файлы вида `Исполнитель - Название (2).m4a`: копия уже
+     * имеющегося трека. Суффикс ` (N)` ставит только наш же перенос в библиотеку при
+     * совпадении имён, так что такой файл — гарантированно дубль.
+     *
+     * @return сколько файлов убрано.
+     */
+    suspend fun removeDuplicateFiles(): Int = withContext(Dispatchers.IO) {
+        val downloaded = trackDao.findDownloaded()
+        if (downloaded.isEmpty()) return@withContext 0
+
+        val now = System.currentTimeMillis()
+        var removed = 0
+
+        downloaded
+            .groupBy { "${it.artist.lowercase()}|${it.title.lowercase()}" }
+            .values
+            .forEach { sameName ->
+                if (sameName.size < 2) return@forEach
+
+                // Оставляем файл без суффикса (а если таких нет — самый старый).
+                val keeper = sameName.minByOrNull { track ->
+                    if (DUPLICATE_SUFFIX.containsMatchIn(track.localFilePath.orEmpty())) 1 else 0
+                } ?: return@forEach
+
+                sameName
+                    .filter { it.id != keeper.id }
+                    .filter { DUPLICATE_SUFFIX.containsMatchIn(it.localFilePath.orEmpty()) }
+                    .forEach { extra ->
+                        val deleted = fileManager.delete(extra.localFilePath)
+                        trackDao.markDeleted(extra.id, now)
+                        removed++
+                        AppLog.i(
+                            "Убран дубль: ${extra.title}" +
+                                if (deleted) " → ${extra.localFilePath?.substringAfterLast('/')}" else "",
+                        )
+                    }
+            }
+
+        removed
     }
 
     private fun platformFor(url: String): SourcePlatform {
@@ -380,5 +463,8 @@ class DownloadRepository @Inject constructor(
 
         /** Имя цепочки для «докачать всё, чего нет на диске». */
         const val BACKLOG_CHAIN = "backlog"
+
+        /** `Название (2).m4a` — признак копии, которую создал наш же перенос в библиотеку. */
+        val DUPLICATE_SUFFIX = Regex("""\s\(\d+\)\.[^.]+$""")
     }
 }

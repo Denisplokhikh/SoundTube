@@ -37,6 +37,10 @@ interface TrackDao {
     @Query("SELECT * FROM tracks WHERE isDeleted = 0 AND sourceUrl = :sourceUrl LIMIT 1")
     suspend fun findBySourceUrl(sourceUrl: String): TrackEntity?
 
+    /** Всё, что уже лежит на диске, — для сверки и уборки дублей. */
+    @Query("SELECT * FROM tracks WHERE isDeleted = 0 AND localFilePath IS NOT NULL")
+    suspend fun findDownloaded(): List<TrackEntity>
+
     @Query("SELECT * FROM tracks WHERE id IN (:ids)")
     suspend fun findByIds(ids: List<String>): List<TrackEntity>
 
@@ -85,6 +89,59 @@ interface TrackDao {
         updatedAt: Long,
     )
 
+    /**
+     * Уточнение метаданных после скачивания.
+     *
+     * Плоский список SoundCloud приходит без названий; настоящие название, исполнитель
+     * и обложка появляются только в метаданных скачанного файла.
+     *
+     * `sourceUrl` перезаписываем канонической ссылкой из метаданных: в плоском списке
+     * вместо неё бывает служебный адрес api-v2, и по нему повторный импорт уже
+     * скачанный трек не узнает.
+     */
+    @Query(
+        """
+        UPDATE tracks
+        SET title = :title,
+            artist = :artist,
+            durationMs = :durationMs,
+            thumbnailPath = :thumbnailPath,
+            sourceUrl = COALESCE(:sourceUrl, sourceUrl),
+            updatedAt = :updatedAt
+        WHERE id = :id
+        """,
+    )
+    suspend fun updateMetadata(
+        id: String,
+        title: String,
+        artist: String,
+        durationMs: Long,
+        thumbnailPath: String?,
+        sourceUrl: String?,
+        updatedAt: Long,
+    )
+
     @Query("DELETE FROM tracks WHERE id = :id")
     suspend fun deleteHard(id: String)
+
+    /**
+     * Чинит названия, сохранённые старыми сборками.
+     *
+     * Тогда у треков из плоского списка SoundCloud в базу попадал служебный адрес
+     * `api-v2.soundcloud.com/tracks/<id>`: название становилось числом, исполнитель — «tracks».
+     * Настоящие придут при скачивании, но до тех пор в очереди был мусор.
+     */
+    @Query(
+        """
+        UPDATE tracks
+        SET title = 'Трек ' || title,
+            artist = 'SoundCloud',
+            updatedAt = :updatedAt
+        WHERE isDeleted = 0
+          AND localFilePath IS NULL
+          AND artist = 'tracks'
+          AND title GLOB '[0-9]*'
+        """,
+    )
+    suspend fun fixServiceTitles(updatedAt: Long): Int
 }

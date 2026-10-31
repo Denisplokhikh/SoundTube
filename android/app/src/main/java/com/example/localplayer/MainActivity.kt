@@ -6,19 +6,12 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.example.localplayer.ui.Routes
+import com.example.localplayer.ui.SoundTubeApp
 import com.example.localplayer.ui.player.PlayerViewModel
-import com.example.localplayer.ui.screens.downloads.DownloadSmokeScreen
 import com.example.localplayer.ui.screens.downloads.DownloadsViewModel
 import com.example.localplayer.ui.theme.LocalPlayerTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -29,24 +22,18 @@ class MainActivity : ComponentActivity() {
     private val downloadsViewModel: DownloadsViewModel by viewModels()
     private val playerViewModel: PlayerViewModel by viewModels()
 
+    /** Вкладка, открытая по debug-intent: тапать по экрану через adb MIUI не даёт. */
+    private var debugTab by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         handleDebugIntent(intent)
         setContent {
             LocalPlayerTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    val contentModifier = Modifier.padding(innerPadding)
-                    if (BuildConfig.DEBUG) {
-                        // Временная панель проверки загрузчика; на шаге 5 её заменит навигация.
-                        DownloadSmokeScreen(
-                            viewModel = downloadsViewModel,
-                            modifier = contentModifier,
-                        )
-                    } else {
-                        PlaceholderScreen(modifier = contentModifier)
-                    }
-                }
+                SoundTubeApp(
+                    startDestination = if (debugTab == TAB_DOWNLOADS) Routes.DOWNLOADS else Routes.LIBRARY,
+                )
             }
         }
     }
@@ -67,6 +54,8 @@ class MainActivity : ComponentActivity() {
     private fun handleDebugIntent(intent: Intent?) {
         if (!BuildConfig.DEBUG) return
 
+        intent?.getStringExtra(EXTRA_DEBUG_TAB)?.let { debugTab = it }
+
         if (intent?.getBooleanExtra(EXTRA_DEBUG_PLAY, false) == true) {
             playerViewModel.playAll()
         }
@@ -75,11 +64,17 @@ class MainActivity : ComponentActivity() {
             downloadsViewModel.downloadMissing()
         }
 
+        if (intent?.getBooleanExtra(EXTRA_DEBUG_CLEANUP, false) == true) {
+            downloadsViewModel.cleanupDuplicates()
+        }
+
         val url = intent?.getStringExtra(EXTRA_DEBUG_URL)?.takeIf { it.isNotBlank() } ?: return
         downloadsViewModel.submit(url)
     }
 
     companion object {
+        private const val TAB_DOWNLOADS = "downloads"
+
         /**
          * Только для debug-сборки: `adb shell am start -n com.example.localplayer/.MainActivity
          * --es debug_url <ссылка>` сразу ставит трек в очередь.
@@ -97,27 +92,17 @@ class MainActivity : ComponentActivity() {
          * все треки из базы, которых нет на диске.
          */
         const val EXTRA_DEBUG_RETRY_MISSING = "debug_retry_missing"
-    }
-}
 
-@Composable
-private fun PlaceholderScreen(modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterVertically),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(
-            text = "SoundTube",
-            style = MaterialTheme.typography.headlineMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Text(
-            text = "База, загрузчик и плеер в работе.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        /**
+         * Только для debug-сборки: `--ez debug_cleanup true` убирает файлы-копии
+         * вида `Название (2).m4a`, которые остались от старых сборок без защиты от дублей.
+         */
+        const val EXTRA_DEBUG_CLEANUP = "debug_cleanup"
+
+        /**
+         * Только для debug-сборки: `--es debug_tab downloads` открывает нужную вкладку
+         * сразу — для скриншотов и проверок, где нужен тап по экрану.
+         */
+        const val EXTRA_DEBUG_TAB = "debug_tab"
     }
 }

@@ -26,6 +26,7 @@ import com.example.localplayer.domain.model.DownloadState
 import com.example.localplayer.domain.model.SourcePlatform
 import com.example.localplayer.domain.util.DownloadErrors
 import com.example.localplayer.domain.util.SystemPlaylists
+import com.example.localplayer.domain.util.TrackIds
 import com.yausername.youtubedl_android.YoutubeDL
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
@@ -109,6 +110,7 @@ class AudioDownloadWorker @AssistedInject constructor(
                 )
             }
 
+            val startedAt = SystemClock.elapsedRealtime()
             val downloaded = client.download(url, fileManager.newWorkDir(track.id), track.id) { fraction, eta, line ->
                 progress.value = DownloadState.Downloading(
                     url = url,
@@ -120,24 +122,63 @@ class AudioDownloadWorker @AssistedInject constructor(
 
             progress.value = DownloadState.Downloading(url, 1f, null, "Обработка файла")
 
-            val target = fileManager.moveIntoLibrary(downloaded, track.artist, track.title)
+            // В плоском списке SoundCloud иногда отдаёт ссылки api-v2, и id такого трека
+            // не совпадает с id того же трека, импортированного по permalink. Каноническую
+            // ссылку узнаём только из метаданных — если этот файл уже есть на диске,
+            // второй экземпляр не плодим.
+            val canonicalUrl = downloaded.meta?.webpageUrl
+                ?.takeIf { it.isNotBlank() }
+                ?.let { TrackIds.canonicalize(it) }
+            val duplicate = canonicalUrl
+                ?.let { trackDao.findBySourceUrl(it) }
+                ?.takeIf { it.id != track.id && fileManager.exists(it.localFilePath) }
+            if (duplicate != null) {
+                fileManager.discardWorkDir(track.id)
+                trackDao.markDeleted(track.id, System.currentTimeMillis())
+                AppLog.i("Уже есть на диске: ${duplicate.title}")
+                return Result.success()
+            }
+
+            // Название и исполнитель могли не прийти при чтении ссылки (плоский список
+            // SoundCloud отдаёт только ссылки) — берём их из `<id>.info.json`, который
+            // yt-dlp сохраняет рядом со скачанным файлом. Лишнего запроса не нужно.
+            val meta = downloaded.meta
+            val title = meta?.title?.takeIf { it.isNotBlank() } ?: track.title
+            val artist = meta?.artist
+                ?.removeSuffix(" - Topic")
+                ?.takeIf { it.isNotBlank() }
+                ?: track.artist
+            val thumbnail = meta?.thumbnail ?: track.thumbnailPath
+            val durationMs = meta?.durationMs?.takeIf { it > 0L } ?: track.durationMs
+
+            val target = fileManager.moveIntoLibrary(downloaded.file, artist, title)
             val hash = runCatching { fileManager.sha256(target) }.getOrNull()
             val now = System.currentTimeMillis()
 
             database.withTransaction {
+                trackDao.updateMetadata(
+                    id = track.id,
+                    title = title,
+                    artist = artist,
+                    durationMs = durationMs,
+                    thumbnailPath = thumbnail,
+                    sourceUrl = canonicalUrl,
+                    updatedAt = now,
+                )
                 trackDao.markDownloaded(
                     id = track.id,
                     localFilePath = target.absolutePath,
-                    thumbnailPath = track.thumbnailPath,
+                    thumbnailPath = thumbnail,
                     fileHash = hash,
                     updatedAt = now,
                 )
                 linkToSystemPlaylist(track, now)
             }
 
-            DownloadNotifications.done(applicationContext, track.title)
+            val seconds = (SystemClock.elapsedRealtime() - startedAt) / 1000L
+            DownloadNotifications.done(applicationContext, title)
             progress.value = DownloadState.Completed(url, track.id)
-            AppLog.i("Готово: ${track.title} → ${target.name}")
+            AppLog.i("Готово: $title → ${target.name} за $seconds с")
             // Данные наружу не отдаём: WorkManager перекладывает output предыдущей
             // задачи в inputData следующей, и в цепочке плейлиста это ломает треки.
             Result.success()

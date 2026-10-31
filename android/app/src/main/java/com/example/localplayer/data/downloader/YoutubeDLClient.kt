@@ -1,6 +1,9 @@
 package com.example.localplayer.data.downloader
 
 import android.content.Context
+import android.os.SystemClock
+import com.example.localplayer.core.AppLog
+import com.example.localplayer.domain.util.TrackIds
 import com.yausername.ffmpeg.FFmpeg
 import com.yausername.youtubedl_android.YoutubeDL
 import com.yausername.youtubedl_android.YoutubeDLRequest
@@ -72,16 +75,34 @@ class YoutubeDLClient @Inject constructor(
      * Полный список треков по ссылке: одиночный трек даёт список из одного элемента,
      * плейлист/сет — все входящие в него треки.
      *
-     * `--dump-json` печатает по одному компактному JSON на строку; `--ignore-errors`
-     * не даёт упасть всему списку из-за одного приватного трека.
+     * Читаем «плоским» проходом (`--flat-playlist`): площадка отдаёт все записи одним
+     * ответом за секунды. Обычный проход выкачивал страницу каждого трека — на сете
+     * SoundCloud это десятки запросов, несколько минут и упор в rate limit, из-за чего
+     * часть треков молча терялась (из сета на 50 песен приходило 16).
+     *
+     * У плоского списка SoundCloud нет названий — только ссылки. Их подтянет загрузчик
+     * из `<id>.info.json` уже скачанного трека, без отдельного запроса.
      */
     suspend fun getTracks(url: String): List<TrackMeta> = withContext(Dispatchers.IO) {
         ensureInitialized().getOrThrow()
 
+        val started = SystemClock.elapsedRealtime()
+        val tracks = probe(url, flat = true)
+        val unnamed = tracks.count { it.title.isNullOrBlank() }
+        AppLog.i(
+            "Ссылка: ${tracks.size} треков за ${elapsedSeconds(started)} с" +
+                if (unnamed > 0) ", без названия $unnamed (подтянем при скачивании)" else "",
+        )
+        tracks
+    }
+
+    /** Один проход yt-dlp по ссылке: либо плоский список, либо полные метаданные. */
+    private fun probe(url: String, flat: Boolean): List<TrackMeta> {
         val request = YoutubeDLRequest(url).apply {
             addOption("--dump-json")
             addOption("--ignore-errors")
             addOption("--no-warnings")
+            if (flat) addOption("--flat-playlist")
         }
 
         val response = YoutubeDL.getInstance().execute(
@@ -89,9 +110,18 @@ class YoutubeDLClient @Inject constructor(
             processId = "probe:${url.hashCode()}#${processSeq.incrementAndGet()}",
         )
 
+        // Молча пропущенные записи — главная причина «нашёл не все песни», поэтому
+        // пишем их количество в журнал, а не прячем в stderr.
+        val failed = response.err.lineSequence().count { it.startsWith("ERROR:") }
+        if (failed > 0) {
+            AppLog.w("yt-dlp: не удалось прочитать $failed записей")
+        }
+
         val tracks = response.out.lineSequence()
             .filter { it.startsWith("{") }
             .mapNotNull { line -> parseEntry(line) }
+            .filter { !it.webpageUrl.isNullOrBlank() }
+            .distinctBy { it.identityKey() }
             .toList()
 
         if (tracks.isEmpty()) {
@@ -101,20 +131,29 @@ class YoutubeDLClient @Inject constructor(
                     ?: "yt-dlp не вернул ни одного трека",
             )
         }
-        tracks
+        return tracks
     }
 
     private fun parseEntry(line: String): TrackMeta? = runCatching {
-        val entry = json.decodeFromString<YtDlpEntry>(line)
-        TrackMeta(
-            sourceId = entry.id,
-            title = entry.title,
-            artist = entry.uploader,
-            durationMs = ((entry.duration ?: 0.0) * 1000.0).toLong(),
-            webpageUrl = entry.webpageUrl,
-            thumbnail = entry.thumbnail,
-        )
+        json.decodeFromString<YtDlpEntry>(line).toTrackMeta()
     }.getOrNull()
+
+    private fun YtDlpEntry.toTrackMeta(): TrackMeta = TrackMeta(
+        sourceId = id,
+        title = title,
+        artist = uploader,
+        durationMs = ((duration ?: 0.0) * 1000.0).toLong(),
+        // В плоском списке SoundCloud отдаёт permalink в `url`, а `webpage_url` нет.
+        webpageUrl = webpageUrl ?: url,
+        thumbnail = thumbnail,
+    )
+
+    /** Один и тот же трек из плоского и полного прохода склеиваем по ссылке. */
+    private fun TrackMeta.identityKey(): String =
+        webpageUrl?.let { TrackIds.canonicalize(it) } ?: sourceId ?: title.orEmpty()
+
+    private fun elapsedSeconds(started: Long): Long =
+        (SystemClock.elapsedRealtime() - started) / 1000L
 
     /** Подмножество `--dump-json`, которое нам нужно. */
     @Serializable
@@ -124,22 +163,27 @@ class YoutubeDLClient @Inject constructor(
         val uploader: String? = null,
         val duration: Double? = null,
         @SerialName("webpage_url") val webpageUrl: String? = null,
+        /** В плоском списке вместо `webpage_url` приходит `url`. */
+        val url: String? = null,
         val thumbnail: String? = null,
     )
 
     /**
      * Скачивает лучший аудиопоток и конвертирует в m4a с вшитыми метаданными и обложкой.
      *
+     * `--write-info-json` оставляет рядом `<id>.info.json`: если площадка не отдала
+     * название и исполнителя при чтении ссылки, берём их отсюда — без лишнего запроса.
+     *
      * @param trackId id трека; по нему же можно отменить процесс через [cancel].
      * @param onProgress прогресс 0..1, ETA в секундах, последняя строка вывода yt-dlp.
-     * @return скачанный файл внутри [outputDir].
+     * @return скачанный файл и метаданные, которые отдал yt-dlp.
      */
     suspend fun download(
         url: String,
         outputDir: File,
         trackId: String,
         onProgress: (fraction: Float, etaSeconds: Long, line: String) -> Unit,
-    ): File = withContext(Dispatchers.IO) {
+    ): DownloadResult = withContext(Dispatchers.IO) {
         ensureInitialized().getOrThrow()
         outputDir.mkdirs()
 
@@ -151,6 +195,7 @@ class YoutubeDLClient @Inject constructor(
             addOption("--audio-format", "m4a")
             addOption("--embed-thumbnail")
             addOption("--add-metadata")
+            addOption("--write-info-json")
             addOption("-o", File(outputDir, "%(id)s.%(ext)s").absolutePath)
         }
 
@@ -167,10 +212,23 @@ class YoutubeDLClient @Inject constructor(
             runningProcesses.remove(trackId, processId)
         }
 
-        outputDir.listFiles()
-            ?.filter { it.isFile && it.length() > 0 }
-            ?.maxByOrNull { it.lastModified() }
+        val files = outputDir.listFiles()?.filter { it.isFile && it.length() > 0 }.orEmpty()
+
+        val meta = files
+            .firstOrNull { it.name.endsWith(".info.json") }
+            ?.let { file ->
+                runCatching {
+                    json.decodeFromString<YtDlpEntry>(file.readText()).toTrackMeta()
+                }.getOrNull()
+            }
+
+        // info.json тоже лежит в папке и он «свежее» — обязательно фильтруем по расширению.
+        val audio = files
+            .filter { it.extension.lowercase() in AUDIO_EXTENSIONS }
+            .maxByOrNull { it.lastModified() }
             ?: throw IOException("yt-dlp не создал файл в ${outputDir.absolutePath}")
+
+        DownloadResult(audio, meta)
     }
 
     /** Досрочно останавливает нативный процесс (кнопка «Отмена» в очереди). */
@@ -196,5 +254,10 @@ class YoutubeDLClient @Inject constructor(
                     Result.failure(error)
                 },
             )
+    }
+
+    private companion object {
+        /** Что считать скачанным аудио: `info.json` рядом с файлом — не трек. */
+        val AUDIO_EXTENSIONS = setOf("m4a", "mp3", "opus", "webm", "aac", "ogg", "flac")
     }
 }
