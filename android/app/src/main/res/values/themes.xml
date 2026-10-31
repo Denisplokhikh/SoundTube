@@ -1,0 +1,8 @@
+<resources>
+    <!-- Базовая тема нужна только до первого кадра Compose: цвета задаёт Material3 в коде. -->
+    <style name="Theme.LocalPlayer" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/ic_launcher_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>
