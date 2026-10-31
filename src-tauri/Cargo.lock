@@ -1771,8 +1771,9 @@ dependencies = [
 
 [[package]]
 name = "melodown"
-version = "0.1.0"
+version = "1.1.0"
 dependencies = [
+ "libc",
  "serde",
  "serde_json",
  "tauri",

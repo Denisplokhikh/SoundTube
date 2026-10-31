@@ -1,6 +1,9 @@
 const $ = (selector) => document.querySelector(selector);
 const audio = $("#audio");
 
+// «Дзен»: столько миллисекунд без активности — и прячем весь интерфейс.
+const ZEN_IDLE_MS = 10_000;
+
 const state = {
   view: "library",
   tracks: [],
@@ -29,6 +32,8 @@ const state = {
   playlistMissing: 0,
   toastTimer: null,
   fullscreen: false,
+  zen: false,
+  zenTimer: null,
 };
 
 const STATUS_LABELS = {
@@ -358,6 +363,9 @@ function updateNowPlaying(track) {
       artwork: [{ src: artworkUrl(track), sizes: "512x512" }],
     });
   }
+
+  // метаданные меняют высоту скрытых блоков — центрируем обложку заново
+  updateZenShift();
 }
 
 /* ---------- визуализация полноэкранного плеера ---------- */
@@ -449,10 +457,17 @@ function loadCover(url) {
   });
 }
 
-/** Четыре самых заметных цвета обложки: мелкое полотно + группировка по оттенку. */
+/**
+ * Четыре различимых цвета обложки.
+ *
+ * Отбрасываем всё, что не даст цвета на тёмном фоне: прозрачное, серое,
+ * почти чёрное и почти белое. Оттенок внутри корзины считаем по кругу
+ * (sin/cos): при обычном усреднении красный на стыке 0°/360° даёт ~180°
+ * и превращается в противоположный цвет — отсюда часть «странных» оттенков.
+ */
 async function extractPalette(url) {
   const image = await loadCover(url);
-  const size = 32;
+  const size = 48;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
@@ -466,28 +481,61 @@ async function extractPalette(url) {
   for (let i = 0; i < data.length; i += 4) {
     if (data[i + 3] < 200) continue;
     const [h, s, l] = rgbToHsl(data[i], data[i + 1], data[i + 2]);
-    if (l < 0.12 || l > 0.92) continue;
+    if (s < 0.16 || l < 0.14 || l > 0.9) continue;
 
-    const weight = 0.25 + s * (1 - Math.abs(l - 0.5));
-    const key = Math.round(h / 30) % 12;
-    const bucket = buckets.get(key) || { weight: 0, h: 0, s: 0, l: 0 };
+    // вес: насыщенный и средний по светлоте цвет заметнее блёклого и тёмного
+    const weight = s * (1 - Math.abs(l - 0.55) * 1.15);
+    if (weight <= 0.02) continue;
+
+    const key = Math.floor(h / 30) % 12;
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = { weight: 0, cos: 0, sin: 0, s: 0, l: 0 };
+      buckets.set(key, bucket);
+    }
+
+    const rad = (h * Math.PI) / 180;
     bucket.weight += weight;
-    bucket.h += h * weight;
+    bucket.cos += Math.cos(rad) * weight;
+    bucket.sin += Math.sin(rad) * weight;
     bucket.s += s * weight;
     bucket.l += l * weight;
-    buckets.set(key, bucket);
   }
 
-  const ranked = [...buckets.values()]
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, 4)
-    .map((bucket) => ({
-      h: bucket.h / bucket.weight,
-      s: clamp(bucket.s / bucket.weight, 0.5, 0.95),
-      l: clamp(0.36 + (bucket.l / bucket.weight) * 0.42, 0.36, 0.62),
-    }));
+  const candidates = [...buckets.values()].map((bucket) => ({
+    weight: bucket.weight,
+    h: (Math.atan2(bucket.sin, bucket.cos) * 180) / Math.PI,
+    s: bucket.s / bucket.weight,
+    l: bucket.l / bucket.weight,
+  }));
 
-  return ranked.length ? ranked : null;
+  if (!candidates.length) return null;
+
+  // первый тон — самый «весомый», остальные — самые далёкие по кругу от уже взятых
+  const maxWeight = Math.max(...candidates.map((tone) => tone.weight));
+  const pool = candidates.sort((a, b) => b.weight - a.weight);
+  const chosen = [pool.shift()];
+
+  while (chosen.length < 4 && pool.length) {
+    let bestIndex = -1;
+    let bestScore = 0;
+
+    pool.forEach((candidate, index) => {
+      const nearest = Math.min(
+        ...chosen.map((tone) => hueDistance(tone.h, candidate.h)),
+      );
+      const score = (candidate.weight / maxWeight) * clamp(nearest / 55, 0, 1);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    });
+
+    if (bestIndex < 0) break;
+    chosen.push(pool.splice(bestIndex, 1)[0]);
+  }
+
+  return chosen;
 }
 
 function hueDistance(a, b) {
@@ -495,29 +543,46 @@ function hueDistance(a, b) {
   return diff > 180 ? 360 - diff : diff;
 }
 
-/** Разводим близкие оттенки и добиваем палитру до четырёх цветов. */
-function padPalette(palette) {
-  const tones = palette.slice(0, 4).map((tone) => ({ ...tone }));
+/** Приводит цвет к виду, в котором он читается поверх тёмного фона. */
+function normalizeTone(tone) {
+  return {
+    h: ((tone.h % 360) + 360) % 360,
+    s: clamp(tone.s, 0.5, 0.95),
+    l: clamp(tone.l, 0.5, 0.66),
+  };
+}
 
-  for (let i = 1; i < tones.length; i += 1) {
-    let guard = 0;
-    while (
-      guard < 6 &&
-      tones.slice(0, i).some((other) => hueDistance(other.h, tones[i].h) < 40)
-    ) {
-      tones[i].h += 46;
-      guard += 1;
-    }
+/**
+ * Ровно четыре тона без выдуманных оттенков: близкие цвета отбрасываем,
+ * недостающие добираем вариантами по светлоте и насыщенности уже найденных.
+ * Раньше здесь крутили hue на +46/−52°, и палитра переставала быть палитрой
+ * обложки — отсюда «цвета не оттуда».
+ */
+function buildTones(palette) {
+  const seeds = [];
+
+  for (const tone of palette) {
+    if (seeds.length >= 4) break;
+    if (seeds.some((other) => hueDistance(other.h, tone.h) < 18)) continue;
+    seeds.push(normalizeTone(tone));
   }
 
-  const shifts = [46, -52, 104, -108];
-  while (tones.length < 4) {
-    const base = tones[0];
-    const step = tones.length;
+  if (!seeds.length) seeds.push(normalizeTone({ h: 100, s: 0.5, l: 0.55 }));
+
+  const tones = seeds.slice();
+  const fillers = [
+    { ds: 0.08, dl: 0.1 },
+    { ds: -0.12, dl: -0.08 },
+    { ds: 0.16, dl: 0.02 },
+  ];
+
+  for (let i = 0; tones.length < 4; i += 1) {
+    const seed = seeds[i % seeds.length];
+    const filler = fillers[Math.floor(i / seeds.length)] || fillers[fillers.length - 1];
     tones.push({
-      h: base.h + shifts[step - 1],
-      s: clamp(base.s * 0.85, 0.3, 0.8),
-      l: clamp(base.l + 0.04 * step, 0.34, 0.62),
+      h: seed.h,
+      s: clamp(seed.s + filler.ds, 0.4, 0.95),
+      l: clamp(seed.l + filler.dl, 0.46, 0.7),
     });
   }
 
@@ -525,7 +590,7 @@ function padPalette(palette) {
 }
 
 function paintPalette(palette) {
-  const tones = padPalette(palette && palette.length ? [...palette] : accentPalette());
+  const tones = palette && palette.length ? palette : buildTones(accentPalette());
   const node = $("#fullscreen-player");
 
   node.style.setProperty("--glow", hslColor(tones[0], 0.32));
@@ -555,16 +620,17 @@ async function refreshVisualPalette(track) {
   paintPalette(cached || null);
   if (cached) return;
 
-  let palette = null;
+  let tones = null;
   try {
-    palette = await extractPalette(url);
+    const palette = await extractPalette(url);
+    if (palette) tones = buildTones(palette);
   } catch {
-    palette = null;
+    tones = null;
   }
   if (token !== vis.paletteToken) return;
 
-  const tones = padPalette(palette ? [...palette] : accentPalette());
-  rememberPalette(url, tones);
+  // акцентную палитру не кэшируем: она зависит от темы, а не от обложки
+  if (tones) rememberPalette(url, tones);
   paintPalette(tones);
 }
 
@@ -743,11 +809,13 @@ function ambientTick(now) {
     if (time - blob.colorAt < 0.1) return;
     blob.colorAt = time;
 
-    const shift = Math.sin(time * (0.17 + index * 0.03) + blob.phase) * 14;
+    // оттенок гуляет совсем чуть-чуть: при ±14° пятна заметно уезжали
+    // от цвета обложки, и палитра «плыла» сама по себе
+    const shift = Math.sin(time * (0.14 + index * 0.02) + blob.phase) * 6;
     blob.node.style.color = hslColor({
       h: blob.tone.h + shift,
-      s: clamp(blob.tone.s * 1.3, 0.45, 0.95),
-      l: clamp(blob.tone.l + 0.1, 0.46, 0.72),
+      s: clamp(blob.tone.s * 1.15, 0.45, 0.95),
+      l: clamp(blob.tone.l + 0.06, 0.46, 0.72),
     });
   });
 }
@@ -839,11 +907,71 @@ function setFullscreen(open) {
     ensureAudioGraph();
     startVisuals();
     $("#fs-close").focus({ preventScroll: true });
+    scheduleZen();
   } else {
+    exitZen({ restart: false });
+    clearZenTimer();
     stopVisuals();
     node.setAttribute("inert", "");
     $("#expand").focus({ preventScroll: true });
   }
+}
+
+function clearZenTimer() {
+  if (state.zenTimer) {
+    clearTimeout(state.zenTimer);
+    state.zenTimer = null;
+  }
+}
+
+/** Перезапускает отсчёт до «Дзена». Тикает только в полноэкранном плеере и пока играет музыка. */
+function scheduleZen() {
+  clearZenTimer();
+  if (!state.fullscreen || !state.playing || document.hidden) return;
+  state.zenTimer = setTimeout(enterZen, ZEN_IDLE_MS);
+}
+
+function enterZen() {
+  state.zenTimer = null;
+  if (state.zen || !state.fullscreen || !state.playing || document.hidden) return;
+  // не прячем интерфейс, пока открыто контекстное меню трека
+  if (trackMenu) {
+    scheduleZen();
+    return;
+  }
+
+  state.zen = true;
+  $("#fullscreen-player").classList.add("is-zen");
+  updateZenShift();
+  startVisuals();
+}
+
+/**
+ * «Дзен» оставляет только обложку, поэтому сдвигаем центр тела плеера так,
+ * чтобы обложка оказалась по центру, а не там, где её держали скрытые блоки.
+ */
+function updateZenShift() {
+  if (!state.zen) return;
+  const player = $("#fullscreen-player");
+  const body = player.querySelector(".fs-body");
+  const cover = player.querySelector(".fs-cover");
+  if (!body || !cover) return;
+
+  const shift = body.clientHeight / 2 - (cover.offsetTop + cover.offsetHeight / 2);
+  player.style.setProperty("--zen-shift", `${shift.toFixed(1)}px`);
+}
+
+function exitZen({ restart = true } = {}) {
+  if (!state.zen) return;
+  state.zen = false;
+  $("#fullscreen-player").classList.remove("is-zen");
+  if (restart) scheduleZen();
+}
+
+/** Любое движение мышью/клавишей возвращает интерфейс и сбрасывает таймер. */
+function noteActivity() {
+  exitZen({ restart: false });
+  scheduleZen();
 }
 
 function playFromList(trackId) {
@@ -931,6 +1059,13 @@ function setPlaying(playing) {
   $("#track-list").classList.toggle("is-playing", playing);
 
   if (state.fullscreen && playing) startVisuals();
+
+  if (playing) {
+    scheduleZen();
+  } else {
+    clearZenTimer();
+    exitZen({ restart: false });
+  }
 }
 
 function updateRepeatUI() {
@@ -1565,6 +1700,10 @@ function bindEvents() {
       closeTrackMenu();
       return;
     }
+    if (state.zen) {
+      exitZen();
+      return;
+    }
     if (state.fullscreen) setFullscreen(false);
   });
 
@@ -1656,6 +1795,23 @@ function bindEvents() {
 
   $(".now").addEventListener("click", () => setFullscreen(true));
   $("#fs-close").addEventListener("click", () => setFullscreen(false));
+
+  // «Дзен»: активность пользователя будит интерфейс и откладывает таймер
+  for (const type of ["pointermove", "pointerdown", "wheel", "keydown"]) {
+    document.addEventListener(type, noteActivity, { passive: true });
+  }
+
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) clearZenTimer();
+    else scheduleZen();
+  });
+
+  // размеры окна и высота скрытых блоков влияют на центр обложки в «Дзене»
+  window.addEventListener("resize", updateZenShift);
+  if ("ResizeObserver" in window) {
+    const details = $("#fullscreen-player").querySelector(".fs-details");
+    if (details) new ResizeObserver(updateZenShift).observe(details);
+  }
 
   $("#volume").addEventListener("input", () => {
     setVolume(Number($("#volume").value) / 100);

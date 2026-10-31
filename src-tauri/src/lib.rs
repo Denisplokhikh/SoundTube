@@ -199,9 +199,35 @@ fn start_server(app: &AppHandle, port: u16) -> Result<(), String> {
                 Ok(())
             }
             None => Err(format!(
-                "{sidecar_error}\n\nСоберите сервер командой:\nscripts\\build-sidecar.ps1"
+                "{sidecar_error}\n\nСоберите сервер командой:\n{}",
+                if cfg!(windows) {
+                    "scripts\\build-sidecar.ps1"
+                } else {
+                    "scripts/build-sidecar.sh"
+                }
             )),
         },
+    }
+}
+
+#[cfg(unix)]
+fn child_pids(pid: u32) -> Vec<u32> {
+    let path = format!("/proc/{pid}/task/{pid}/children");
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return Vec::new();
+    };
+    text.split_whitespace()
+        .filter_map(|value| value.parse().ok())
+        .collect()
+}
+
+/// Collects descendants children-first, so the bootloader cannot respawn or
+/// outlive the actual server process.
+#[cfg(unix)]
+fn collect_descendants(pid: u32, out: &mut Vec<u32>) {
+    for child in child_pids(pid) {
+        collect_descendants(child, out);
+        out.push(child);
     }
 }
 
@@ -220,9 +246,18 @@ fn kill_tree(pid: u32) {
             .stderr(Stdio::null())
             .status();
     }
-    #[cfg(not(windows))]
+    #[cfg(unix)]
     {
-        let _ = pid;
+        let mut targets = Vec::new();
+        collect_descendants(pid, &mut targets);
+        targets.push(pid);
+
+        for target in targets {
+            // SAFETY: signal 0/9 to an existing pid we own; ESRCH is ignored.
+            unsafe {
+                libc::kill(target as libc::pid_t, libc::SIGKILL);
+            }
+        }
     }
 }
 
@@ -358,10 +393,21 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .manage(ServerState::default())
         .on_window_event(|window, event| {
-            // Крестик скрывает окно в трей, а не закрывает приложение.
+            // Крестик скрывает окно в трей на Windows/macOS. На Linux иконка
+            // в трее часто недоступна (GNOME без расширения), поэтому закрытие
+            // окна завершает приложение целиком.
             if let tauri::WindowEvent::CloseRequested { api, .. } = event {
-                api.prevent_close();
-                let _ = window.hide();
+                #[cfg(target_os = "linux")]
+                {
+                    let _ = api;
+                    window.app_handle().exit(0);
+                }
+
+                #[cfg(not(target_os = "linux"))]
+                {
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
             }
         })
         .setup(|app| {
