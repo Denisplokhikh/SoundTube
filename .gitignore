@@ -7,9 +7,9 @@ venv/
 .pytest_cache/
 .ruff_cache/
 
-# Runtime data
-data/
-library/
+# Runtime data (только в корне проекта, иначе задевает android/.../data/)
+/data/
+/library/
 cookies/
 *.db
 *.db-journal
