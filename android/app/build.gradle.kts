@@ -26,20 +26,31 @@ android {
         }
     }
 
+    // Ключ публичных релизов живёт в GitHub secrets: в CI заданы путь к .jks и пароли
+    // через переменные окружения. Локально их нет — тогда release подписывается отладочным
+    // ключом, чтобы APK ставился рядом с debug-сборкой без переустановки «с нуля».
+    val releaseKeystore = System.getenv("ANDROID_KEYSTORE_PATH")
+
     signingConfigs {
-        // Release подписываем отладочным ключом, чтобы APK ставился рядом с debug-сборкой
-        // без переустановки «с нуля»: подпись та же, данные приложения сохраняются.
         create("local") {
             storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
             storePassword = "android"
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        if (releaseKeystore != null) {
+            create("upload") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword = System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("local")
+            signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("local")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(

@@ -7,3 +7,8 @@ local.properties
 captures/
 .externalNativeBuild/
 .cxx/
+
+# Ключ подписи релиза: он лежит только в GitHub secrets, не в git.
+*.jks
+*.keystore
+keystore/

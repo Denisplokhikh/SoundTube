@@ -144,6 +144,26 @@ cd S:\android
 gradle :app:testDebugUnitTest
 ```
 
+## Релиз APK
+
+Релиз собирает `.github/workflows/release.yml` по пушу тега `v*`: джоба `android` подписывает
+APK и прикладывает `SoundTube-<тег>-android.apk` к релизу, который создаёт десктопная джоба.
+
+Ключ подписи в git не попадает (`.gitignore`), он лежит в **секретах окружения** `android-env`
+(Settings → Environments → android-env → Environment secrets), а джоба `android` объявляет
+`environment: android-env`, без этого секреты не видны:
+
+| Secret | Значение |
+| --- | --- |
+| `ANDROID_KEYSTORE_BASE64` | `base64 -w0 release.jks` (на Windows: `[Convert]::ToBase64String([IO.File]::ReadAllBytes(...))`) |
+| `ANDROID_KEYSTORE_PASSWORD` | пароль хранилища |
+| `ANDROID_KEY_ALIAS` | алиас ключа |
+| `ANDROID_KEY_PASSWORD` | пароль ключа |
+
+Без этих переменных окружения release локально подписывается отладочным ключом
+(`~/.android/debug.keystore`), так что `./gradlew :app:assembleRelease` работает без настройки.
+Сменить ключ задним числом нельзя: APK с другой подписью не встанет обновлением поверх старого.
+
 ## Детерминированные ID (контракт синхронизации)
 
 | Источник | ID |
