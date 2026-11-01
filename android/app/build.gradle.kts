@@ -26,9 +26,22 @@ android {
         }
     }
 
+    signingConfigs {
+        // Release подписываем отладочным ключом, чтобы APK ставился рядом с debug-сборкой
+        // без переустановки «с нуля»: подпись та же, данные приложения сохраняются.
+        create("local") {
+            storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
-            isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("local")
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",

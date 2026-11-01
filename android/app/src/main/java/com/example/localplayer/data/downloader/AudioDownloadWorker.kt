@@ -71,8 +71,11 @@ class AudioDownloadWorker @AssistedInject constructor(
             return Result.success()
         }
         val track = trackDao.findAnyById(trackId)
-        if (track == null) {
-            AppLog.w("Трека нет в базе — пропускаю: $trackId")
+        if (track == null || track.isDeleted) {
+            // Удалённый трек мог остаться в очереди: пользователь очистил её, а задача
+            // успела стартовать. Качать его нельзя — файл стал бы сиротой в библиотеке.
+            AppLog.i("Трека нет в базе или он удалён — пропускаю: $trackId")
+            fileManager.discardWorkDir(trackId)
             return Result.success()
         }
         AppLog.i("Загрузка: ${track.title} (попытка ${runAttemptCount + 1})")

@@ -25,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.ErrorOutline
 import androidx.compose.material.icons.rounded.Info
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -90,6 +92,7 @@ fun DownloadsScreen(
     val busy by viewModel.busy.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
     val messageIsError by viewModel.messageIsError.collectAsStateWithLifecycle()
+    val confirmClearQueue by viewModel.confirmClearQueue.collectAsStateWithLifecycle()
 
     var url by rememberSaveable { mutableStateOf("") }
     val submit = {
@@ -173,6 +176,15 @@ fun DownloadsScreen(
                 SectionHeader(
                     title = "Очередь",
                     count = active.size,
+                    action = {
+                        SoundTubeButton(
+                            text = "Очистить",
+                            primary = false,
+                            compact = true,
+                            enabled = active.isNotEmpty() && !busy,
+                            onClick = viewModel::askClearQueue,
+                        )
+                    },
                 )
             }
 
@@ -221,6 +233,13 @@ fun DownloadsScreen(
                     }
                 }
             }
+        }
+
+        if (confirmClearQueue) {
+            ConfirmClearQueueDialog(
+                onDismiss = viewModel::dismissClearQueue,
+                onConfirm = viewModel::clearQueue,
+            )
         }
     }
 }
@@ -342,6 +361,61 @@ private fun NotificationPermissionCard(onRequest: () -> Unit) {
 }
 
 @Composable
+private fun ConfirmClearQueueDialog(
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    val colors = SoundTubeTheme.colors
+
+    Dialog(onDismissRequest = onDismiss) {
+        SoundTubeCard(
+            modifier = Modifier.fillMaxWidth(),
+            contentPadding = PaddingValues(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.DeleteSweep,
+                    contentDescription = null,
+                    tint = colors.error,
+                    modifier = Modifier.size(20.dp),
+                )
+                Text(
+                    text = "Очистить очередь?",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = colors.textPrimary,
+                )
+            }
+
+            Text(
+                text = "Текущие загрузки будут остановлены, а незавершённые задачи — " +
+                    "убраны из очереди. Скачанные файлы и история останутся на месте.",
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.textSecondary,
+            )
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SoundTubeButton(
+                    text = "Очистить",
+                    danger = true,
+                    modifier = Modifier.weight(1f),
+                    onClick = onConfirm,
+                )
+                SoundTubeButton(
+                    text = "Отмена",
+                    primary = false,
+                    modifier = Modifier.weight(1f),
+                    onClick = onDismiss,
+                )
+            }
+        }
+    }
+}
+
+@Composable
 private fun MessageCard(
     text: String,
     isError: Boolean,
@@ -381,7 +455,11 @@ private fun MessageCard(
 }
 
 @Composable
-private fun SectionHeader(title: String, count: Int) {
+private fun SectionHeader(
+    title: String,
+    count: Int,
+    action: (@Composable () -> Unit)? = null,
+) {
     val colors = SoundTubeTheme.colors
 
     Row(
@@ -389,6 +467,7 @@ private fun SectionHeader(title: String, count: Int) {
             .fillMaxWidth()
             .padding(top = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             text = title,
@@ -401,6 +480,7 @@ private fun SectionHeader(title: String, count: Int) {
             style = MaterialTheme.typography.labelMedium,
             color = colors.textSecondary,
         )
+        action?.invoke()
     }
 }
 

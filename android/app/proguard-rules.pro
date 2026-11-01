@@ -2,6 +2,10 @@
 -keep class com.yausername.** { *; }
 -keep class org.apache.commons.** { *; }
 
+# commons-compress обращается к XZ-кодекам, которых нет в поставке youtubedl-android
+# (нужны только для .xz/.7z, в приложении не используются).
+-dontwarn org.tukaani.xz.**
+
 # Room / Hilt
 -keep class * extends androidx.room.RoomDatabase
 -dontwarn androidx.room.paging.**

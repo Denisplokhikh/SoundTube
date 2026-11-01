@@ -25,6 +25,9 @@ class PlayerViewModel @Inject constructor(
 
     val state: StateFlow<PlayerState> = controller.state
 
+    /** Позиция тикает отдельно от [state], чтобы не перерисовывать списки дважды в секунду. */
+    val positionMs: StateFlow<Long> = controller.positionMs
+
     /** Играет всю библиотеку с начала. */
     fun playAll() = viewModelScope.launch {
         val tracks = trackDao.observeDownloaded().first().map { it.toDomain() }

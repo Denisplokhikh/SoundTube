@@ -14,9 +14,12 @@ data class QueueItem(
 /**
  * Снимок состояния плеера для Compose.
  *
- * Позиция обновляется по таймеру, остальные поля — по событиям [androidx.media3.common.Player],
- * поэтому UI не зависит от того, жив ли сервис прямо сейчас: до подключения контроллера
- * состояние просто пустое.
+ * Поля меняются только по событиям [androidx.media3.common.Player], поэтому UI не зависит
+ * от того, жив ли сервис прямо сейчас: до подключения контроллера состояние просто пустое.
+ *
+ * Позиции здесь нет намеренно: она тикает по таймеру, и если держать её в этом снимке,
+ * каждые полсекунды перерисовывались бы все экраны со списками треков. Позицию отдаёт
+ * отдельный поток `PlayerController.positionMs`.
  */
 data class PlayerState(
     val isConnected: Boolean = false,
@@ -26,7 +29,6 @@ data class PlayerState(
     val title: String = "",
     val artist: String = "",
     val artworkUri: String? = null,
-    val positionMs: Long = 0L,
     val durationMs: Long = 0L,
     val queue: List<QueueItem> = emptyList(),
     val currentIndex: Int = -1,
@@ -37,13 +39,5 @@ data class PlayerState(
         get() = queue.isNotEmpty() &&
             (shuffle || repeatMode == RepeatMode.ALL || currentIndex < queue.lastIndex)
 
-    val hasPrevious: Boolean
-        get() = queue.isNotEmpty() &&
-            (repeatMode == RepeatMode.ALL || currentIndex > 0 || positionMs > 3_000L)
-
     val hasTrack: Boolean get() = currentTrackId != null
-
-    /** 0..1 для прогресс-бара; 0, пока длительность неизвестна. */
-    val progress: Float
-        get() = if (durationMs > 0L) (positionMs.toFloat() / durationMs).coerceIn(0f, 1f) else 0f
 }

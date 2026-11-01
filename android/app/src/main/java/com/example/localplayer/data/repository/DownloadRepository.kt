@@ -338,6 +338,34 @@ class DownloadRepository @Inject constructor(
     }
 
     /**
+     * Полностью очищает очередь загрузок.
+     *
+     * Снимает все задачи WorkManager (включая цепочки плейлистов и бэклог), гасит уже
+     * запущенные yt-dlp и убирает незавершённые треки из базы надгробиями: иначе
+     * [observeTasks] вернул бы их в список как «в очереди» — он читает базу, а не только
+     * WorkManager. Скачанные файлы, история «Готово» и библиотека не трогаются.
+     *
+     * Это осознанный отказ от загрузок: повторно трек появится, если вставить ссылку заново.
+     *
+     * @return сколько треков убрано из очереди.
+     */
+    suspend fun clearQueue(): Int = withContext(Dispatchers.IO) {
+        val pending = trackDao.findPendingDownloads()
+        if (pending.isEmpty()) return@withContext 0
+
+        workManager.cancelAllWorkByTag(AudioDownloadWorker.TAG_DOWNLOAD)
+        // Рабочий не успевает погасить процесс, если yt-dlp уже внутри блокирующего
+        // execute, поэтому останавливаем его адресно и без отметки «отменено».
+        pending.forEach { client.stopProcess(it.id) }
+
+        val now = System.currentTimeMillis()
+        pending.forEach { trackDao.markDeleted(it.id, now) }
+
+        AppLog.i("Очередь очищена: ${pending.size}")
+        pending.size
+    }
+
+    /**
      * Докачка всего, что есть в базе, но ещё не лежит на диске: после импорта JSON
      * или после пачки ошибок (например, выключили VPN).
      *

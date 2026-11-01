@@ -248,6 +248,17 @@ class YoutubeDLClient @Inject constructor(
         runCatching { YoutubeDL.getInstance().destroyProcessById(processId) }
     }
 
+    /**
+     * Гасит нативный процесс, если он сейчас идёт, но не оставляет отметку «отменено».
+     *
+     * Нужно очистке очереди: задачи WorkManager уже сняты, поэтому повторного запуска
+     * не будет, а отметка навсегда «отравила» бы повторную вставку той же ссылки.
+     */
+    fun stopProcess(trackId: String) {
+        val processId = runningProcesses[trackId] ?: return
+        runCatching { YoutubeDL.getInstance().destroyProcessById(processId) }
+    }
+
     /** Забирает отметку «отменено пользователем»: одна отмена — одна сработка. */
     fun consumeCancellation(trackId: String): Boolean = cancelledByUser.remove(trackId)
 

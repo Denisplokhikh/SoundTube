@@ -34,6 +34,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -79,7 +80,7 @@ fun TracksScreen(
     val message by tracksViewModel.message.collectAsStateWithLifecycle()
     var searchVisible by rememberSaveable { mutableStateOf(false) }
 
-    val trackIds = ui.tracks.map(Track::id)
+    val trackIds = remember(ui.tracks) { ui.tracks.map(Track::id) }
 
     Column(
         modifier = modifier

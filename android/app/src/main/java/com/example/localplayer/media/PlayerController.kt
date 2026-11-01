@@ -46,6 +46,13 @@ class PlayerController @Inject constructor(
     private val _state = MutableStateFlow(PlayerState())
     val state: StateFlow<PlayerState> = _state.asStateFlow()
 
+    /**
+     * Позиция тикает отдельно от [state]: иначе каждые полсекунды менялся бы весь снимок,
+     * и Compose перерисовывал бы списки треков, которые к позиции отношения не имеют.
+     */
+    private val _positionMs = MutableStateFlow(0L)
+    val positionMs: StateFlow<Long> = _positionMs.asStateFlow()
+
     private var controller: MediaController? = null
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var ticker: Job? = null
@@ -192,7 +199,9 @@ class PlayerController @Inject constructor(
         if (ticker?.isActive == true) return
         ticker = scope.launch {
             while (isActive) {
-                controller?.let { publish(it, includeQueue = false) }
+                controller?.let { player ->
+                    _positionMs.value = player.currentPosition.coerceAtLeast(0L)
+                }
                 delay(TICK_MS)
             }
         }
@@ -200,6 +209,8 @@ class PlayerController @Inject constructor(
 
     /** Полный снимок (с очередью) — по событиям; позицию обновляет таймер. */
     private fun publish(player: Player, includeQueue: Boolean) {
+        val position = player.currentPosition.coerceAtLeast(0L)
+        _positionMs.value = position
         _state.update { previous ->
             val queue = if (includeQueue) player.queueSnapshot() else previous.queue
             val current = player.currentMediaItem
@@ -213,7 +224,6 @@ class PlayerController @Inject constructor(
                 artist = current?.mediaMetadata?.artist?.toString()
                     ?: current?.mediaMetadata?.albumArtist?.toString().orEmpty(),
                 artworkUri = current?.mediaMetadata?.artworkUri?.toString(),
-                positionMs = player.currentPosition.coerceAtLeast(0L),
                 durationMs = player.duration.takeIf { it > 0L } ?: previous.durationMs,
                 queue = queue,
                 currentIndex = player.currentMediaItemIndex,

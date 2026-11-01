@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.localplayer.core.AppLog
 import com.example.localplayer.data.repository.DownloadRepository
 import com.example.localplayer.data.repository.SubmitResult
+import com.example.localplayer.domain.model.DownloadState
 import com.example.localplayer.domain.model.DownloadTask
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,6 +38,10 @@ class DownloadsViewModel @Inject constructor(
     /** Сообщение — ошибка, а не подтверждение: рисуем красным и предлагаем повторить. */
     private val _messageIsError = MutableStateFlow(false)
     val messageIsError: StateFlow<Boolean> = _messageIsError.asStateFlow()
+
+    /** Открыт диалог подтверждения очистки очереди. */
+    private val _confirmClearQueue = MutableStateFlow(false)
+    val confirmClearQueue: StateFlow<Boolean> = _confirmClearQueue.asStateFlow()
 
     fun submit(url: String) {
         if (url.isBlank() || _busy.value) return
@@ -98,6 +103,27 @@ class DownloadsViewModel @Inject constructor(
     }
 
     fun cancel(trackId: String) = repository.cancel(trackId)
+
+    /** Очистка необратима для очереди, поэтому сначала спрашиваем подтверждение. */
+    fun askClearQueue() {
+        if (tasks.value.none { it.state !is DownloadState.Completed }) return
+        _confirmClearQueue.value = true
+    }
+
+    fun dismissClearQueue() {
+        _confirmClearQueue.value = false
+    }
+
+    fun clearQueue() = viewModelScope.launch {
+        _confirmClearQueue.value = false
+        val removed = repository.clearQueue()
+        _message.value = if (removed == 0) {
+            "Очередь уже пуста"
+        } else {
+            "Очередь очищена: $removed"
+        }
+        _messageIsError.value = false
+    }
 
     init {
         // Старые сборки сохраняли в очередь служебные названия («tracks — 1485911104»).

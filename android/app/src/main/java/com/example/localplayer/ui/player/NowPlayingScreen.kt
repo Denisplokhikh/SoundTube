@@ -2,6 +2,10 @@ package com.example.localplayer.ui.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.DraggableState
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -39,6 +43,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,8 +51,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -63,34 +73,104 @@ import com.example.localplayer.ui.theme.SoundTubeTheme
 /**
  * Полноэкранный плеер: обложка, перемотка, управление и очередь.
  *
- * Нижняя навигация на этом экране скрыта — мини-плеер тут не нужен.
+ * Экран живёт поверх приложения листом ([PlayerSheetState]): выезжает из
+ * мини-плеера, а свайпом вниз убирается обратно. Тянуть можно за шапку или за
+ * список, когда он уже прокручен в самое начало, — обложка первая в списке,
+ * поэтому на открытом плеере она и служит ручкой. Обычная прокрутка очереди
+ * при этом не ломается: вверх список листается как всегда.
  */
 @Composable
 fun NowPlayingScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onDrag: (Float) -> Unit = {},
+    onDragStop: (Float) -> Unit = {},
+    sheetProgress: () -> Float = { 1f },
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
     val colors = SoundTubeTheme.colors
     val state by playerViewModel.state.collectAsStateWithLifecycle()
+    // Читается только внутри SeekBlock, поэтому тикающая позиция не перерисовывает экран.
+    val positionMs = playerViewModel.positionMs.collectAsStateWithLifecycle()
+
+    val onDragState = rememberUpdatedState(onDrag)
+    val onDragStopState = rememberUpdatedState(onDragStop)
+    val sheetProgressState = rememberUpdatedState(sheetProgress)
+    val dragState = remember { DraggableState { delta -> onDragState.value(delta) } }
+
+    // Свайп вниз по обложке (и по любому месту списка у его начала) утягивает лист.
+    // Реагируем на остаток скролла после списка: пока очередь листается, остатка
+    // нет, а как только она упёрлась в начало — весь жест уходит листу.
+    val swipeToCollapse = remember {
+        object : NestedScrollConnection {
+            /** Тянули ли в этом жесте сам лист — по отпусканию решаем, куда доехать. */
+            private var dragged = false
+
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
+                // Лист уже приспущен: сначала поднимаем его обратно, а не листаем.
+                if (available.y >= 0f || sheetProgressState.value() >= 1f) return Offset.Zero
+                dragged = true
+                onDragState.value(available.y)
+                return Offset(0f, available.y)
+            }
+
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource,
+            ): Offset {
+                if (source != NestedScrollSource.UserInput) return Offset.Zero
+                // available.y > 0 — список уже в начале, палец тянет дальше вниз.
+                if (available.y <= 0f) return Offset.Zero
+                dragged = true
+                onDragState.value(available.y)
+                return Offset(0f, available.y)
+            }
+
+            override suspend fun onPostFling(
+                consumed: Velocity,
+                available: Velocity,
+            ): Velocity {
+                if (dragged) {
+                    dragged = false
+                    onDragStopState.value(available.y)
+                }
+                return Velocity.Zero
+            }
+        }
+    }
 
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(colors.background)
+            // Лист лежит поверх приложения, но фон сам по себе тапы не ловит:
+            // без этого они проваливались бы на список под ним.
+            .pointerInput(Unit) { detectTapGestures(onTap = {}) }
             .navigationBarsPadding(),
     ) {
-        SoundTubeTopBar(
-            title = "Сейчас играет",
-            navigationIcon = {
-                SoundTubeIconButton(
-                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Назад",
-                    bordered = false,
-                    onClick = onBack,
-                )
-            },
-        )
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .draggable(
+                    state = dragState,
+                    orientation = Orientation.Vertical,
+                    onDragStopped = { velocity -> onDragStopState.value(velocity) },
+                ),
+        ) {
+            SoundTubeTopBar(
+                title = "Сейчас играет",
+                navigationIcon = {
+                    SoundTubeIconButton(
+                        icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "Назад",
+                        bordered = false,
+                        onClick = onBack,
+                    )
+                },
+            )
+        }
 
         if (!state.hasTrack) {
             EmptyState(
@@ -101,19 +181,27 @@ fun NowPlayingScreen(
             )
         } else {
             LazyColumn(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .nestedScroll(swipeToCollapse),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 item {
-                    TrackArtwork(
-                        artwork = state.artworkUri,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .aspectRatio(1f),
-                        cornerRadius = 8.dp,
-                        iconSize = 56.dp,
-                    )
+                    // 84% ширины контента, чтобы обложка не упиралась в края экрана.
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        TrackArtwork(
+                            artwork = state.artworkUri,
+                            modifier = Modifier
+                                .fillMaxWidth(0.84f)
+                                .aspectRatio(1f),
+                            cornerRadius = 8.dp,
+                            iconSize = 48.dp,
+                        )
+                    }
                 }
 
                 item {
@@ -137,9 +225,8 @@ fun NowPlayingScreen(
 
                 item {
                     SeekBlock(
-                        positionMs = state.positionMs,
+                        positionMs = { positionMs.value },
                         durationMs = state.durationMs,
-                        progress = state.progress,
                         trackId = state.currentTrackId,
                         onSeek = playerViewModel::seekTo,
                     )
@@ -200,17 +287,22 @@ fun NowPlayingScreen(
 
 @Composable
 private fun SeekBlock(
-    positionMs: Long,
+    positionMs: () -> Long,
     durationMs: Long,
-    progress: Float,
     trackId: String?,
     onSeek: (Long) -> Unit,
 ) {
     val colors = SoundTubeTheme.colors
     // Пока палец на слайдере, показываем его позицию, а не тикающую из плеера.
     var dragged by remember(trackId) { mutableStateOf<Float?>(null) }
+    val position = positionMs()
+    val progress = if (durationMs > 0L) {
+        (position / durationMs.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
     val value = dragged ?: progress
-    val shownPosition = dragged?.let { (it * durationMs).toLong() } ?: positionMs
+    val shownPosition = dragged?.let { (it * durationMs).toLong() } ?: position
 
     Column {
         Slider(

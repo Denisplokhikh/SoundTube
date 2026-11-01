@@ -10,8 +10,6 @@ object Routes {
     const val DOWNLOADS = "downloads"
     const val SETTINGS = "settings"
 
-    const val NOW_PLAYING = "now_playing"
-
     const val ARG_PLAYLIST_ID = "playlistId"
     const val PLAYLIST_DETAIL = "playlist/{$ARG_PLAYLIST_ID}"
 
