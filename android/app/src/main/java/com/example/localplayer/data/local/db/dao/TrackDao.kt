@@ -61,6 +61,10 @@ interface TrackDao {
     @Query("SELECT COUNT(*) FROM tracks WHERE isDeleted = 0")
     fun observeCount(): Flow<Int>
 
+    /** Сколько файлов реально лежит в библиотеке. */
+    @Query("SELECT COUNT(*) FROM tracks WHERE isDeleted = 0 AND localFilePath IS NOT NULL")
+    fun observeDownloadedCount(): Flow<Int>
+
     @Upsert
     suspend fun upsert(track: TrackEntity)
 

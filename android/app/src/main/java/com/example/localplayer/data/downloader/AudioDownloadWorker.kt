@@ -60,10 +60,29 @@ class AudioDownloadWorker @AssistedInject constructor(
     private val progressScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     override suspend fun doWork(): Result {
-        val trackId = ownTrackId() ?: return Result.failure()
-        val url = inputData.getString(KEY_URL) ?: return Result.failure()
-        val track = trackDao.findAnyById(trackId) ?: return Result.failure()
+        // Цепочка плейлиста — это зависимые друг от друга задачи: `Result.failure()`
+        // снимает вместе с текущим треком все следующие. Поэтому «плохой» трек
+        // (отменённый, недоступный) всегда завершается успешно, а причина уходит
+        // наружу через outputData — очередь при этом качается дальше.
+        val trackId = ownTrackId()
+        val url = inputData.getString(KEY_URL)
+        if (trackId == null || url.isNullOrBlank()) {
+            AppLog.w("Задача без трека или ссылки — пропускаю")
+            return Result.success()
+        }
+        val track = trackDao.findAnyById(trackId)
+        if (track == null) {
+            AppLog.w("Трека нет в базе — пропускаю: $trackId")
+            return Result.success()
+        }
         AppLog.i("Загрузка: ${track.title} (попытка ${runAttemptCount + 1})")
+
+        // Отмену могли нажать до старта задачи: тогда качать нечего.
+        if (client.consumeCancellation(trackId)) {
+            AppLog.i("Отменено до старта: ${track.title}")
+            fileManager.discardWorkDir(track.id)
+            return Result.success(cancelledData())
+        }
 
         // Файл уже на месте: задача повторяется после рестарта или повторной ссылки.
         // Скачивать заново нельзя — иначе рядом появится «Название (2).m4a».
@@ -179,6 +198,8 @@ class AudioDownloadWorker @AssistedInject constructor(
             DownloadNotifications.done(applicationContext, title)
             progress.value = DownloadState.Completed(url, track.id)
             AppLog.i("Готово: $title → ${target.name} за $seconds с")
+            // Поздний тап «Отмены» не должен «отравить» следующий запуск этого трека.
+            client.clearCancellation(track.id)
             // Данные наружу не отдаём: WorkManager перекладывает output предыдущей
             // задачи в inputData следующей, и в цепочке плейлиста это ломает треки.
             Result.success()
@@ -186,19 +207,35 @@ class AudioDownloadWorker @AssistedInject constructor(
             // Задачу отменили вручную или системой — гасим нативный процесс yt-dlp.
             fileManager.discardWorkDir(track.id)
             client.cancel(track.id)
+            // Это не пользовательская «Отмена», а снятие задачи системой (например,
+            // «Докачать всё» сбрасывает очередь): отметка не должна помешать повтору.
+            client.clearCancellation(track.id)
             throw cancellation
         } catch (canceled: YoutubeDL.CanceledException) {
             fileManager.discardWorkDir(track.id)
-            Result.failure(workDataOf(KEY_ERROR to "Загрузка отменена"))
+            AppLog.i("Отменено пользователем: ${track.title}")
+            client.clearCancellation(track.id)
+            // Именно success, а не failure: иначе WorkManager снимет остаток плейлиста.
+            Result.success(cancelledData())
         } catch (error: Exception) {
             fileManager.discardWorkDir(track.id)
+
+            // «Отмена» часто прилетает не как CanceledException, а как обычная ошибка
+            // прерванного процесса — повтором такое лечить нельзя.
+            if (client.consumeCancellation(track.id)) {
+                AppLog.i("Отменено пользователем: ${track.title}")
+                return Result.success(cancelledData())
+            }
+
             val message = DownloadErrors.humanize(error.message)
             AppLog.w("Ошибка: ${track.title} — $message", error)
             if (shouldRetry(error) && runAttemptCount < MAX_ATTEMPTS) {
                 Result.retry()
             } else {
                 DownloadNotifications.failed(applicationContext, track.title, message)
-                Result.failure(workDataOf(KEY_ERROR to message))
+                // См. комментарий в начале doWork: ошибка одного трека не должна
+                // останавливать остальные — очередь идёт дальше.
+                Result.success(errorData(message))
             }
         } finally {
             reporter.cancel()
@@ -282,6 +319,15 @@ class AudioDownloadWorker @AssistedInject constructor(
         const val KEY_ETA = "eta"
         const val KEY_STATUS = "status"
         const val KEY_ERROR = "error"
+
+        /** Отметка «трек снят кнопкой Отмена» в outputData задачи. */
+        const val KEY_CANCELLED = "cancelled"
+
+        /** Задачу сняли вручную: очередь при этом продолжается. */
+        fun cancelledData(): Data = workDataOf(KEY_CANCELLED to true)
+
+        /** Трек не скачался; UI покажет причину, а цепочка пойдёт дальше. */
+        fun errorData(message: String): Data = workDataOf(KEY_ERROR to message)
 
         const val TAG_DOWNLOAD = "download"
         const val TRACK_TAG_PREFIX = "track:"

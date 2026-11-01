@@ -44,6 +44,16 @@ class YoutubeDLClient @Inject constructor(
     private val runningProcesses = ConcurrentHashMap<String, String>()
     private val processSeq = AtomicLong()
 
+    /**
+     * Треки, которые пользователь снял кнопкой «Отмена».
+     *
+     * Убитый нативный процесс далеко не всегда падает именно с `CanceledException`:
+     * если прервать запись файла, yt-dlp отдаёт обычную ошибку ввода-вывода. Отметка
+     * позволяет рабочему отличить отмену от настоящего сбоя — сбой лечится повтором,
+     * а отмену повторять нельзя.
+     */
+    private val cancelledByUser = ConcurrentHashMap.newKeySet<String>()
+
     private val _state = MutableStateFlow<EngineState>(EngineState.NotInitialized)
     val state: StateFlow<EngineState> = _state.asStateFlow()
 
@@ -233,8 +243,17 @@ class YoutubeDLClient @Inject constructor(
 
     /** Досрочно останавливает нативный процесс (кнопка «Отмена» в очереди). */
     fun cancel(trackId: String) {
+        cancelledByUser += trackId
         val processId = runningProcesses[trackId] ?: trackId
         runCatching { YoutubeDL.getInstance().destroyProcessById(processId) }
+    }
+
+    /** Забирает отметку «отменено пользователем»: одна отмена — одна сработка. */
+    fun consumeCancellation(trackId: String): Boolean = cancelledByUser.remove(trackId)
+
+    /** Снимает отметку, если загрузка всё-таки успела дойти до конца. */
+    fun clearCancellation(trackId: String) {
+        cancelledByUser -= trackId
     }
 
     /** Обновление бинарника yt-dlp (YouTube регулярно ломает старые версии). */

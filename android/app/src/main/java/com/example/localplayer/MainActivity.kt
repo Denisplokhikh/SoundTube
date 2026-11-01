@@ -6,14 +6,19 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import com.example.localplayer.ui.Routes
+import androidx.core.view.WindowCompat
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.localplayer.ui.SoundTubeApp
+import com.example.localplayer.ui.navigation.Routes
 import com.example.localplayer.ui.player.PlayerViewModel
 import com.example.localplayer.ui.screens.downloads.DownloadsViewModel
 import com.example.localplayer.ui.theme.LocalPlayerTheme
+import com.example.localplayer.ui.theme.ThemeViewModel
+import com.example.localplayer.ui.theme.isDark
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -21,6 +26,7 @@ class MainActivity : ComponentActivity() {
 
     private val downloadsViewModel: DownloadsViewModel by viewModels()
     private val playerViewModel: PlayerViewModel by viewModels()
+    private val themeViewModel: ThemeViewModel by viewModels()
 
     /** Вкладка, открытая по debug-intent: тапать по экрану через adb MIUI не даёт. */
     private var debugTab by mutableStateOf<String?>(null)
@@ -30,9 +36,22 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         handleDebugIntent(intent)
         setContent {
-            LocalPlayerTheme {
+            val themeMode by themeViewModel.mode.collectAsStateWithLifecycle()
+            val darkTheme = themeMode.isDark()
+
+            // Принудительная светлая/тёмная тема должна перекрашивать и иконки
+            // в статус-баре, иначе на светлом фоне они остаются белыми.
+            SideEffect {
+                WindowCompat.getInsetsController(window, window.decorView).apply {
+                    isAppearanceLightStatusBars = !darkTheme
+                    isAppearanceLightNavigationBars = !darkTheme
+                }
+            }
+
+            LocalPlayerTheme(themeMode = themeMode) {
                 SoundTubeApp(
-                    startDestination = if (debugTab == TAB_DOWNLOADS) Routes.DOWNLOADS else Routes.LIBRARY,
+                    startDestination = debugTab ?: Routes.TRACKS,
+                    playerViewModel = playerViewModel,
                 )
             }
         }
@@ -54,7 +73,9 @@ class MainActivity : ComponentActivity() {
     private fun handleDebugIntent(intent: Intent?) {
         if (!BuildConfig.DEBUG) return
 
-        intent?.getStringExtra(EXTRA_DEBUG_TAB)?.let { debugTab = it }
+        intent?.getStringExtra(EXTRA_DEBUG_TAB)
+            ?.takeIf { it in Routes.tabs }
+            ?.let { debugTab = it }
 
         if (intent?.getBooleanExtra(EXTRA_DEBUG_PLAY, false) == true) {
             playerViewModel.playAll()
@@ -73,8 +94,6 @@ class MainActivity : ComponentActivity() {
     }
 
     companion object {
-        private const val TAB_DOWNLOADS = "downloads"
-
         /**
          * Только для debug-сборки: `adb shell am start -n com.example.localplayer/.MainActivity
          * --es debug_url <ссылка>` сразу ставит трек в очередь.
@@ -100,8 +119,8 @@ class MainActivity : ComponentActivity() {
         const val EXTRA_DEBUG_CLEANUP = "debug_cleanup"
 
         /**
-         * Только для debug-сборки: `--es debug_tab downloads` открывает нужную вкладку
-         * сразу — для скриншотов и проверок, где нужен тап по экрану.
+         * Только для debug-сборки: `--es debug_tab tracks|playlists|downloads|settings`
+         * открывает нужную вкладку сразу — для скриншотов и проверок, где нужен тап по экрану.
          */
         const val EXTRA_DEBUG_TAB = "debug_tab"
     }

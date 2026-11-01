@@ -12,7 +12,7 @@
 | 2 | Room (entities/DAO), доменные модели, детерминированные ID | ✅ |
 | 3 | Загрузчик: YoutubeDL init, WorkManager, репозиторий | ✅ |
 | 4 | Media3-плеер, контроллер, очередь | ✅ |
-| 5 | Compose UI: навигация, экраны, мини-плеер | ⏳ |
+| 5 | Compose UI: навигация, экраны, мини-плеер | ✅ |
 | 6 | JSON export/import, LAN-sync | ⏳ |
 
 ## Загрузчик (шаг 3)
@@ -45,11 +45,11 @@
   и с кнопкой «Повторить» — раньше она выглядела как обычная серая подпись.
 * При обрыве сети `getInfo` повторяется до трёх раз с паузой 2 с: телефон с VPN часто
   на секунду теряет DNS, и ссылка «не скачивается» без всякой видимой причины.
-* В debug-сборке есть панель проверки на главном экране и запуск по ссылке:
+* В debug-сборке ссылку можно запустить без тапов:
   `adb shell am start -n com.example.localplayer/.MainActivity --es debug_url <url>`
   (активности нужен `launchMode="singleTop"` — иначе интент в уже открытое окно
   приходит, но `onNewIntent` не вызывается).
-* Журнал видно в приложении: блок «Журнал» под очередью (`core/AppLog.kt`, кольцевой
+* Журнал видно в приложении: «Настройки → Журнал» (`core/AppLog.kt`, кольцевой
   буфер на 400 записей, дублируется в logcat с тегом `Melodown`). Кнопки «Копировать»,
   «Очистить», «Свернуть». Логи пишут загрузчик, репозиторий, движок и плеер — на телефоне
   без компьютера этого достаточно, чтобы понять, почему ссылка не скачалась.
@@ -68,17 +68,43 @@
 * Проверка без тапов (debug): `adb shell am start -n com.example.localplayer/.MainActivity
   --ez debug_play true` — играет всю библиотеку.
 
+## Интерфейс (шаг 5)
+
+Material 3, четыре вкладки в нижней навигации и общий мини-плеер над ней.
+
+* **Треки** — скачанная библиотека: поиск по названию/исполнителю, сортировка
+  (артист → название → новые), «Слушать всё» и перемешивание. Текущий трек подсвечен,
+  у играющего вместо длительности — эквалайзер.
+* **Плейлисты** — системные (`sys:youtube`, `sys:soundcloud`) и пользовательские
+  плейлисты из Room. Внутри — треки и кнопка «Слушать» с начала; треки, которых
+  нет на диске, помечены и не запускаются (плееру нечего играть).
+* **Загрузки** — ссылка, очередь с прогрессом, ETA, отменой и повтором, отдельный
+  блок «Готово» с кнопкой «Слушать». Разрешение на уведомления просим здесь же.
+* **Настройки** — тема (система/светлая/тёмная, хранится в SharedPreferences),
+  состояние и обновление yt-dlp, «Докачать недостающее», уборка дублей, размер
+  библиотеки, уведомления, журнал с копированием и версия приложения.
+
+Мини-плеер виден на всех вкладках, пока в плеере есть трек: обложка, название,
+play/pause, следующий и тонкая полоса прогресса. Тап по нему открывает
+полноэкранный плеер — большая обложка, перемотка, shuffle/repeat и очередь.
+
+Верхние панели и нижняя навигация сами обрабатывают системные отступы
+(edge-to-edge), поэтому контент не заезжает под статус-бар и жест-навигацию.
+Экран полноэкранного плеера нижнюю навигацию скрывает.
+
+Для отладки вкладку можно открыть сразу:
+`adb shell am start -n com.example.localplayer/.MainActivity --es debug_tab settings`
+(допустимо `tracks`, `playlists`, `downloads`, `settings`).
+
 ## Сборка
 
-JDK 17 и Android SDK 35. Wrapper в репозиторий не положен (в окружении не было Gradle),
-создайте его один раз:
+JDK 17 и Android SDK 35. Wrapper 8.9 уже лежит в репозитории:
 
 ```bash
-gradle wrapper --gradle-version 8.9
 ./gradlew :app:assembleDebug
 ```
 
-Либо просто откройте папку `android/` в Android Studio — она сама подтянет wrapper.
+Либо просто откройте папку `android/` в Android Studio — она подхватит wrapper.
 `local.properties` с `sdk.dir` создаётся студией и в git не попадает.
 
 Только `arm64-v8a` и `x86_64` ABI: нативных бинарников под armeabi-v7a у youtubedl-android нет.
@@ -123,7 +149,7 @@ gradle :app:testDebugUnitTest
 ```
 app/src/main/java/com/example/localplayer/
 ├── MelodownApp.kt              @HiltAndroidApp, WorkManager через Hilt
-├── MainActivity.kt             заглушка до шага 5
+├── MainActivity.kt             Activity, тема, debug-intent
 ├── core/                       AppLog — журнал, который видно в приложении
 ├── di/                         Room/DAO, WorkManager в Hilt
 ├── data/local/db/              AppDatabase, entity/, dao/, Mappers.kt
@@ -133,7 +159,13 @@ app/src/main/java/com/example/localplayer/
 ├── domain/model/               Track, Playlist, DownloadState, RepeatMode, SourcePlatform
 ├── domain/util/                TrackIds, SystemPlaylists, FileNameSanitizer
 ├── media/                      PlaybackService, PlayerController, PlayerState
-└── ui/                         theme/, player/, screens/downloads/ (отладочная панель)
+└── ui/
+    ├── SoundTubeApp.kt         каркас: вкладки, навигация, мини-плеер
+    ├── navigation/             Routes
+    ├── components/             TrackRow, TrackArtwork, EmptyState, форматтеры
+    ├── theme/                  палитра, ThemeMode/ThemePreferences/ThemeViewModel
+    ├── player/                 PlayerViewModel, MiniPlayer, NowPlayingScreen
+    └── screens/                tracks/, playlists/, downloads/, settings/
 ```
 
 ## База

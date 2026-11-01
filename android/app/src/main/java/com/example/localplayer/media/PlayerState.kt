@@ -33,8 +33,13 @@ data class PlayerState(
     val shuffle: Boolean = false,
     val repeatMode: RepeatMode = RepeatMode.OFF,
 ) {
-    val hasNext: Boolean get() = queue.isNotEmpty() && (shuffle || currentIndex < queue.lastIndex)
-    val hasPrevious: Boolean get() = queue.isNotEmpty() && positionMs > 3_000L
+    val hasNext: Boolean
+        get() = queue.isNotEmpty() &&
+            (shuffle || repeatMode == RepeatMode.ALL || currentIndex < queue.lastIndex)
+
+    val hasPrevious: Boolean
+        get() = queue.isNotEmpty() &&
+            (repeatMode == RepeatMode.ALL || currentIndex > 0 || positionMs > 3_000L)
 
     val hasTrack: Boolean get() = currentTrackId != null
 

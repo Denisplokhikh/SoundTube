@@ -20,4 +20,12 @@ sealed interface DownloadState {
     data class Completed(val url: String, val trackId: String?) : DownloadState
 
     data class Failed(val url: String, val message: String) : DownloadState
+
+    /**
+     * Пользователь снял загрузку.
+     *
+     * Отдельное состояние, а не [Failed]: это не сбой, и очередь плейлиста при
+     * отмене одного трека должна продолжаться.
+     */
+    data class Cancelled(val url: String) : DownloadState
 }

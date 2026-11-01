@@ -266,7 +266,7 @@ class DownloadRepository @Inject constructor(
                 title = track.title,
                 artist = track.artist,
                 sourceUrl = track.sourceUrl,
-                state = workInfo.toDownloadState(track.sourceUrl, trackId),
+                state = workInfo.toDownloadState(track),
             )
         }
 
@@ -311,6 +311,9 @@ class DownloadRepository @Inject constructor(
             return false
         }
 
+        // Если трек отменяли, отметка «отменено» не должна погасить повторный запуск.
+        client.clearCancellation(trackId)
+
         workManager.enqueueUniqueWork(
             AudioDownloadWorker.uniqueName(trackId),
             ExistingWorkPolicy.REPLACE,
@@ -320,6 +323,14 @@ class DownloadRepository @Inject constructor(
         return true
     }
 
+    /**
+     * Снимает загрузку одного трека.
+     *
+     * Цепочку плейлиста целиком не отменяем: у её задач другое unique-имя
+     * (`playlist:…`), поэтому [WorkManager.cancelUniqueWork] здесь трогает только
+     * одиночную загрузку. Активный трек останавливается нативным процессом, его
+     * задача завершается успехом — остальные треки плейлиста продолжают качаться.
+     */
     fun cancel(trackId: String) {
         client.cancel(trackId)
         workManager.cancelUniqueWork(AudioDownloadWorker.uniqueName(trackId))
@@ -416,27 +427,45 @@ class DownloadRepository @Inject constructor(
         .firstOrNull { it.startsWith(AudioDownloadWorker.TRACK_TAG_PREFIX) }
         ?.removePrefix(AudioDownloadWorker.TRACK_TAG_PREFIX)
 
-    private fun WorkInfo.toDownloadState(sourceUrl: String, trackId: String): DownloadState = when (state) {
+    /**
+     * Состояние задачи глазами UI.
+     *
+     * «Задача завершилась успешно» ≠ «трек скачан»: отменённый или недоступный трек
+     * внутри цепочки плейлиста тоже завершается успехом, иначе WorkManager снял бы
+     * все следующие треки. Правду о результате дают база и outputData задачи.
+     */
+    private fun WorkInfo.toDownloadState(track: TrackEntity): DownloadState = when (state) {
         WorkInfo.State.ENQUEUED, WorkInfo.State.BLOCKED -> DownloadState.Idle
 
         WorkInfo.State.RUNNING -> DownloadState.Downloading(
-            url = sourceUrl,
+            url = track.sourceUrl,
             progress = progress.getFloat(AudioDownloadWorker.KEY_PROGRESS, 0f),
             etaSeconds = progress.getLong(AudioDownloadWorker.KEY_ETA, -1L).takeIf { it > 0 },
             status = progress.getString(AudioDownloadWorker.KEY_STATUS) ?: "Скачивание",
         )
 
-        WorkInfo.State.SUCCEEDED -> DownloadState.Completed(
-            url = sourceUrl,
-            trackId = trackId,
-        )
+        WorkInfo.State.SUCCEEDED -> when {
+            track.localFilePath != null -> DownloadState.Completed(
+                url = track.sourceUrl,
+                trackId = track.id,
+            )
+
+            outputData.getBoolean(AudioDownloadWorker.KEY_CANCELLED, false) ->
+                DownloadState.Cancelled(track.sourceUrl)
+
+            else -> DownloadState.Failed(
+                url = track.sourceUrl,
+                message = outputData.getString(AudioDownloadWorker.KEY_ERROR)
+                    ?: "не удалось скачать",
+            )
+        }
 
         WorkInfo.State.FAILED -> DownloadState.Failed(
-            url = sourceUrl,
+            url = track.sourceUrl,
             message = outputData.getString(AudioDownloadWorker.KEY_ERROR) ?: "не удалось скачать",
         )
 
-        WorkInfo.State.CANCELLED -> DownloadState.Failed(sourceUrl, "Загрузка отменена")
+        WorkInfo.State.CANCELLED -> DownloadState.Cancelled(track.sourceUrl)
     }
 
     private fun DownloadState.sortOrder(): Int = when (this) {
@@ -444,6 +473,7 @@ class DownloadRepository @Inject constructor(
         is DownloadState.FetchingMetadata -> 1
         DownloadState.Idle -> 2
         is DownloadState.Failed -> 3
+        is DownloadState.Cancelled -> 3
         is DownloadState.Completed -> 4
     }
 

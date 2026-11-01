@@ -12,5 +12,7 @@ data class DownloadTask(
         get() = state is DownloadState.Downloading || state is DownloadState.FetchingMetadata
 
     val isFinished: Boolean
-        get() = state is DownloadState.Completed || state is DownloadState.Failed
+        get() = state is DownloadState.Completed ||
+            state is DownloadState.Failed ||
+            state is DownloadState.Cancelled
 }
