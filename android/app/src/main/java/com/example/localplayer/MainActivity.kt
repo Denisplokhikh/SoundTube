@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
         if (!BuildConfig.DEBUG) return
 
         intent?.getStringExtra(EXTRA_DEBUG_TAB)
-            ?.takeIf { it in Routes.tabs }
+            ?.takeIf { it in Routes.destinations }
             ?.let { debugTab = it }
 
         if (intent?.getBooleanExtra(EXTRA_DEBUG_PLAY, false) == true) {

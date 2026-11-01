@@ -15,8 +15,11 @@ object Routes {
     const val ARG_PLAYLIST_ID = "playlistId"
     const val PLAYLIST_DETAIL = "playlist/{$ARG_PLAYLIST_ID}"
 
-    /** Вкладки в порядке нижней навигации. */
-    val tabs: List<String> = listOf(TRACKS, PLAYLISTS, DOWNLOADS, SETTINGS)
+    /** Вкладки в порядке нижней навигации (как три пункта в десктопном SoundTube). */
+    val tabs: List<String> = listOf(TRACKS, DOWNLOADS, PLAYLISTS)
+
+    /** Все экраны, которые можно открыть напрямую (debug-intent). */
+    val destinations: List<String> = tabs + SETTINGS
 
     /**
      * Ссылка на плейлист. id системных плейлистов содержат двоеточие

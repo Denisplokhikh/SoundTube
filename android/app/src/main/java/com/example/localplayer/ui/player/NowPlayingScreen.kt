@@ -13,9 +13,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -28,12 +29,11 @@ import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -43,6 +43,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,9 +54,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.localplayer.domain.model.RepeatMode
 import com.example.localplayer.media.QueueItem
 import com.example.localplayer.ui.components.EmptyState
+import com.example.localplayer.ui.components.SoundTubeIconButton
 import com.example.localplayer.ui.components.SoundTubeTopBar
 import com.example.localplayer.ui.components.TrackArtwork
 import com.example.localplayer.ui.components.formatDuration
+import com.example.localplayer.ui.theme.SoundTubeTheme
 
 /**
  * Полноэкранный плеер: обложка, перемотка, управление и очередь.
@@ -67,20 +71,24 @@ fun NowPlayingScreen(
     modifier: Modifier = Modifier,
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
+    val colors = SoundTubeTheme.colors
     val state by playerViewModel.state.collectAsStateWithLifecycle()
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(colors.background)
             .navigationBarsPadding(),
     ) {
         SoundTubeTopBar(
             title = "Сейчас играет",
             navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Назад")
-                }
+                SoundTubeIconButton(
+                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Назад",
+                    bordered = false,
+                    onClick = onBack,
+                )
             },
         )
 
@@ -94,25 +102,18 @@ fun NowPlayingScreen(
         } else {
             LazyColumn(
                 modifier = Modifier.weight(1f),
-                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 item {
-                    Box(
+                    TrackArtwork(
+                        artwork = state.artworkUri,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 8.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        TrackArtwork(
-                            artwork = state.artworkUri,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .aspectRatio(1f),
-                            cornerRadius = 24.dp,
-                            iconSize = 64.dp,
-                        )
-                    }
+                            .aspectRatio(1f),
+                        cornerRadius = 8.dp,
+                        iconSize = 56.dp,
+                    )
                 }
 
                 item {
@@ -120,13 +121,14 @@ fun NowPlayingScreen(
                         Text(
                             text = state.title.ifBlank { "Без названия" },
                             style = MaterialTheme.typography.headlineSmall,
+                            color = colors.textPrimary,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
                             text = state.artist.ifBlank { "Неизвестный исполнитель" },
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.textSecondary,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
                         )
@@ -167,13 +169,14 @@ fun NowPlayingScreen(
                     ) {
                         Text(
                             text = "Очередь",
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = colors.textPrimary,
                             modifier = Modifier.weight(1f),
                         )
                         Text(
                             text = state.queue.size.toString(),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = colors.textSecondary,
                         )
                     }
                 }
@@ -184,8 +187,10 @@ fun NowPlayingScreen(
                 ) { index, item ->
                     QueueRow(
                         item = item,
+                        index = index,
                         isCurrent = index == state.currentIndex,
                         onClick = { playerViewModel.seekToIndex(index) },
+                        showDivider = index < state.queue.lastIndex,
                     )
                 }
             }
@@ -201,6 +206,7 @@ private fun SeekBlock(
     trackId: String?,
     onSeek: (Long) -> Unit,
 ) {
+    val colors = SoundTubeTheme.colors
     // Пока палец на слайдере, показываем его позицию, а не тикающую из плеера.
     var dragged by remember(trackId) { mutableStateOf<Float?>(null) }
     val value = dragged ?: progress
@@ -216,6 +222,13 @@ private fun SeekBlock(
             },
             enabled = durationMs > 0L,
             modifier = Modifier.fillMaxWidth(),
+            colors = SliderDefaults.colors(
+                thumbColor = colors.textPrimary,
+                activeTrackColor = colors.primary,
+                inactiveTrackColor = colors.border,
+                activeTickColor = Color.Transparent,
+                inactiveTickColor = Color.Transparent,
+            ),
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -224,12 +237,12 @@ private fun SeekBlock(
             Text(
                 text = shownPosition.formatDuration(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colors.textSecondary,
             )
             Text(
                 text = durationMs.formatDuration(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colors.textSecondary,
             )
         }
     }
@@ -248,7 +261,8 @@ private fun PlaybackControls(
     onToggleShuffle: () -> Unit,
     onCycleRepeat: () -> Unit,
 ) {
-    val muted = MaterialTheme.colorScheme.onSurfaceVariant
+    val colors = SoundTubeTheme.colors
+    val muted = colors.textSecondary
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -259,49 +273,51 @@ private fun PlaybackControls(
             Icon(
                 imageVector = Icons.Rounded.Shuffle,
                 contentDescription = if (shuffle) "Перемешивание включено" else "Перемешивание",
-                tint = if (shuffle) MaterialTheme.colorScheme.primary else muted,
+                tint = if (shuffle) colors.primary else muted,
+                modifier = Modifier.size(20.dp),
             )
         }
 
-        FilledTonalIconButton(
-            onClick = onPrevious,
-            modifier = Modifier.size(56.dp),
-        ) {
+        IconButton(onClick = onPrevious) {
             Icon(
                 imageVector = Icons.Rounded.SkipPrevious,
                 contentDescription = "Предыдущий",
-                modifier = Modifier.size(30.dp),
+                tint = muted,
+                modifier = Modifier.size(28.dp),
             )
         }
 
-        FilledIconButton(
-            onClick = onPlayPause,
-            modifier = Modifier.size(72.dp),
+        // Круглая белая кнопка — как play-btn в нижнем плеере десктопа.
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(CircleShape)
+                .background(colors.textPrimary)
+                .clickable(onClick = onPlayPause),
+            contentAlignment = Alignment.Center,
         ) {
             if (isBuffering) {
                 CircularProgressIndicator(
-                    modifier = Modifier.size(28.dp),
+                    modifier = Modifier.size(24.dp),
                     strokeWidth = 2.5.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = colors.background,
                 )
             } else {
                 Icon(
                     imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                     contentDescription = if (isPlaying) "Пауза" else "Играть",
-                    modifier = Modifier.size(38.dp),
+                    tint = colors.background,
+                    modifier = Modifier.size(32.dp),
                 )
             }
         }
 
-        FilledTonalIconButton(
-            onClick = onNext,
-            enabled = hasNext,
-            modifier = Modifier.size(56.dp),
-        ) {
+        IconButton(onClick = onNext, enabled = hasNext) {
             Icon(
                 imageVector = Icons.Rounded.SkipNext,
                 contentDescription = "Следующий",
-                modifier = Modifier.size(30.dp),
+                tint = if (hasNext) muted else muted.copy(alpha = 0.35f),
+                modifier = Modifier.size(28.dp),
             )
         }
 
@@ -317,7 +333,8 @@ private fun PlaybackControls(
                     RepeatMode.ALL -> "Повтор очереди"
                     RepeatMode.ONE -> "Повтор трека"
                 },
-                tint = if (repeatMode == RepeatMode.OFF) muted else MaterialTheme.colorScheme.primary,
+                tint = if (repeatMode == RepeatMode.OFF) muted else colors.primary,
+                modifier = Modifier.size(20.dp),
             )
         }
     }
@@ -326,48 +343,61 @@ private fun PlaybackControls(
 @Composable
 private fun QueueRow(
     item: QueueItem,
+    index: Int,
     isCurrent: Boolean,
     onClick: () -> Unit,
+    showDivider: Boolean,
 ) {
+    val colors = SoundTubeTheme.colors
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
             .background(
-                if (isCurrent) {
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-                } else {
-                    Color.Transparent
-                },
+                if (isCurrent) colors.primary.copy(alpha = 0.07f) else Color.Transparent,
             )
+            .drawBehind {
+                if (!showDivider) return@drawBehind
+                val hairline = 0.5.dp.toPx()
+                val y = size.height - hairline / 2f
+                drawLine(
+                    color = colors.divider,
+                    start = Offset(0f, y),
+                    end = Offset(size.width, y),
+                    strokeWidth = hairline,
+                )
+            }
             .clickable(onClick = onClick)
-            .padding(8.dp),
+            .padding(vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
+        Text(
+            text = (index + 1).toString(),
+            style = MaterialTheme.typography.labelSmall,
+            color = if (isCurrent) colors.primary else colors.textSecondary,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(20.dp),
+        )
+
         TrackArtwork(
             artwork = item.artworkUri,
             modifier = Modifier.size(40.dp),
-            cornerRadius = 8.dp,
-            iconSize = 18.dp,
+            cornerRadius = 4.dp,
         )
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = item.title.ifBlank { "Без названия" },
                 style = MaterialTheme.typography.bodyMedium,
-                color = if (isCurrent) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.onSurface
-                },
+                color = if (isCurrent) colors.primary else colors.textPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = item.artist.ifBlank { "Неизвестный исполнитель" },
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colors.textSecondary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -377,14 +407,14 @@ private fun QueueRow(
             Icon(
                 imageVector = Icons.Rounded.GraphicEq,
                 contentDescription = "Играет",
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp),
+                tint = colors.primary,
+                modifier = Modifier.size(16.dp),
             )
         } else {
             Text(
                 text = item.durationMs.formatDuration(),
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = colors.textSecondary,
                 textAlign = TextAlign.End,
             )
         }

@@ -57,6 +57,9 @@ class PlayerViewModel @Inject constructor(
 
     fun cycleRepeat() = controller.cycleRepeat()
 
+    /** Удалённый с диска трек не должен продолжать играть из очереди. */
+    fun onTrackDeleted(trackId: String) = controller.stopIfCurrent(trackId)
+
     /** Переподключение после «Стоп» системы или падения сервиса. */
     fun reconnect() = controller.connect()
 }

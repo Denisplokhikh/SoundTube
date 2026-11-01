@@ -1,13 +1,14 @@
 package com.example.localplayer.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -17,8 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import com.example.localplayer.ui.theme.SoundTubeTheme
 
-/** Пустой экран: иконка в круге, заголовок, пояснение и (необязательно) действие. */
+/** Пустой экран в стиле терминала: квадратная иконка в рамке, заголовок, подпись. */
 @Composable
 fun EmptyState(
     icon: ImageVector,
@@ -27,6 +29,8 @@ fun EmptyState(
     modifier: Modifier = Modifier,
     action: (@Composable () -> Unit)? = null,
 ) {
+    val colors = SoundTubeTheme.colors
+
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -36,30 +40,29 @@ fun EmptyState(
     ) {
         Box(
             modifier = Modifier
-                .size(72.dp)
-                .background(
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-                    shape = CircleShape,
-                ),
+                .size(64.dp)
+                .background(colors.surface, RoundedCornerShape(8.dp))
+                .border(1.dp, colors.border, RoundedCornerShape(8.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(32.dp),
+                tint = colors.primary,
+                modifier = Modifier.size(28.dp),
             )
         }
 
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.textPrimary,
             textAlign = TextAlign.Center,
         )
         Text(
             text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.textSecondary,
             textAlign = TextAlign.Center,
         )
         action?.invoke()

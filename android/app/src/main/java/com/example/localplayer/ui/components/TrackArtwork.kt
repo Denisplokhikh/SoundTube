@@ -1,27 +1,27 @@
 package com.example.localplayer.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.shape.RoundedCornerShape
 import coil.compose.AsyncImage
+import com.example.localplayer.ui.theme.SoundTubeTheme
 import java.io.File
 
 /**
- * Обложка трека с заглушкой.
+ * Квадратная обложка с тонкой рамкой — как карточки десктопа.
  *
  * yt-dlp отдаёт ссылку на картинку, но старые сборки могли сохранить путь к файлу,
  * поэтому поддерживаем и то, и другое. Битый/отсутствующий файл — просто заглушка.
@@ -30,30 +30,25 @@ import java.io.File
 fun TrackArtwork(
     artwork: String?,
     modifier: Modifier = Modifier,
-    cornerRadius: Dp = 10.dp,
-    iconSize: Dp = 22.dp,
+    cornerRadius: Dp = 4.dp,
+    iconSize: Dp = 18.dp,
 ) {
+    val colors = SoundTubeTheme.colors
     val shape = RoundedCornerShape(cornerRadius)
     val model = remember(artwork) { artworkModel(artwork) }
 
     Box(
         modifier = modifier
             .clip(shape)
-            .background(
-                Brush.linearGradient(
-                    listOf(
-                        MaterialTheme.colorScheme.surfaceVariant,
-                        MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-                    ),
-                ),
-            ),
+            .background(colors.surfaceRaised)
+            .border(1.dp, colors.border, shape),
         contentAlignment = Alignment.Center,
     ) {
         if (model == null) {
             Icon(
                 imageVector = Icons.Rounded.MusicNote,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = colors.textSecondary,
                 modifier = Modifier.size(iconSize),
             )
         } else {

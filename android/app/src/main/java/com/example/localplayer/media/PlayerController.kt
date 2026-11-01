@@ -166,6 +166,15 @@ class PlayerController @Inject constructor(
         controller?.stop()
     }
 
+    /**
+     * Трек удалён с диска. Если он сейчас играет — останавливаемся: ExoPlayer
+     * продолжает держать открытый файл, и играть из удалённого файла нечего.
+     */
+    fun stopIfCurrent(trackId: String) {
+        val player = controller ?: return
+        if (player.currentMediaItem?.mediaId == trackId) player.stop()
+    }
+
     /** Отвязывается от сервиса (вызывать при выходе из приложения не обязательно). */
     fun release() {
         ticker?.cancel()

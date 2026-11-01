@@ -3,6 +3,7 @@ package com.example.localplayer.ui.screens.settings
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,13 +13,14 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadForOffline
@@ -27,13 +29,10 @@ import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Storage
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,7 +45,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -54,17 +52,24 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.localplayer.BuildConfig
 import com.example.localplayer.core.AppLog
+import com.example.localplayer.ui.components.SectionLabel
+import com.example.localplayer.ui.components.SoundTubeButton
+import com.example.localplayer.ui.components.SoundTubeCard
+import com.example.localplayer.ui.components.SoundTubeIconButton
 import com.example.localplayer.ui.components.SoundTubeTopBar
 import com.example.localplayer.ui.components.describe
 import com.example.localplayer.ui.components.formatFileSize
+import com.example.localplayer.ui.theme.SoundTubeTheme
 import com.example.localplayer.ui.theme.ThemeMode
 
 /** Настройки: тема, движок, хранилище, журнал и версия. */
 @Composable
 fun SettingsScreen(
+    onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
+    val colors = SoundTubeTheme.colors
     val engine by viewModel.engineState.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
     val trackCount by viewModel.trackCount.collectAsStateWithLifecycle()
@@ -75,7 +80,9 @@ fun SettingsScreen(
     val logs by viewModel.logs.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
-    var notificationsEnabled by remember { mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled()) }
+    var notificationsEnabled by remember {
+        mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
+    }
 
     // Вернулись из системных настроек — статус мог измениться.
     LifecycleResumeEffect(Unit) {
@@ -96,29 +103,45 @@ fun SettingsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(colors.background)
+            .navigationBarsPadding(),
     ) {
-        SoundTubeTopBar(title = "Настройки")
+        SoundTubeTopBar(
+            title = "Настройки",
+            subtitle = "тема · движок · хранилище",
+            navigationIcon = {
+                SoundTubeIconButton(
+                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Назад",
+                    bordered = false,
+                    onClick = onBack,
+                )
+            },
+        )
 
         LazyColumn(
             modifier = Modifier.weight(1f),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item { SectionTitle("Оформление") }
+            item { SectionLabel("Оформление") }
             item {
                 SettingsCard {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         SettingsIcon(Icons.Rounded.Palette)
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Тема", style = MaterialTheme.typography.titleSmall)
+                            Text(
+                                text = "Тема",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = colors.textPrimary,
+                            )
                             Text(
                                 text = "Системная следует настройке Android",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colors.textSecondary,
                             )
                         }
                     }
@@ -128,17 +151,18 @@ fun SettingsScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         ThemeMode.entries.forEach { mode ->
-                            FilterChip(
-                                selected = themeMode == mode,
+                            SoundTubeButton(
+                                text = mode.label,
+                                primary = themeMode == mode,
+                                compact = true,
                                 onClick = { viewModel.setTheme(mode) },
-                                label = { Text(mode.label) },
                             )
                         }
                     }
                 }
             }
 
-            item { SectionTitle("Загрузки") }
+            item { SectionLabel("Загрузки") }
             item {
                 SettingsCard {
                     SettingsRow(
@@ -149,7 +173,7 @@ fun SettingsScreen(
                         actionEnabled = !busy,
                         onAction = viewModel::updateEngine,
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    SettingsDivider()
                     SettingsRow(
                         icon = Icons.Rounded.DownloadForOffline,
                         title = "Докачать недостающее",
@@ -158,7 +182,7 @@ fun SettingsScreen(
                         actionEnabled = !busy,
                         onAction = viewModel::downloadMissing,
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    SettingsDivider()
                     SettingsRow(
                         icon = Icons.Rounded.DeleteSweep,
                         title = "Убрать дубли файлов",
@@ -172,39 +196,31 @@ fun SettingsScreen(
 
             message?.let { text ->
                 item {
-                    Surface(
-                        shape = RoundedCornerShape(14.dp),
-                        color = if (messageIsError) {
-                            MaterialTheme.colorScheme.errorContainer
-                        } else {
-                            MaterialTheme.colorScheme.secondaryContainer
-                        },
+                    SoundTubeCard(
+                        borderColor = if (messageIsError) colors.error else colors.border,
                     ) {
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(start = 14.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+                            modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Text(
                                 text = text,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = if (messageIsError) {
-                                    MaterialTheme.colorScheme.onErrorContainer
-                                } else {
-                                    MaterialTheme.colorScheme.onSecondaryContainer
-                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (messageIsError) colors.error else colors.textPrimary,
                                 modifier = Modifier.weight(1f),
                             )
-                            TextButton(onClick = viewModel::clearMessage) {
-                                Text("Скрыть")
-                            }
+                            SoundTubeButton(
+                                text = "Скрыть",
+                                primary = false,
+                                compact = true,
+                                onClick = viewModel::clearMessage,
+                            )
                         }
                     }
                 }
             }
 
-            item { SectionTitle("Хранилище") }
+            item { SectionLabel("Хранилище") }
             item {
                 SettingsCard {
                     SettingsRow(
@@ -213,7 +229,7 @@ fun SettingsScreen(
                         subtitle = "Готовы играть без интернета",
                         value = trackCount.toString(),
                     )
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    SettingsDivider()
                     SettingsRow(
                         icon = Icons.Rounded.Storage,
                         title = "Занято",
@@ -225,7 +241,7 @@ fun SettingsScreen(
                 }
             }
 
-            item { SectionTitle("Уведомления") }
+            item { SectionLabel("Уведомления") }
             item {
                 SettingsCard {
                     SettingsRow(
@@ -236,7 +252,7 @@ fun SettingsScreen(
                         } else {
                             "Прогресс загрузок не показывается"
                         },
-                        value = if (notificationsEnabled) "Включены" else "Выключены",
+                        value = if (notificationsEnabled) "включены" else "выключены",
                         actionLabel = "Настроить",
                         onAction = openNotificationSettings,
                     )
@@ -250,27 +266,31 @@ fun SettingsScreen(
                 )
             }
 
-            item { SectionTitle("О приложении") }
+            item { SectionLabel("О приложении") }
             item {
                 SettingsCard {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         SettingsIcon(Icons.Rounded.Info)
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("SoundTube", style = MaterialTheme.typography.titleSmall)
                             Text(
-                                text = "Версия ${BuildConfig.VERSION_NAME}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                text = "SoundTube",
+                                style = MaterialTheme.typography.titleSmall,
+                                color = colors.textPrimary,
+                            )
+                            Text(
+                                text = "версия ${BuildConfig.VERSION_NAME}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colors.textSecondary,
                             )
                         }
                     }
                     Text(
                         text = "Локальный плеер и загрузчик. Библиотека хранится на устройстве, без облака.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.textSecondary,
                     )
                 }
             }
@@ -279,47 +299,38 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun SectionTitle(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleSmall,
-        color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 4.dp, top = 8.dp),
+private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
+    SoundTubeCard(
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+        content = content,
     )
 }
 
 @Composable
-private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-            content = content,
-        )
-    }
+private fun SettingsDivider() {
+    HorizontalDivider(
+        thickness = 0.5.dp,
+        color = SoundTubeTheme.colors.divider,
+    )
 }
 
 @Composable
 private fun SettingsIcon(icon: ImageVector) {
+    val colors = SoundTubeTheme.colors
+    val shape = RoundedCornerShape(6.dp)
+
     Box(
         modifier = Modifier
-            .size(38.dp)
-            .background(
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-                shape = CircleShape,
-            ),
+            .size(32.dp)
+            .background(colors.surfaceRaised, shape)
+            .border(1.dp, colors.borderStrong, shape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp),
+            tint = colors.primary,
+            modifier = Modifier.size(16.dp),
         )
     }
 }
@@ -334,34 +345,41 @@ private fun SettingsRow(
     onAction: (() -> Unit)? = null,
     value: String? = null,
 ) {
+    val colors = SoundTubeTheme.colors
+
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         SettingsIcon(icon)
 
         Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, style = MaterialTheme.typography.titleSmall)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.textPrimary,
+            )
             Text(
                 text = subtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.textSecondary,
             )
         }
 
         when {
-            actionLabel != null && onAction != null -> TextButton(
-                onClick = onAction,
+            actionLabel != null && onAction != null -> SoundTubeButton(
+                text = actionLabel,
+                primary = false,
+                compact = true,
                 enabled = actionEnabled,
-            ) {
-                Text(actionLabel)
-            }
+                onClick = onAction,
+            )
 
             value != null -> Text(
                 text = value,
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.textSecondary,
             )
         }
     }
@@ -372,6 +390,7 @@ private fun DiagnosticsCard(
     entries: List<AppLog.Entry>,
     onClear: () -> Unit,
 ) {
+    val colors = SoundTubeTheme.colors
     val clipboard = LocalClipboardManager.current
     var expanded by rememberSaveable { mutableStateOf(false) }
 
@@ -381,39 +400,51 @@ private fun DiagnosticsCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Журнал", style = MaterialTheme.typography.titleSmall)
+                Text(
+                    text = "Журнал",
+                    style = MaterialTheme.typography.titleSmall,
+                    color = colors.textPrimary,
+                )
                 Text(
                     text = "${entries.size} записей",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.textSecondary,
                 )
             }
-            TextButton(onClick = { expanded = !expanded }) {
-                Text(if (expanded) "Свернуть" else "Развернуть")
-            }
+            SoundTubeButton(
+                text = if (expanded) "Свернуть" else "Развернуть",
+                primary = false,
+                compact = true,
+                onClick = { expanded = !expanded },
+            )
         }
 
         if (expanded) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
+                horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
-                TextButton(
-                    onClick = { clipboard.setText(AnnotatedString(AppLog.dump())) },
+                SoundTubeButton(
+                    text = "Копировать",
+                    primary = false,
+                    compact = true,
                     enabled = entries.isNotEmpty(),
-                ) {
-                    Text("Копировать")
-                }
-                TextButton(onClick = onClear, enabled = entries.isNotEmpty()) {
-                    Text("Очистить")
-                }
+                    onClick = { clipboard.setText(AnnotatedString(AppLog.dump())) },
+                )
+                SoundTubeButton(
+                    text = "Очистить",
+                    primary = false,
+                    compact = true,
+                    enabled = entries.isNotEmpty(),
+                    onClick = onClear,
+                )
             }
 
             if (entries.isEmpty()) {
                 Text(
                     text = "Пока пусто",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.textSecondary,
                 )
             } else {
                 // Свежие записи снизу; показываем хвост, чтобы не листать сотни строк.
@@ -421,11 +452,10 @@ private fun DiagnosticsCard(
                     Text(
                         text = "${entry.timeText} ${entry.levelText}: ${entry.message}",
                         style = MaterialTheme.typography.labelSmall,
-                        fontFamily = FontFamily.Monospace,
                         color = when (entry.level) {
-                            AppLog.Level.ERROR -> MaterialTheme.colorScheme.error
-                            AppLog.Level.WARN -> MaterialTheme.colorScheme.tertiary
-                            AppLog.Level.INFO -> MaterialTheme.colorScheme.onSurfaceVariant
+                            AppLog.Level.ERROR -> colors.error
+                            AppLog.Level.WARN -> colors.warning
+                            AppLog.Level.INFO -> colors.textSecondary
                         },
                     )
                 }

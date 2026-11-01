@@ -17,10 +17,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.PlayArrow
-import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,10 +31,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.localplayer.domain.model.Playlist
 import com.example.localplayer.ui.components.EmptyState
+import com.example.localplayer.ui.components.SoundTubeButton
+import com.example.localplayer.ui.components.SoundTubeIconButton
 import com.example.localplayer.ui.components.SoundTubeTopBar
 import com.example.localplayer.ui.components.TrackRow
 import com.example.localplayer.ui.components.tracksWord
 import com.example.localplayer.ui.player.PlayerViewModel
+import com.example.localplayer.ui.theme.SoundTubeTheme
 
 /** Треки внутри плейлиста. Играем только то, что уже лежит на диске. */
 @Composable
@@ -46,6 +47,7 @@ fun PlaylistDetailScreen(
     viewModel: PlaylistDetailViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
+    val colors = SoundTubeTheme.colors
     val playlist by viewModel.playlist.collectAsStateWithLifecycle()
     val entries by viewModel.entries.collectAsStateWithLifecycle()
     val player by playerViewModel.state.collectAsStateWithLifecycle()
@@ -55,14 +57,17 @@ fun PlaylistDetailScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(colors.background),
     ) {
         SoundTubeTopBar(
             title = "Плейлист",
             navigationIcon = {
-                IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Назад")
-                }
+                SoundTubeIconButton(
+                    icon = Icons.AutoMirrored.Rounded.ArrowBack,
+                    contentDescription = "Назад",
+                    bordered = false,
+                    onClick = onBack,
+                )
             },
         )
 
@@ -74,7 +79,7 @@ fun PlaylistDetailScreen(
                     .weight(1f),
                 contentAlignment = Alignment.Center,
             ) {
-                CircularProgressIndicator()
+                CircularProgressIndicator(color = colors.primary)
             }
         } else {
             PlaylistHeader(
@@ -95,15 +100,17 @@ fun PlaylistDetailScreen(
                     modifier = Modifier.weight(1f),
                     contentPadding = PaddingValues(bottom = 16.dp),
                 ) {
-                    itemsIndexed(entries, key = { _, entry -> entry.track.id }) { _, entry ->
+                    itemsIndexed(entries, key = { _, entry -> entry.track.id }) { index, entry ->
                         val track = entry.track
                         val playIndex = playableIds.indexOf(track.id)
                         TrackRow(
                             track = track,
+                            index = index,
                             isCurrent = track.id == player.currentTrackId,
                             isPlaying = player.isPlaying,
                             enabled = playIndex >= 0,
                             onClick = { playerViewModel.play(playableIds, playIndex) },
+                            showDivider = index < entries.lastIndex,
                         )
                     }
                 }
@@ -118,44 +125,44 @@ private fun PlaylistHeader(
     onPlay: () -> Unit,
     playEnabled: Boolean,
 ) {
+    val colors = SoundTubeTheme.colors
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         PlaylistTile(
             playlist = playlist,
-            modifier = Modifier.size(92.dp),
+            modifier = Modifier.size(76.dp),
         )
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = playlist.name,
                 style = MaterialTheme.typography.headlineSmall,
+                color = colors.textPrimary,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
                 text = if (playlist.trackCount == 0) {
-                    "Пока пусто"
+                    "пока пусто"
                 } else {
                     "${playlist.trackCount} ${playlist.trackCount.tracksWord()}"
                 },
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.textSecondary,
             )
             Spacer(Modifier.size(10.dp))
-            Button(onClick = onPlay, enabled = playEnabled) {
-                Icon(
-                    imageVector = Icons.Rounded.PlayArrow,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(Modifier.size(6.dp))
-                Text("Слушать")
-            }
+            SoundTubeButton(
+                text = "Играть всё",
+                icon = Icons.Rounded.PlayArrow,
+                enabled = playEnabled,
+                onClick = onPlay,
+            )
         }
     }
 }

@@ -6,44 +6,39 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Cancel
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.CloudDownload
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.ErrorOutline
-import androidx.compose.material.icons.rounded.HourglassTop
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material3.Button
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -52,6 +47,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -60,13 +56,20 @@ import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.localplayer.data.downloader.EngineState
 import com.example.localplayer.domain.model.DownloadState
 import com.example.localplayer.domain.model.DownloadTask
 import com.example.localplayer.ui.components.EmptyState
+import com.example.localplayer.ui.components.SoundTubeBadge
+import com.example.localplayer.ui.components.SoundTubeButton
+import com.example.localplayer.ui.components.SoundTubeCard
+import com.example.localplayer.ui.components.SoundTubeIconButton
 import com.example.localplayer.ui.components.SoundTubeTopBar
+import com.example.localplayer.ui.components.ThinProgressBar
 import com.example.localplayer.ui.components.describe
 import com.example.localplayer.ui.components.formatEta
 import com.example.localplayer.ui.player.PlayerViewModel
+import com.example.localplayer.ui.theme.SoundTubeTheme
 
 /**
  * Вкладка «Загрузки»: вставить ссылку и смотреть очередь.
@@ -76,10 +79,12 @@ import com.example.localplayer.ui.player.PlayerViewModel
  */
 @Composable
 fun DownloadsScreen(
+    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: DownloadsViewModel = hiltViewModel(),
     playerViewModel: PlayerViewModel = hiltViewModel(),
 ) {
+    val colors = SoundTubeTheme.colors
     val engine by viewModel.engineState.collectAsStateWithLifecycle()
     val tasks by viewModel.tasks.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
@@ -108,18 +113,27 @@ fun DownloadsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(colors.background)
             .imePadding(),
     ) {
         SoundTubeTopBar(
             title = "Загрузки",
-            subtitle = "Движок: ${engine.describe()}",
+            subtitle = "движок: ${engine.describe()}",
+            subtitleDot = if (engine is EngineState.Ready) colors.statusGreen else colors.warning,
+            actions = {
+                SoundTubeIconButton(
+                    icon = Icons.Rounded.Settings,
+                    contentDescription = "Настройки",
+                    bordered = false,
+                    onClick = onOpenSettings,
+                )
+            },
         )
 
         LazyColumn(
             modifier = Modifier.weight(1f),
-            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
                 DownloadInputCard(
@@ -201,7 +215,7 @@ fun DownloadsScreen(
                         Text(
                             text = "Показаны последние $MAX_COMPLETED из ${completed.size}",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            color = colors.textSecondary,
                             modifier = Modifier.padding(start = 4.dp),
                         )
                     }
@@ -219,103 +233,110 @@ private fun DownloadInputCard(
     onSubmit: () -> Unit,
     onClear: () -> Unit,
 ) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+    val colors = SoundTubeTheme.colors
+    val busyIndicator: @Composable () -> Unit = {
+        CircularProgressIndicator(
+            modifier = Modifier.size(14.dp),
+            strokeWidth = 2.dp,
+            color = colors.onPrimary,
+        )
+    }
+
+    SoundTubeCard {
+        Text(
+            text = "Новая загрузка",
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.textPrimary,
+        )
+
+        OutlinedTextField(
+            value = url,
+            onValueChange = onUrlChange,
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("music.youtube.com, youtube.com, soundcloud.com") },
+            textStyle = MaterialTheme.typography.bodyMedium,
+            singleLine = true,
+            shape = RoundedCornerShape(8.dp),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Uri,
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(onDone = { onSubmit() }),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = colors.surfaceInput,
+                unfocusedContainerColor = colors.surfaceInput,
+                focusedBorderColor = colors.primary,
+                unfocusedBorderColor = colors.border,
+                cursorColor = colors.primary,
+                focusedTextColor = colors.textPrimary,
+                unfocusedTextColor = colors.textPrimary,
+                focusedPlaceholderColor = colors.textSecondary,
+                unfocusedPlaceholderColor = colors.textSecondary,
+            ),
+        )
+
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = "Новая загрузка",
-                style = MaterialTheme.typography.titleMedium,
+            SoundTubeButton(
+                text = if (busy) "Готовим…" else "Скачать",
+                onClick = onSubmit,
+                enabled = !busy && url.isNotBlank(),
+                icon = if (busy) null else Icons.Rounded.Download,
+                leading = if (busy) busyIndicator else null,
             )
 
-            OutlinedTextField(
-                value = url,
-                onValueChange = onUrlChange,
-                modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("https://youtube.com/watch?v=…") },
-                singleLine = true,
-                shape = RoundedCornerShape(14.dp),
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Done,
-                ),
-                keyboardActions = KeyboardActions(onDone = { onSubmit() }),
-            )
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Button(
-                    onClick = onSubmit,
-                    enabled = !busy && url.isNotBlank(),
-                ) {
-                    if (busy) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary,
-                        )
-                        Spacer(Modifier.size(8.dp))
-                    }
-                    Text(if (busy) "Готовим…" else "Скачать")
-                }
-
-                if (url.isNotBlank() && !busy) {
-                    TextButton(onClick = onClear) {
-                        Text("Очистить")
-                    }
-                }
+            if (url.isNotBlank() && !busy) {
+                SoundTubeButton(
+                    text = "Очистить",
+                    primary = false,
+                    onClick = onClear,
+                )
             }
-
-            Text(
-                text = "YouTube, SoundCloud, плейлисты и сеты. Файлы сохраняются на устройство.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
+
+        Text(
+            text = "YouTube, SoundCloud, плейлисты и сеты. Файлы сохраняются на устройство.",
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.textSecondary,
+        )
     }
 }
 
 @Composable
 private fun NotificationPermissionCard(onRequest: () -> Unit) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer,
-    ) {
+    val colors = SoundTubeTheme.colors
+
+    SoundTubeCard {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Icon(
                 imageVector = Icons.Rounded.Notifications,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSecondaryContainer,
+                tint = colors.warning,
+                modifier = Modifier.size(18.dp),
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "Уведомления выключены",
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    color = colors.textPrimary,
                 )
                 Text(
                     text = "Без них не видно прогресс в шторке.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.textSecondary,
                 )
             }
-            TextButton(onClick = onRequest) {
-                Text("Включить")
-            }
+            SoundTubeButton(
+                text = "Включить",
+                primary = false,
+                compact = true,
+                onClick = onRequest,
+            )
         }
     }
 }
@@ -327,44 +348,33 @@ private fun MessageCard(
     canRetry: Boolean,
     onRetry: () -> Unit,
 ) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = if (isError) {
-            MaterialTheme.colorScheme.errorContainer
-        } else {
-            MaterialTheme.colorScheme.secondaryContainer
-        },
-    ) {
+    val colors = SoundTubeTheme.colors
+    val accent = if (isError) colors.error else colors.primary
+
+    SoundTubeCard(borderColor = if (isError) colors.error else colors.border) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Icon(
                 imageVector = if (isError) Icons.Rounded.ErrorOutline else Icons.Rounded.Info,
                 contentDescription = null,
-                tint = if (isError) {
-                    MaterialTheme.colorScheme.onErrorContainer
-                } else {
-                    MaterialTheme.colorScheme.onSecondaryContainer
-                },
+                tint = accent,
+                modifier = Modifier.size(18.dp),
             )
             Text(
                 text = text,
-                style = MaterialTheme.typography.bodyMedium,
-                color = if (isError) {
-                    MaterialTheme.colorScheme.onErrorContainer
-                } else {
-                    MaterialTheme.colorScheme.onSecondaryContainer
-                },
+                style = MaterialTheme.typography.bodySmall,
+                color = if (isError) colors.error else colors.textPrimary,
                 modifier = Modifier.weight(1f),
             )
             if (canRetry) {
-                TextButton(onClick = onRetry) {
-                    Text("Повторить")
-                }
+                SoundTubeButton(
+                    text = "Повторить",
+                    primary = false,
+                    compact = true,
+                    onClick = onRetry,
+                )
             }
         }
     }
@@ -372,6 +382,8 @@ private fun MessageCard(
 
 @Composable
 private fun SectionHeader(title: String, count: Int) {
+    val colors = SoundTubeTheme.colors
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -380,13 +392,14 @@ private fun SectionHeader(title: String, count: Int) {
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.textPrimary,
             modifier = Modifier.weight(1f),
         )
         Text(
             text = count.toString(),
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.textSecondary,
         )
     }
 }
@@ -398,146 +411,147 @@ private fun DownloadTaskCard(
     onRetry: () -> Unit,
     onPlay: () -> Unit,
 ) {
-    Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.30f),
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .background(
-                            color = task.state.tint().copy(alpha = 0.12f),
-                            shape = CircleShape,
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = task.state.icon(),
-                        contentDescription = null,
-                        tint = task.state.tint(),
-                        modifier = Modifier.size(20.dp),
-                    )
-                }
+    val colors = SoundTubeTheme.colors
 
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = task.title,
-                        style = MaterialTheme.typography.bodyLarge,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+    SoundTubeCard(contentPadding = PaddingValues(12.dp)) {
+        Row(
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = task.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.textPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SoundTubeBadge(platformOf(task.sourceUrl))
                     Text(
                         text = task.artist,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.textSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+            }
 
-                when {
-                    task.isActive -> IconButton(onClick = onCancel) {
-                        Icon(Icons.Rounded.Close, contentDescription = "Отменить")
-                    }
+            when {
+                task.isActive -> SoundTubeIconButton(
+                    icon = Icons.Rounded.Close,
+                    contentDescription = "Отменить",
+                    bordered = false,
+                    size = 30.dp,
+                    onClick = onCancel,
+                )
 
-                    task.state is DownloadState.Failed ||
-                        task.state is DownloadState.Cancelled -> IconButton(onClick = onRetry) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = "Повторить")
-                    }
+                task.state is DownloadState.Failed ||
+                    task.state is DownloadState.Cancelled -> SoundTubeIconButton(
+                    icon = Icons.Rounded.Refresh,
+                    contentDescription = "Повторить",
+                    bordered = false,
+                    size = 30.dp,
+                    onClick = onRetry,
+                )
 
-                    task.state is DownloadState.Idle -> IconButton(onClick = onRetry) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = "Поставить в очередь")
+                task.state is DownloadState.Idle -> SoundTubeIconButton(
+                    icon = Icons.Rounded.Refresh,
+                    contentDescription = "Поставить в очередь",
+                    bordered = false,
+                    size = 30.dp,
+                    onClick = onRetry,
+                )
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        when (val state = task.state) {
+            DownloadState.Idle -> StatusText("в очереди")
+
+            is DownloadState.FetchingMetadata -> {
+                LinearProgressIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp),
+                    color = colors.primary,
+                    trackColor = colors.border,
+                    strokeCap = StrokeCap.Butt,
+                )
+                StatusText("получаем метаданные…")
+            }
+
+            is DownloadState.Downloading -> {
+                ThinProgressBar(progress = state.progress)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text(
+                        text = "${(state.progress * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.statusGreen,
+                    )
+                    Text(
+                        text = state.status,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.textSecondary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    state.etaSeconds.formatEta()?.let { eta ->
+                        Text(
+                            text = eta,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.textSecondary,
+                        )
                     }
                 }
             }
 
-            when (val state = task.state) {
-                DownloadState.Idle -> StatusText("В очереди")
-
-                is DownloadState.FetchingMetadata -> {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    StatusText("Получаем метаданные…")
-                }
-
-                is DownloadState.Downloading -> {
-                    LinearProgressIndicator(
-                        progress = { state.progress },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Text(
-                            text = "${(state.progress * 100).toInt()}%",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.secondary,
-                        )
-                        Text(
-                            text = state.status,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                        state.etaSeconds.formatEta()?.let { eta ->
-                            Text(
-                                text = eta,
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                }
-
-                is DownloadState.Completed -> Row(
+            is DownloadState.Completed -> {
+                ThinProgressBar(progress = 1f, color = colors.statusGreen)
+                Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.CheckCircle,
                         contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp),
+                        tint = colors.statusGreen,
+                        modifier = Modifier.size(14.dp),
                     )
                     Text(
-                        text = "Готово",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                        text = "готово",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = colors.statusGreen,
                         modifier = Modifier.weight(1f),
                     )
-                    TextButton(onClick = onPlay) {
-                        Icon(
-                            imageVector = Icons.Rounded.PlayArrow,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(Modifier.size(4.dp))
-                        Text("Слушать")
-                    }
+                    SoundTubeButton(
+                        text = "Слушать",
+                        icon = Icons.Rounded.PlayArrow,
+                        primary = false,
+                        compact = true,
+                        onClick = onPlay,
+                    )
                 }
-
-                is DownloadState.Failed -> Text(
-                    text = "Ошибка: ${state.message}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis,
-                )
-
-                is DownloadState.Cancelled -> StatusText("Отменено")
             }
+
+            is DownloadState.Failed -> Text(
+                text = "ошибка: ${state.message}",
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.error,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            is DownloadState.Cancelled -> StatusText("отменено")
         }
     }
 }
@@ -546,26 +560,16 @@ private fun DownloadTaskCard(
 private fun StatusText(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        style = MaterialTheme.typography.labelSmall,
+        color = SoundTubeTheme.colors.textSecondary,
     )
 }
 
-private fun DownloadState.icon() = when (this) {
-    is DownloadState.Completed -> Icons.Rounded.CheckCircle
-    is DownloadState.Failed -> Icons.Rounded.ErrorOutline
-    is DownloadState.Cancelled -> Icons.Rounded.Cancel
-    is DownloadState.Downloading -> Icons.Rounded.Download
-    is DownloadState.FetchingMetadata -> Icons.Rounded.HourglassTop
-    DownloadState.Idle -> Icons.Rounded.HourglassTop
-}
-
-@Composable
-private fun DownloadState.tint() = when (this) {
-    is DownloadState.Completed -> MaterialTheme.colorScheme.primary
-    is DownloadState.Failed -> MaterialTheme.colorScheme.error
-    is DownloadState.Downloading -> MaterialTheme.colorScheme.secondary
-    else -> MaterialTheme.colorScheme.onSurfaceVariant
+/** Площадка по ссылке: бейдж `youtube` / `soundcloud`, как в карточке задачи на ПК. */
+private fun platformOf(url: String): String = when {
+    url.contains("soundcloud", ignoreCase = true) -> "soundcloud"
+    url.contains("youtu", ignoreCase = true) -> "youtube"
+    else -> "ссылка"
 }
 
 /** Сколько завершённых задач показывать: история не должна хоронить очередь. */
