@@ -8,7 +8,236 @@ const ZEN_IDLE_MS = 10_000;
 const UPDATE_CHECK_MS = 30 * 60 * 1000;
 const RELEASES_URL = "https://github.com/Denisplokhikh/SoundTube/releases";
 
+/* ---------- локализация ---------- */
+
+/** Все подписи интерфейса. Русский и английский живут рядом: ключи общие. */
+const MESSAGES = {
+  ru: {
+    "nav.library": "Библиотека",
+    "nav.downloads": "Загрузки",
+    "playlists.title": "Плейлисты",
+    "playlists.create": "Создать плейлист",
+    "stats.tracks": "треков",
+    "stats.onDisk": "на диске",
+    "status.connecting": "подключаюсь…",
+    "status.ok": "сервер работает",
+    "status.unavailable": "сервер недоступен",
+    "search.placeholder": "Трек, артист, альбом",
+    "library.rescan": "Пересканировать папку",
+    "library.scanning": "Сканирую папку…",
+    "library.playAll": "Играть всё",
+    "update.checking": "Проверяю обновления…",
+    "update.badge": "Обновление",
+    "update.badgeVersion": "Обновление {version}",
+    "update.titleVersion": "Доступна версия {version} — открыть страницу загрузки",
+    "update.title": "Доступна новая версия — открыть страницу загрузки",
+    "update.opening": "Открываю страницу загрузки в браузере…",
+    "views.library": "Библиотека",
+    "views.downloads": "Загрузки",
+    "columns.title": "Название",
+    "columns.album": "Альбом",
+    "columns.duration": "Время",
+    "playlist.rename": "Переименовать",
+    "playlist.remove": "Удалить",
+    "playlist.namePrompt": "Название плейлиста",
+    "playlist.created": "Плейлист «{name}» создан",
+    "playlist.fallback": "плейлист",
+    "playlist.added": "Добавлено в «{name}»",
+    "playlist.already": "«{track}» уже в «{name}»",
+    "playlist.renamePrompt": "Новое название",
+    "playlist.deleteConfirm": "Удалить плейлист «{name}»?\nФайлы на диске останутся.",
+    "playlist.deleted": "Плейлист удалён",
+    "playlist.missing": "{count} недоступно",
+    "downloads.subtitle": "Вставьте ссылку на плейлист или трек",
+    "downloads.format": "Формат файла",
+    "downloads.formatAsIs": "как есть",
+    "downloads.submit": "Скачать",
+    "downloads.submitting": "Разбираю…",
+    "player.nothingPlaying": "Ничего не играет",
+    "player.selectTrack": "Выберите трек в библиотеке",
+    "player.fullscreen": "Полноэкранный режим",
+    "player.fullscreenPlayer": "Полноэкранный плеер",
+    "player.collapse": "Свернуть (Esc)",
+    "player.nowPlaying": "Сейчас играет",
+    "player.shuffle": "Перемешать",
+    "player.prev": "Предыдущий",
+    "player.play": "Играть",
+    "player.next": "Следующий",
+    "player.repeatOff": "Повтор выключен",
+    "player.repeatAll": "Повтор: весь список",
+    "player.repeatOne": "Повтор: один трек",
+    "player.position": "Позиция",
+    "player.volume": "Громкость",
+    "player.sound": "Звук",
+    "player.mute": "Выключить звук",
+    "player.unmute": "Включить звук",
+    "language.switch": "Сменить язык — English",
+    "empty.notFound": "Ничего не найдено",
+    "empty.tryAnother": "Попробуйте изменить запрос.",
+    "empty.playlistEmpty": "Плейлист пуст",
+    "empty.playlistHint": "Откройте библиотеку и добавьте треки через меню «⋯» в строке трека.",
+    "empty.libraryEmpty": "Библиотека пуста",
+    "empty.libraryHint": "Перейдите в «Загрузки» и вставьте ссылку на плейлист.",
+    "empty.short": "Пока пусто",
+    "track.removeFromPlaylist": "Убрать из плейлиста",
+    "track.removeAria": "Убрать {title} из плейлиста",
+    "track.more": "Ещё",
+    "track.actionsAria": "Действия с {title}",
+    "track.deleteConfirm":
+      "Удалить файл «{title}»?\nОн будет удалён с диска без возможности восстановления.",
+    "track.deleted": "Удалено: {title}",
+    "queue.empty": "Очередь пуста",
+    "queue.noTracks": "Нет треков для воспроизведения",
+    "error.http": "Ошибка {status}",
+    "error.play": "Не удалось воспроизвести: {message}",
+    "error.playFile": "Не удалось воспроизвести файл",
+    "jobs.emptyTitle": "Задач пока нет",
+    "jobs.emptyHint": "Вставьте ссылку на плейлист YouTube Music или сет SoundCloud.",
+    "jobs.retry": "Повторить",
+    "jobs.delete": "Удалить",
+    "jobs.loadingTracks": "загружаю список…",
+    "jobs.done": "готово",
+    "jobs.failed": "с ошибкой",
+    "kind.playlist": "плейлист",
+    "kind.set": "сет",
+    "kind.track": "трек",
+    "jobs.doneToast": "Скачано: {title}",
+    "jobs.partialToast": "Часть треков не скачалась: {title}",
+    "jobs.deleteConfirm": "Удалить задачу из списка? Скачанные файлы останутся.",
+    "menu.addToPlaylist": "Добавить в плейлист",
+    "menu.newPlaylist": "+ Новый плейлист",
+    "menu.deleteFromDisk": "Удалить с диска",
+    "status.pending": "в очереди",
+    "status.running": "качает",
+    "status.done": "готово",
+    "status.partial": "частично",
+    "status.failed": "ошибка",
+    "status.skipped": "пропущен",
+    "trackStatus.pending": "ждёт",
+    "trackStatus.downloading": "качает…",
+    "trackStatus.done": "ok",
+    "trackStatus.failed": "ошибка",
+    "trackStatus.skipped": "дубликат",
+  },
+  en: {
+    "nav.library": "Library",
+    "nav.downloads": "Downloads",
+    "playlists.title": "Playlists",
+    "playlists.create": "Create playlist",
+    "stats.tracks": "tracks",
+    "stats.onDisk": "on disk",
+    "status.connecting": "connecting…",
+    "status.ok": "server is running",
+    "status.unavailable": "server unavailable",
+    "search.placeholder": "Track, artist, album",
+    "library.rescan": "Rescan folder",
+    "library.scanning": "Scanning folder…",
+    "library.playAll": "Play all",
+    "update.checking": "Checking for updates…",
+    "update.badge": "Update",
+    "update.badgeVersion": "Update {version}",
+    "update.titleVersion": "Version {version} is available — open the download page",
+    "update.title": "A new version is available — open the download page",
+    "update.opening": "Opening the download page in your browser…",
+    "views.library": "Library",
+    "views.downloads": "Downloads",
+    "columns.title": "Title",
+    "columns.album": "Album",
+    "columns.duration": "Time",
+    "playlist.rename": "Rename",
+    "playlist.remove": "Delete",
+    "playlist.namePrompt": "Playlist name",
+    "playlist.created": "Playlist “{name}” created",
+    "playlist.fallback": "playlist",
+    "playlist.added": "Added to “{name}”",
+    "playlist.already": "“{track}” is already in “{name}”",
+    "playlist.renamePrompt": "New name",
+    "playlist.deleteConfirm": "Delete playlist “{name}”?\nThe files on disk will stay.",
+    "playlist.deleted": "Playlist deleted",
+    "playlist.missing": "{count} unavailable",
+    "downloads.subtitle": "Paste a link to a playlist or a track",
+    "downloads.format": "File format",
+    "downloads.formatAsIs": "as is",
+    "downloads.submit": "Download",
+    "downloads.submitting": "Parsing…",
+    "player.nothingPlaying": "Nothing is playing",
+    "player.selectTrack": "Pick a track in your library",
+    "player.fullscreen": "Fullscreen mode",
+    "player.fullscreenPlayer": "Fullscreen player",
+    "player.collapse": "Collapse (Esc)",
+    "player.nowPlaying": "Now playing",
+    "player.shuffle": "Shuffle",
+    "player.prev": "Previous",
+    "player.play": "Play",
+    "player.next": "Next",
+    "player.repeatOff": "Repeat off",
+    "player.repeatAll": "Repeat: whole queue",
+    "player.repeatOne": "Repeat: one track",
+    "player.position": "Position",
+    "player.volume": "Volume",
+    "player.sound": "Sound",
+    "player.mute": "Mute",
+    "player.unmute": "Unmute",
+    "language.switch": "Switch language — Русский",
+    "empty.notFound": "Nothing found",
+    "empty.tryAnother": "Try a different search.",
+    "empty.playlistEmpty": "Playlist is empty",
+    "empty.playlistHint": "Open the library and add tracks with the “⋯” menu on a track row.",
+    "empty.libraryEmpty": "Library is empty",
+    "empty.libraryHint": "Go to Downloads and paste a playlist link.",
+    "empty.short": "Empty for now",
+    "track.removeFromPlaylist": "Remove from playlist",
+    "track.removeAria": "Remove {title} from the playlist",
+    "track.more": "More",
+    "track.actionsAria": "Actions for {title}",
+    "track.deleteConfirm":
+      "Delete the file “{title}”?\nIt will be removed from the disk permanently.",
+    "track.deleted": "Deleted: {title}",
+    "queue.empty": "The queue is empty",
+    "queue.noTracks": "No tracks to play",
+    "error.http": "Error {status}",
+    "error.play": "Couldn't play: {message}",
+    "error.playFile": "Couldn't play the file",
+    "jobs.emptyTitle": "No tasks yet",
+    "jobs.emptyHint": "Paste a YouTube Music playlist link or a SoundCloud set.",
+    "jobs.retry": "Retry",
+    "jobs.delete": "Delete",
+    "jobs.loadingTracks": "loading tracks…",
+    "jobs.done": "done",
+    "jobs.failed": "failed",
+    "kind.playlist": "playlist",
+    "kind.set": "set",
+    "kind.track": "track",
+    "jobs.doneToast": "Downloaded: {title}",
+    "jobs.partialToast": "Some tracks failed: {title}",
+    "jobs.deleteConfirm": "Delete this task from the list? Downloaded files will stay.",
+    "menu.addToPlaylist": "Add to playlist",
+    "menu.newPlaylist": "+ New playlist",
+    "menu.deleteFromDisk": "Delete from disk",
+    "status.pending": "queued",
+    "status.running": "downloading",
+    "status.done": "done",
+    "status.partial": "partial",
+    "status.failed": "error",
+    "status.skipped": "skipped",
+    "trackStatus.pending": "waiting",
+    "trackStatus.downloading": "downloading…",
+    "trackStatus.done": "ok",
+    "trackStatus.failed": "error",
+    "trackStatus.skipped": "duplicate",
+  },
+};
+
+const SIZE_UNITS = {
+  ru: ["Б", "КБ", "МБ", "ГБ", "ТБ"],
+  en: ["B", "KB", "MB", "GB", "TB"],
+};
+
+
 const state = {
+  lang: localStorage.getItem("melodown.lang") === "en" ? "en" : "ru",
+  health: null,
+  updateInfo: null,
   view: "library",
   tracks: [],
   visible: [],
@@ -30,6 +259,8 @@ const state = {
   libraryLoaded: false,
   libraryDirty: false,
   playlists: [],
+  playlistsLoaded: false,
+  jobsLoaded: false,
   playlistId: null,
   playlistName: "",
   playlistTracks: [],
@@ -40,22 +271,93 @@ const state = {
   zenTimer: null,
 };
 
-const STATUS_LABELS = {
-  pending: "в очереди",
-  running: "качает",
-  done: "готово",
-  partial: "частично",
-  failed: "ошибка",
-  skipped: "пропущен",
-};
+function t(key, params = null) {
+  const table = MESSAGES[state.lang] || MESSAGES.ru;
+  let value = table[key] ?? MESSAGES.ru[key] ?? key;
+  if (params) {
+    for (const [name, replacement] of Object.entries(params)) {
+      value = value.split(`{${name}}`).join(String(replacement));
+    }
+  }
+  return value;
+}
 
-const TRACK_LABELS = {
-  pending: "ждёт",
-  downloading: "качает…",
-  done: "ok",
-  failed: "ошибка",
-  skipped: "дубликат",
-};
+/** Подпись по префиксу и статусу; неизвестный статус показываем как есть. */
+function label(prefix, value) {
+  const key = `${prefix}.${value}`;
+  const table = MESSAGES[state.lang] || MESSAGES.ru;
+  return table[key] ?? MESSAGES.ru[key] ?? value;
+}
+
+/** «12 треков» / «12 tracks» — в русском нужен plural, в английском хватает s. */
+function trackCountLabel(count) {
+  if (state.lang === "ru") {
+    return `${count} ${plural(count, "трек", "трека", "треков")}`;
+  }
+  return `${count} ${count === 1 ? "track" : "tracks"}`;
+}
+
+function applyStaticTranslations() {
+  for (const node of document.querySelectorAll("[data-i18n]")) {
+    node.textContent = t(node.dataset.i18n);
+  }
+  for (const node of document.querySelectorAll("[data-i18n-title]")) {
+    node.title = t(node.dataset.i18nTitle);
+  }
+  for (const node of document.querySelectorAll("[data-i18n-placeholder]")) {
+    node.placeholder = t(node.dataset.i18nPlaceholder);
+  }
+  for (const node of document.querySelectorAll("[data-i18n-aria-label]")) {
+    node.setAttribute("aria-label", t(node.dataset.i18nAriaLabel));
+  }
+}
+
+/** Перерисовывает всё, что собирается в JS: списки и динамические подписи. */
+function applyLanguage() {
+  document.documentElement.lang = state.lang;
+  applyStaticTranslations();
+
+  const toggle = $("#lang-toggle");
+  $("#lang-code").textContent = state.lang.toUpperCase();
+  toggle.setAttribute("aria-pressed", state.lang === "en" ? "true" : "false");
+
+  updateRepeatUI();
+  syncVolumeUI();
+  applyHealth();
+  if (state.updateInfo !== null) renderUpdateBadge(state.updateInfo);
+
+  $("#tracks-title").textContent = state.view === "playlist" ? state.playlistName : t("views.library");
+  if (state.view === "playlist") updatePlaylistSubtitle();
+  else updateStats();
+
+  if (state.libraryLoaded || state.view === "playlist") renderTracks();
+  if (state.jobsLoaded) renderJobs();
+  if (state.playlistsLoaded) renderPlaylists();
+  closeTrackMenu();
+
+  const playing = currentTrack();
+  if (playing) updateNowPlaying(playing);
+  else setNowPlaceholders();
+
+  if (state.fullscreen) syncFullscreen();
+}
+
+function setLanguage(lang) {
+  state.lang = lang === "en" ? "en" : "ru";
+  localStorage.setItem("melodown.lang", state.lang);
+  applyLanguage();
+}
+
+function toggleLanguage() {
+  setLanguage(state.lang === "ru" ? "en" : "ru");
+}
+
+function setNowPlaceholders() {
+  $("#now-title").textContent = t("player.nothingPlaying");
+  $("#now-artist").textContent = t("player.selectTrack");
+  $("#fs-title").textContent = t("player.nothingPlaying");
+  $("#fs-artist").textContent = t("player.selectTrack");
+}
 
 function esc(value) {
   return String(value ?? "").replace(
@@ -75,8 +377,8 @@ function formatTime(seconds) {
 }
 
 function formatSize(bytes) {
-  if (!bytes) return "0 Б";
-  const units = ["Б", "КБ", "МБ", "ГБ", "ТБ"];
+  const units = SIZE_UNITS[state.lang] || SIZE_UNITS.ru;
+  if (!bytes) return `0 ${units[0]}`;
   let value = Number(bytes);
   let index = 0;
   while (value >= 1024 && index < units.length - 1) {
@@ -101,7 +403,7 @@ async function api(path, options = {}) {
   });
 
   if (!response.ok) {
-    let message = `Ошибка ${response.status}`;
+    let message = t("error.http", { status: response.status });
     try {
       const data = await response.json();
       if (data && data.detail) {
@@ -133,9 +435,13 @@ function updateStats() {
   $("#stat-tracks").textContent = state.tracks.length;
   $("#stat-size").textContent = formatSize(state.totalSize);
   if (state.view === "playlist") return;
+  if (!state.libraryLoaded) {
+    $("#tracks-sub").textContent = t("library.scanning");
+    return;
+  }
   $("#tracks-sub").textContent = state.tracks.length
-    ? `${state.tracks.length} треков · ${formatSize(state.totalSize)}`
-    : "Пока пусто";
+    ? `${trackCountLabel(state.tracks.length)} · ${formatSize(state.totalSize)}`
+    : t("empty.short");
 }
 
 function plural(count, one, few, many) {
@@ -160,6 +466,10 @@ function filteredTracks() {
   );
 }
 
+function emptyState(title, hint = "") {
+  return `<div class="empty"><strong>${esc(title)}</strong>${esc(hint)}</div>`;
+}
+
 function renderTracks() {
   const list = filteredTracks();
   state.visible = list;
@@ -169,14 +479,12 @@ function renderTracks() {
   if (!list.length) {
     if (state.view === "playlist") {
       container.innerHTML = state.playlistTracks.length
-        ? '<div class="empty"><strong>Ничего не найдено</strong>Попробуйте изменить запрос.</div>'
-        : '<div class="empty"><strong>Плейлист пуст</strong>Откройте библиотеку и добавьте треки через меню «⋯» в строке трека.</div>';
+        ? emptyState(t("empty.notFound"), t("empty.tryAnother"))
+        : emptyState(t("empty.playlistEmpty"), t("empty.playlistHint"));
     } else if (!state.tracks.length) {
-      container.innerHTML =
-        '<div class="empty"><strong>Библиотека пуста</strong>Перейдите в «Загрузки» и вставьте ссылку на плейлист.</div>';
+      container.innerHTML = emptyState(t("empty.libraryEmpty"), t("empty.libraryHint"));
     } else {
-      container.innerHTML =
-        '<div class="empty"><strong>Ничего не найдено</strong>Попробуйте изменить запрос.</div>';
+      container.innerHTML = emptyState(t("empty.notFound"), t("empty.tryAnother"));
     }
     return;
   }
@@ -192,8 +500,8 @@ function trackRow(track, index) {
           class="row-action"
           type="button"
           data-remove="${esc(track.id)}"
-          title="Убрать из плейлиста"
-          aria-label="Убрать ${esc(track.title)} из плейлиста"
+          title="${esc(t("track.removeFromPlaylist"))}"
+          aria-label="${esc(t("track.removeAria", { title: track.title }))}"
         >
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M6 6l12 12M18 6 6 18" />
@@ -203,8 +511,8 @@ function trackRow(track, index) {
           class="row-action"
           type="button"
           data-more="${esc(track.id)}"
-          title="Ещё"
-          aria-label="Действия с ${esc(track.title)}"
+          title="${esc(t("track.more"))}"
+          aria-label="${esc(t("track.actionsAria", { title: track.title }))}"
         >
           <svg viewBox="0 0 24 24" class="filled" aria-hidden="true">
             <circle cx="5" cy="12" r="1.6" />
@@ -245,12 +553,9 @@ function resetNowPlaying() {
   audio.removeAttribute("src");
   audio.load();
 
-  $("#now-title").textContent = "Ничего не играет";
-  $("#now-artist").textContent = "Выберите трек в библиотеке";
+  setNowPlaceholders();
   $("#now-cover").removeAttribute("src");
 
-  $("#fs-title").textContent = "Ничего не играет";
-  $("#fs-artist").textContent = "Выберите трек в библиотеке";
   $("#fs-album").textContent = "";
   $("#fs-cover").removeAttribute("src");
 
@@ -267,9 +572,7 @@ async function deleteTrack(trackId) {
   const track = state.tracks.find((item) => item.id === trackId);
   if (!track) return;
 
-  const confirmed = window.confirm(
-    `Удалить файл «${track.title}»?\nОн будет удалён с диска без возможности восстановления.`,
-  );
+  const confirmed = window.confirm(t("track.deleteConfirm", { title: track.title }));
   if (!confirmed) return;
 
   const isCurrent = trackId === state.currentId;
@@ -296,7 +599,7 @@ async function deleteTrack(trackId) {
   updatePlaylistSubtitle();
   renderTracks();
   loadPlaylists();
-  showToast(`Удалено: ${track.title}`);
+  showToast(t("track.deleted", { title: track.title }));
 }
 
 async function loadLibrary(force = false) {
@@ -322,7 +625,7 @@ function startTrack(track) {
     .play()
     .catch((error) => {
       if (error.name !== "AbortError") {
-        showToast("Не удалось воспроизвести: " + error.message);
+        showToast(t("error.play", { message: error.message }));
       }
     });
 
@@ -882,8 +1185,7 @@ function syncFullscreen() {
   if (track) {
     updateNowPlaying(track);
   } else {
-    $("#fs-title").textContent = "Ничего не играет";
-    $("#fs-artist").textContent = "Выберите трек в библиотеке";
+    setNowPlaceholders();
     $("#fs-album").textContent = "";
     $("#fs-cover").removeAttribute("src");
     paintPalette(null);
@@ -995,7 +1297,7 @@ function playFromList(trackId) {
 
 function playAll() {
   if (!state.visible.length) {
-    showToast("Нет треков для воспроизведения");
+    showToast(t("queue.noTracks"));
     return;
   }
   state.queue = state.visible.slice();
@@ -1005,7 +1307,7 @@ function playAll() {
 
 function nextTrack(auto = false) {
   if (!state.queue.length) {
-    if (!auto) showToast("Очередь пуста");
+    if (!auto) showToast(t("queue.empty"));
     return;
   }
 
@@ -1042,7 +1344,7 @@ function nextTrack(auto = false) {
 
 function prevTrack() {
   if (!state.queue.length) {
-    showToast("Очередь пуста");
+    showToast(t("queue.empty"));
     return;
   }
   if (audio.currentTime > 3) {
@@ -1078,10 +1380,10 @@ function updateRepeatUI() {
     button.classList.toggle("mode-one", state.repeat === "one");
     button.title =
       state.repeat === "all"
-        ? "Повтор: весь список"
+        ? t("player.repeatAll")
         : state.repeat === "one"
-          ? "Повтор: один трек"
-          : "Повтор выключен";
+          ? t("player.repeatOne")
+          : t("player.repeatOff");
   }
 }
 
@@ -1129,7 +1431,7 @@ function syncVolumeUI() {
   const muted = audio.muted || audio.volume === 0;
   for (const node of [$("#mute"), $("#fs-mute")]) {
     node.classList.toggle("muted", muted);
-    node.title = muted ? "Включить звук" : "Выключить звук";
+    node.title = muted ? t("player.unmute") : t("player.mute");
     node.setAttribute("aria-pressed", muted ? "true" : "false");
   }
 }
@@ -1170,7 +1472,7 @@ function renderTracksList(tracks) {
             }</div>
           </div>
           <span class="track-state ${esc(track.status)}">${esc(
-            TRACK_LABELS[track.status] || track.status,
+            label("trackStatus", track.status),
           )}</span>
         </div>
       `,
@@ -1191,7 +1493,9 @@ function jobCard(job) {
   const tracks = expanded
     ? detail
       ? renderTracksList(detail.tracks)
-      : '<div class="track"><span></span><span class="muted">загружаю список…</span><span></span></div>'
+      : `<div class="track"><span></span><span class="muted">${esc(
+          t("jobs.loadingTracks"),
+        )}</span><span></span></div>`
     : "";
 
   return `
@@ -1201,15 +1505,15 @@ function jobCard(job) {
           <div class="job-title">${esc(job.title || job.url)}</div>
           <div class="job-meta">
             <span class="badge">${esc(job.platform)}</span>
-            <span>${esc(job.kind)}</span>
-            <span>${job.total} трек(ов)</span>
-            <span class="status-${esc(job.status)}">${esc(STATUS_LABELS[job.status] || job.status)}</span>
+            <span>${esc(label("kind", job.kind))}</span>
+            <span>${trackCountLabel(job.total)}</span>
+            <span class="status-${esc(job.status)}">${esc(label("status", job.status))}</span>
             ${job.error ? `<span class="status-failed">${esc(job.error)}</span>` : ""}
           </div>
         </button>
         <div class="job-actions">
-          ${canRetry ? `<button class="ghost" data-action="retry" data-id="${esc(job.id)}" type="button">Повторить</button>` : ""}
-          <button class="ghost danger" data-action="delete" data-id="${esc(job.id)}" type="button">Удалить</button>
+          ${canRetry ? `<button class="ghost" data-action="retry" data-id="${esc(job.id)}" type="button">${esc(t("jobs.retry"))}</button>` : ""}
+          <button class="ghost danger" data-action="delete" data-id="${esc(job.id)}" type="button">${esc(t("jobs.delete"))}</button>
         </div>
       </div>
       <div class="progress ${progressClass}">
@@ -1217,8 +1521,8 @@ function jobCard(job) {
       </div>
       <div class="stats">
         <span>${percent}%</span>
-        <span class="status-done">${job.completed} готово</span>
-        ${job.failed ? `<span class="status-failed">${job.failed} с ошибкой</span>` : ""}
+        <span class="status-done">${job.completed} ${esc(t("jobs.done"))}</span>
+        ${job.failed ? `<span class="status-failed">${job.failed} ${esc(t("jobs.failed"))}</span>` : ""}
       </div>
       ${tracks}
     </article>
@@ -1228,8 +1532,7 @@ function jobCard(job) {
 function renderJobs() {
   const container = $("#jobs");
   if (!state.jobs.length) {
-    container.innerHTML =
-      '<div class="empty"><strong>Задач пока нет</strong>Вставьте ссылку на плейлист YouTube Music или сет SoundCloud.</div>';
+    container.innerHTML = emptyState(t("jobs.emptyTitle"), t("jobs.emptyHint"));
     return;
   }
   container.innerHTML = state.jobs.map(jobCard).join("");
@@ -1262,8 +1565,8 @@ async function loadJobs(silent = false) {
         state.libraryDirty = true;
         showToast(
           job.status === "done"
-            ? `Скачано: ${job.title}`
-            : `Часть треков не скачалась: ${job.title}`,
+            ? t("jobs.doneToast", { title: job.title })
+            : t("jobs.partialToast", { title: job.title }),
         );
         if (state.view !== "downloads") loadLibrary(true);
         loadPlaylists();
@@ -1272,6 +1575,7 @@ async function loadJobs(silent = false) {
     }
 
     state.jobs = jobs;
+    state.jobsLoaded = true;
     const signature = jobsSignature(jobs);
     if (signature !== state.jobsSignature) {
       state.jobsSignature = signature;
@@ -1325,7 +1629,7 @@ async function retryJob(jobId) {
 }
 
 async function deleteJob(jobId) {
-  if (!window.confirm("Удалить задачу из списка? Скачанные файлы останутся.")) return;
+  if (!window.confirm(t("jobs.deleteConfirm"))) return;
   try {
     await api(`/api/jobs/${jobId}`, { method: "DELETE" });
     state.expandedJobs.delete(jobId);
@@ -1346,7 +1650,7 @@ async function submitImport(event) {
 
   $("#error").hidden = true;
   button.disabled = true;
-  button.textContent = "Разбираю…";
+  button.textContent = t("downloads.submitting");
 
   try {
     const job = await api("/api/import", {
@@ -1362,7 +1666,7 @@ async function submitImport(event) {
     node.textContent = error.message;
   } finally {
     button.disabled = false;
-    button.textContent = "Скачать";
+    button.textContent = t("downloads.submit");
   }
 }
 
@@ -1371,8 +1675,8 @@ async function submitImport(event) {
 function updatePlaylistSubtitle() {
   if (state.view !== "playlist") return;
   const count = state.playlistTracks.length;
-  const parts = [`${count} ${plural(count, "трек", "трека", "треков")}`];
-  if (state.playlistMissing) parts.push(`${state.playlistMissing} недоступно`);
+  const parts = [trackCountLabel(count)];
+  if (state.playlistMissing) parts.push(t("playlist.missing", { count: state.playlistMissing }));
   $("#tracks-sub").textContent = parts.join(" · ");
 }
 
@@ -1380,7 +1684,7 @@ function renderPlaylists() {
   const list = $("#playlists");
 
   if (!state.playlists.length) {
-    list.innerHTML = '<li class="playlists-empty">Пока пусто</li>';
+    list.innerHTML = `<li class="playlists-empty">${esc(t("empty.short"))}</li>`;
     list.classList.remove("is-scrollable");
     return;
   }
@@ -1414,6 +1718,7 @@ function renderPlaylists() {
 async function loadPlaylists() {
   try {
     state.playlists = await api("/api/playlists");
+    state.playlistsLoaded = true;
     renderPlaylists();
   } catch (error) {
     showToast(error.message);
@@ -1457,10 +1762,10 @@ async function createPlaylist(name, trackId = null) {
 }
 
 async function promptNewPlaylist(trackId = null) {
-  const name = window.prompt("Название плейлиста", "");
+  const name = window.prompt(t("playlist.namePrompt"), "");
   if (name === null) return;
   const playlist = await createPlaylist(name, trackId);
-  if (playlist) showToast(`Плейлист «${playlist.name}» создан`);
+  if (playlist) showToast(t("playlist.created", { name: playlist.name }));
 }
 
 async function addTrackToPlaylist(playlistId, track) {
@@ -1473,11 +1778,11 @@ async function addTrackToPlaylist(playlistId, track) {
       body: JSON.stringify({ paths: [track.relative_path] }),
     });
 
-    const name = playlist ? playlist.name : "плейлист";
+    const name = playlist ? playlist.name : t("playlist.fallback");
     showToast(
       detail.track_count > before
-        ? `Добавлено в «${name}»`
-        : `«${track.title}» уже в «${name}»`,
+        ? t("playlist.added", { name })
+        : t("playlist.already", { track: track.title, name }),
     );
     await loadPlaylists();
 
@@ -1511,7 +1816,7 @@ async function removeFromPlaylist(trackId) {
 async function renameCurrentPlaylist() {
   if (!state.playlistId) return;
 
-  const name = window.prompt("Новое название", state.playlistName);
+  const name = window.prompt(t("playlist.renamePrompt"), state.playlistName);
   if (name === null || !name.trim()) return;
 
   try {
@@ -1529,7 +1834,7 @@ async function renameCurrentPlaylist() {
 
 async function deleteCurrentPlaylist() {
   if (!state.playlistId) return;
-  if (!window.confirm(`Удалить плейлист «${state.playlistName}»?\nФайлы на диске останутся.`)) return;
+  if (!window.confirm(t("playlist.deleteConfirm", { name: state.playlistName }))) return;
 
   try {
     await api(`/api/playlists/${state.playlistId}`, { method: "DELETE" });
@@ -1539,7 +1844,7 @@ async function deleteCurrentPlaylist() {
     state.playlistMissing = 0;
     await loadPlaylists();
     switchView("library");
-    showToast("Плейлист удалён");
+    showToast(t("playlist.deleted"));
   } catch (error) {
     showToast(error.message);
   }
@@ -1565,7 +1870,7 @@ function openTrackMenu(button, trackId) {
   menu.setAttribute("role", "menu");
   menu.dataset.track = trackId;
   menu.innerHTML = `
-    <div class="menu-label">Добавить в плейлист</div>
+    <div class="menu-label">${esc(t("menu.addToPlaylist"))}</div>
     ${state.playlists
       .map(
         (playlist) => `
@@ -1575,9 +1880,13 @@ function openTrackMenu(button, trackId) {
         `,
       )
       .join("")}
-    <button class="menu-item" type="button" role="menuitem" data-new-playlist="1">+ Новый плейлист</button>
+    <button class="menu-item" type="button" role="menuitem" data-new-playlist="1">${esc(
+      t("menu.newPlaylist"),
+    )}</button>
     <div class="menu-sep"></div>
-    <button class="menu-item danger" type="button" role="menuitem" data-delete-disk="${esc(track.id)}">Удалить с диска</button>
+    <button class="menu-item danger" type="button" role="menuitem" data-delete-disk="${esc(track.id)}">${esc(
+      t("menu.deleteFromDisk"),
+    )}</button>
   `;
 
   document.body.appendChild(menu);
@@ -1613,7 +1922,7 @@ function switchView(view) {
   $("#view-downloads").hidden = view !== "downloads";
 
   const inPlaylist = view === "playlist";
-  $("#tracks-title").textContent = inPlaylist ? state.playlistName : "Библиотека";
+  $("#tracks-title").textContent = inPlaylist ? state.playlistName : t("views.library");
   $("#playlist-rename").hidden = !inPlaylist;
   $("#playlist-remove").hidden = !inPlaylist;
 
@@ -1632,15 +1941,21 @@ function switchView(view) {
   renderTracks();
 }
 
+function applyHealth() {
+  if (state.health === null) return;
+  const ok = state.health === "ok";
+  $("#status-dot").classList.toggle("ok", ok);
+  $("#server-status").textContent = ok ? t("status.ok") : t("status.unavailable");
+}
+
 async function checkHealth() {
   try {
     await api("/api/health");
-    $("#status-dot").classList.add("ok");
-    $("#server-status").textContent = "сервер работает";
+    state.health = "ok";
   } catch {
-    $("#status-dot").classList.remove("ok");
-    $("#server-status").textContent = "сервер недоступен";
+    state.health = "failed";
   }
+  applyHealth();
 }
 
 async function checkForUpdates() {
@@ -1655,17 +1970,21 @@ function renderUpdateBadge(info) {
   const badge = $("#update-badge");
   if (!badge) return;
 
+  state.updateInfo = info || null;
+
   if (!info || !info.update_available) {
     badge.hidden = true;
     return;
   }
 
   const version = String(info.latest || "").replace(/^v/i, "");
-  $("#update-badge-text").textContent = version ? `Обновление ${version}` : "Обновление";
+  $("#update-badge-text").textContent = version
+    ? t("update.badgeVersion", { version })
+    : t("update.badge");
   badge.href = info.url || RELEASES_URL;
   badge.title = version
-    ? `Доступна версия ${version} — открыть страницу загрузки`
-    : "Доступна новая версия — открыть страницу загрузки";
+    ? t("update.titleVersion", { version })
+    : t("update.title");
   badge.hidden = false;
 }
 
@@ -1740,9 +2059,10 @@ function bindEvents() {
   $("#search").addEventListener("input", renderTracks);
   $("#play-all").addEventListener("click", playAll);
   $("#library-refresh").addEventListener("click", () => loadLibrary(true));
+  $("#lang-toggle").addEventListener("click", toggleLanguage);
 
   $("#update-badge").addEventListener("click", () => {
-    showToast("Открываю страницу загрузки в браузере…");
+    showToast(t("update.opening"));
   });
 
   $("#playlist-new").addEventListener("click", () => promptNewPlaylist());
@@ -1880,7 +2200,7 @@ function bindEvents() {
   });
 
   audio.addEventListener("error", () => {
-    if (audio.src) showToast("Не удалось воспроизвести файл");
+    if (audio.src) showToast(t("error.playFile"));
   });
 
   $("#import-form").addEventListener("submit", submitImport);
@@ -1924,6 +2244,7 @@ function init() {
   updateRepeatUI();
 
   bindEvents();
+  applyLanguage();
   setupMediaSession();
   checkHealth();
   checkForUpdates();
