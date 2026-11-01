@@ -87,6 +87,30 @@ powershell -ExecutionPolicy Bypass -File scripts\build-desktop.ps1
 
 > В установленном приложении база и временные файлы лежат в `%LOCALAPPDATA%\app.melodown.desktop\data`, музыка — по-прежнему в `~/Music/Melodown`. При запуске из репозитория (`tauri dev` + Python из `.venv`) используется `data/` проекта.
 
+### Версия и релиз
+
+Версия продублирована в файлах, которые читают пять разных тулчейнов (Python, uv, npm, Cargo, Tauri, Gradle), поэтому руками её не правим:
+
+```powershell
+python scripts\version.py 1.2.0      # проставить версию везде
+python scripts\version.py --check    # проверить, что везде одно и то же
+```
+
+То же через npm: `npm run version:bump -- 1.2.0`.
+
+Скрипт обновляет `app/__init__.py` (её отдают `/api/health` и проверка обновлений), `pyproject.toml`, `uv.lock`, `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json` и `versionName`/`versionCode` Android-приложения.
+
+Выпуск релиза:
+
+```powershell
+git add -A
+git commit -m "chore: release 1.2.0"
+git tag v1.2.0
+git push; git push --tags
+```
+
+Тег `v*` запускает `.github/workflows/release.yml`: версия ещё раз подставляется из тега (поэтому забытая правка не попадёт в установщик), собираются sidecar и пакеты, создаётся релиз на GitHub. Бейдж «Обновление» появляется, когда опубликован релиз новее установленной версии, — то есть после публикации следующего тега.
+
 ### Сборка под Linux (.deb / AppImage)
 
 Tauri не кросс-компилируется с Windows, поэтому сборка идёт внутри Linux. Проще всего — WSL2 с Ubuntu 22.04: собранное на 22.04 работает и на Debian 12 / Ubuntu 24.04+.
@@ -98,8 +122,8 @@ powershell -ExecutionPolicy Bypass -File scripts\build-linux.ps1
 
 Скрипт один раз ставит системные зависимости (`apt`), Rust, Node.js 22 и `uv`, собирает Python-sidecar через PyInstaller, затем пакеты Tauri. Исходники синхронизируются в `~/build/soundtube` (нативная ФС WSL — сборка на `/mnt/c` заметно медленнее), готовые файлы возвращаются в `dist\linux\`:
 
-- `SoundTube_0.1.0_amd64.deb`
-- `SoundTube_0.1.0_amd64.AppImage`
+- `SoundTube_<версия>_amd64.deb`
+- `SoundTube_<версия>_amd64.AppImage`
 
 Опции: `-Distro Ubuntu-22.04`, `-Bundles deb`, `-InPlace`, `-SkipDeps`.
 

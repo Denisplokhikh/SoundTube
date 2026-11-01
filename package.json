@@ -1,14 +1,16 @@
 {
   "name": "melodown",
   "productName": "SoundTube",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "description": "Desktop shell (Tauri) for the SoundTube local server",
   "scripts": {
     "tauri": "tauri",
     "desktop": "tauri dev",
     "desktop:build": "npm run build:server && tauri build",
-    "build:server": "powershell -ExecutionPolicy Bypass -File scripts/build-sidecar.ps1"
+    "build:server": "powershell -ExecutionPolicy Bypass -File scripts/build-sidecar.ps1",
+    "version:bump": "python scripts/version.py",
+    "version:check": "python scripts/version.py --check"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2"

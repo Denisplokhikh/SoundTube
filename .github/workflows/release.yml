@@ -22,6 +22,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Тег — источник правды для релиза: даже если версию в файлах забыли поднять,
+      # установщик и /api/update получат номер из тега.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Sync version from tag
+        run: python scripts/version.py "${{ github.ref_name }}"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
