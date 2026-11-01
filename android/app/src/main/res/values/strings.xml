@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">SoundTube</string>
+    <string name="tracks">Треки</string>
+    <string name="playlists">Плейлисты</string>
+    <string name="downloads">Загрузки</string>
+    <string name="settings">Настройки</string>
+</resources>

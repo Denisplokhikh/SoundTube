@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Простая «кассета»: два круга и полоса. -->
+    <path
+        android:fillColor="#7BE0B3"
+        android:pathData="M30,42h48a4,4 0 0 1 4,4v20a4,4 0 0 1 -4,4h-48a4,4 0 0 1 -4,-4v-20a4,4 0 0 1 4,-4z" />
+    <path
+        android:fillColor="#0B0F0E"
+        android:pathData="M42,51a7,7 0 1 0 0.001,0zM66,51a7,7 0 1 0 0.001,0z" />
+    <path
+        android:fillColor="#0B0F0E"
+        android:pathData="M40,64h28v3h-28z" />
+</vector>
