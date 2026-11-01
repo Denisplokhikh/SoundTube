@@ -8,6 +8,7 @@ import com.example.localplayer.R
 import com.example.localplayer.core.AppLog
 import com.example.localplayer.data.downloader.AudioDownloadWorker
 import com.example.localplayer.data.downloader.EngineState
+import com.example.localplayer.data.downloader.SoundcloudMetadata
 import com.example.localplayer.data.downloader.TrackMeta
 import com.example.localplayer.data.downloader.YoutubeDLClient
 import com.example.localplayer.data.local.db.dao.TrackDao
@@ -19,7 +20,10 @@ import com.example.localplayer.domain.model.SourcePlatform
 import com.example.localplayer.domain.util.DownloadErrors
 import com.example.localplayer.domain.util.TrackIds
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -61,6 +65,7 @@ sealed interface SubmitResult {
 class DownloadRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val client: YoutubeDLClient,
+    private val soundcloud: SoundcloudMetadata,
     private val trackDao: TrackDao,
     private val workManager: WorkManager,
     private val fileManager: AudioFileManager,
@@ -70,6 +75,13 @@ class DownloadRepository @Inject constructor(
 
     /** Два одновременных чтения ссылок = два yt-dlp и rate limit от площадки. */
     private val readMutex = Mutex()
+
+    /**
+     * Фоновое уточнение названий SoundCloud. Отдельный скоуп на весь singleton:
+     * постановка ссылки в очередь не должна ждать api-v2, а сама задача живёт
+     * дольше одного вызова [submit].
+     */
+    private val metadataScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     suspend fun prepareEngine(): Result<Unit> = client.ensureInitialized()
 
@@ -142,6 +154,11 @@ class DownloadRepository @Inject constructor(
         )
         AppLog.i("Queued: $title ($policy)")
 
+        // Очередь уже создана — названия SoundCloud догоняем в фоне.
+        resolveSoundcloudTitles(
+            listOfNotNull(info.soundcloudTarget(trackId, platform)),
+        )
+
         return SubmitResult.Queued(trackId, title)
     }
 
@@ -153,6 +170,7 @@ class DownloadRepository @Inject constructor(
         val chain = playlistChainName(url)
         var queued = 0
         var skipped = 0
+        val soundcloudTargets = mutableListOf<SoundcloudTarget>()
 
         infos.take(MAX_PLAYLIST_TRACKS).forEach { info ->
             val canonicalUrl = info.webpageUrl
@@ -182,11 +200,13 @@ class DownloadRepository @Inject constructor(
                 AudioDownloadWorker.request(trackId, canonicalUrl),
             )
             queued++
+            info.soundcloudTarget(trackId, platform)?.let(soundcloudTargets::add)
 
             AppLog.i("Playlist ${queued + skipped}/${infos.size}: ${info.displayTitle}")
         }
 
         AppLog.i("Playlist: queued $queued, already there $skipped")
+        resolveSoundcloudTitles(soundcloudTargets)
         return SubmitResult.QueuedPlaylist(count = queued, total = infos.size)
     }
 
@@ -221,6 +241,59 @@ class DownloadRepository @Inject constructor(
                 AppLog.w("Reading the link failed (attempt $attempt), retrying", error)
                 delay(INFO_RETRY_DELAY_MS)
                 attempt++
+            }
+        }
+    }
+
+    /** Трек, для которого название ещё не пришло и его можно дозапросить у api-v2. */
+    private data class SoundcloudTarget(val trackId: String, val soundcloudId: String)
+
+    private fun TrackMeta.soundcloudTarget(
+        trackId: String,
+        platform: SourcePlatform,
+    ): SoundcloudTarget? {
+        if (platform != SourcePlatform.SOUNDCLOUD || !needsSoundcloudMetadata) return null
+        val id = soundcloudId ?: return null
+        return SoundcloudTarget(trackId, id)
+    }
+
+    /**
+     * Догоняет названия уже поставленных в очередь треков SoundCloud.
+     *
+     * Запускается после записи в Room и не задерживает [submit]: api-v2 может ответить
+     * не сразу, а очередь должна появиться мгновенно. Ошибка здесь ничего не ломает —
+     * названия всё равно придут из `<id>.info.json` после скачивания.
+     */
+    private fun resolveSoundcloudTitles(targets: List<SoundcloudTarget>) {
+        if (targets.isEmpty()) return
+        val unique = targets.distinctBy { it.trackId }
+
+        metadataScope.launch {
+            try {
+                val resolved = soundcloud.fetchTracks(unique.map { it.soundcloudId })
+                if (resolved.isEmpty()) return@launch
+
+                var updated = 0
+                unique.forEach { target ->
+                    val meta = resolved[target.soundcloudId] ?: return@forEach
+                    val changed = trackDao.updateQueuedMetadata(
+                        id = target.trackId,
+                        title = meta.title,
+                        artist = meta.artist,
+                        durationMs = meta.durationMs,
+                        thumbnailPath = meta.thumbnail,
+                        updatedAt = System.currentTimeMillis(),
+                    )
+                    if (changed > 0) updated++
+                }
+                if (updated > 0) {
+                    AppLog.i("SoundCloud: filled in $updated of ${unique.size} queue titles")
+                }
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: Exception) {
+                // Фоллбэк — обычный путь: метаданные придут вместе со скачанным файлом.
+                AppLog.w("SoundCloud: couldn't fill in queue titles, keeping placeholders", error)
             }
         }
     }

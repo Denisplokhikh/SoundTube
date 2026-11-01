@@ -54,6 +54,23 @@ data class TrackMeta(
             }
 
     /**
+     * Числовой id трека SoundCloud, если он известен.
+     *
+     * По нему метаданные дозапрашиваются пачкой у api-v2 сразу после постановки
+     * в очередь — чтобы не показывать заглушку до конца скачивания.
+     */
+    val soundcloudId: String?
+        get() = sourceId?.takeIf { value -> value.isNotEmpty() && value.all(Char::isDigit) }
+            ?: apiTrackId()
+
+    /**
+     * В плоском списке SoundCloud у части записей нет ни названия, ни исполнителя.
+     * Только для таких треков имеет смысл идти в api-v2: у остальных данные уже есть.
+     */
+    val needsSoundcloudMetadata: Boolean
+        get() = title.isNullOrBlank() || artist.isNullOrBlank()
+
+    /**
      * Служебная ссылка `api-v2.soundcloud.com/tracks/<id>` вместо нормального permalink.
      *
      * Так SoundCloud отдаёт часть сетов в плоском списке: ни исполнителя, ни названия

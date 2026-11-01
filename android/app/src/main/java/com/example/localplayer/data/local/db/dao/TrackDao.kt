@@ -125,6 +125,35 @@ interface TrackDao {
         updatedAt: Long,
     )
 
+    /**
+     * Догоняет метаданные трека, который ещё стоит в очереди.
+     *
+     * Нужно фоновому дозапросу SoundCloud: название приходит уже после того, как
+     * трек записан в базу и показан в очереди. Условия в `WHERE` защищают от гонки
+     * со скачиванием — если файл уже готов или трек убрали из очереди, ничего не меняем.
+     *
+     * @return сколько строк обновилось.
+     */
+    @Query(
+        """
+        UPDATE tracks
+        SET title = :title,
+            artist = COALESCE(:artist, artist),
+            durationMs = CASE WHEN :durationMs > 0 THEN :durationMs ELSE durationMs END,
+            thumbnailPath = COALESCE(:thumbnailPath, thumbnailPath),
+            updatedAt = :updatedAt
+        WHERE id = :id AND isDeleted = 0 AND localFilePath IS NULL
+        """,
+    )
+    suspend fun updateQueuedMetadata(
+        id: String,
+        title: String,
+        artist: String?,
+        durationMs: Long,
+        thumbnailPath: String?,
+        updatedAt: Long,
+    ): Int
+
     @Query("DELETE FROM tracks WHERE id = :id")
     suspend fun deleteHard(id: String)
 
