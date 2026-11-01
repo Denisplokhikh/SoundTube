@@ -4,6 +4,10 @@ const audio = $("#audio");
 // «Дзен»: столько миллисекунд без активности — и прячем весь интерфейс.
 const ZEN_IDLE_MS = 10_000;
 
+// Как часто перепроверяем новые релизы на GitHub.
+const UPDATE_CHECK_MS = 30 * 60 * 1000;
+const RELEASES_URL = "https://github.com/Denisplokhikh/SoundTube/releases";
+
 const state = {
   view: "library",
   tracks: [],
@@ -1639,6 +1643,32 @@ async function checkHealth() {
   }
 }
 
+async function checkForUpdates() {
+  try {
+    renderUpdateBadge(await api("/api/update"));
+  } catch {
+    /* нет связи с сервером — молчим, бейдж просто останется скрытым */
+  }
+}
+
+function renderUpdateBadge(info) {
+  const badge = $("#update-badge");
+  if (!badge) return;
+
+  if (!info || !info.update_available) {
+    badge.hidden = true;
+    return;
+  }
+
+  const version = String(info.latest || "").replace(/^v/i, "");
+  $("#update-badge-text").textContent = version ? `Обновление ${version}` : "Обновление";
+  badge.href = info.url || RELEASES_URL;
+  badge.title = version
+    ? `Доступна версия ${version} — открыть страницу загрузки`
+    : "Доступна новая версия — открыть страницу загрузки";
+  badge.hidden = false;
+}
+
 function setupMediaSession() {
   if (!("mediaSession" in navigator)) return;
 
@@ -1710,6 +1740,10 @@ function bindEvents() {
   $("#search").addEventListener("input", renderTracks);
   $("#play-all").addEventListener("click", playAll);
   $("#library-refresh").addEventListener("click", () => loadLibrary(true));
+
+  $("#update-badge").addEventListener("click", () => {
+    showToast("Открываю страницу загрузки в браузере…");
+  });
 
   $("#playlist-new").addEventListener("click", () => promptNewPlaylist());
   $("#playlist-rename").addEventListener("click", renameCurrentPlaylist);
@@ -1892,11 +1926,13 @@ function init() {
   bindEvents();
   setupMediaSession();
   checkHealth();
+  checkForUpdates();
   loadPlaylists();
   loadJobs();
   loadLibrary();
 
   setInterval(checkHealth, 30000);
+  setInterval(checkForUpdates, UPDATE_CHECK_MS);
 }
 
 init();

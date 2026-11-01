@@ -8,11 +8,13 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app import __version__
 from app.config import settings
 from app.core.artwork import extract_cover
 from app.core.library import invalidate_cache, resolve_track_path, scan_library
 from app.core.runner import runner
 from app.core.tagging import guess_image_mime
+from app.core.updates import check_for_update
 from app.db import get_session
 from app.models import Job, Playlist, PlaylistTrack, Track
 from app.platforms import ResolveError, UnsupportedURL, detect_platform, resolve
@@ -40,10 +42,15 @@ MAX_LIBRARY_ENTRIES = 5000
 async def health() -> dict:
     return {
         "status": "ok",
-        "version": "0.1.0",
+        "version": __version__,
         "music_dir": str(settings.music_dir),
         "queue_running": runner.running,
     }
+
+
+@router.get("/update")
+async def update_status(refresh: bool = False) -> dict:
+    return await check_for_update(force=refresh)
 
 
 @router.post("/import", response_model=JobOut, status_code=status.HTTP_201_CREATED)

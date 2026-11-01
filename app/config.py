@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     soundcloud_cookies: Path | None = None
     proxy: str | None = None
 
+    # Проверка новых релизов на GitHub (кнопка «Обновление» в интерфейсе).
+    update_check: bool = True
+
     @field_validator("audio_format")
     @classmethod
     def _validate_format(cls, value: str) -> str:

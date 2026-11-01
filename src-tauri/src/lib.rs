@@ -15,6 +15,7 @@ use tauri::{
     AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindowBuilder,
 };
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
+use tauri_plugin_opener::OpenerExt;
 use tauri_plugin_shell::{
     process::{CommandChild, CommandEvent},
     ShellExt,
@@ -332,11 +333,23 @@ fn open_window(app: &AppHandle, port: u16) {
         return;
     };
 
+    // Ссылки за пределы локального сервера (страница релиза, YouTube и т.п.)
+    // открываем в системном браузере, а не внутри окна приложения.
+    let handle = app.clone();
+
     let _ = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
         .title("SoundTube")
         .inner_size(1180.0, 820.0)
         .min_inner_size(520.0, 560.0)
         .center()
+        .on_navigation(move |url| {
+            if url.host_str() == Some(HOST) {
+                return true;
+            }
+
+            let _ = handle.opener().open_url(url.as_str(), None::<&str>);
+            false
+        })
         .build();
 }
 
@@ -391,6 +404,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .manage(ServerState::default())
         .on_window_event(|window, event| {
             // Крестик скрывает окно в трей на Windows/macOS. На Linux иконка

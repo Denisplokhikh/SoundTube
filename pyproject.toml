@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "melodown"
-version = "0.1.0"
+version = "1.1.0"
 description = "Self-hosted music playlist archiver: YouTube Music and SoundCloud to a local library"
 readme = "README.md"
 requires-python = ">=3.11"
