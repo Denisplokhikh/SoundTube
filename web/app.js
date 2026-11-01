@@ -39,15 +39,26 @@ const MESSAGES = {
     "columns.duration": "Время",
     "playlist.rename": "Переименовать",
     "playlist.remove": "Удалить",
-    "playlist.namePrompt": "Название плейлиста",
     "playlist.created": "Плейлист «{name}» создан",
     "playlist.fallback": "плейлист",
     "playlist.added": "Добавлено в «{name}»",
     "playlist.already": "«{track}» уже в «{name}»",
-    "playlist.renamePrompt": "Новое название",
     "playlist.deleteConfirm": "Удалить плейлист «{name}»?\nФайлы на диске останутся.",
     "playlist.deleted": "Плейлист удалён",
     "playlist.missing": "{count} недоступно",
+    "dialog.newPlaylistTitle": "Новый плейлист",
+    "dialog.newPlaylistText": "Соберите треки в одну коллекцию — название всегда можно поменять.",
+    "dialog.newPlaylistTextTrack": "Трек «{track}» отправится в новый плейлист.",
+    "dialog.renameTitle": "Переименовать плейлист",
+    "dialog.renameText": "Новое название для «{name}».",
+    "dialog.nameLabel": "Название",
+    "dialog.namePlaceholder": "Например, ночная поездка",
+    "dialog.create": "Создать",
+    "dialog.save": "Сохранить",
+    "dialog.cancel": "Отмена",
+    "dialog.close": "Закрыть",
+    "dialog.emptyError": "Введите название плейлиста",
+    "dialog.duplicateError": "Плейлист с таким названием уже есть",
     "downloads.subtitle": "Вставьте ссылку на плейлист или трек",
     "downloads.format": "Формат файла",
     "downloads.formatAsIs": "как есть",
@@ -146,15 +157,26 @@ const MESSAGES = {
     "columns.duration": "Time",
     "playlist.rename": "Rename",
     "playlist.remove": "Delete",
-    "playlist.namePrompt": "Playlist name",
     "playlist.created": "Playlist “{name}” created",
     "playlist.fallback": "playlist",
     "playlist.added": "Added to “{name}”",
     "playlist.already": "“{track}” is already in “{name}”",
-    "playlist.renamePrompt": "New name",
     "playlist.deleteConfirm": "Delete playlist “{name}”?\nThe files on disk will stay.",
     "playlist.deleted": "Playlist deleted",
     "playlist.missing": "{count} unavailable",
+    "dialog.newPlaylistTitle": "New playlist",
+    "dialog.newPlaylistText": "Keep your tracks together — you can rename it anytime.",
+    "dialog.newPlaylistTextTrack": "“{track}” will be added to the new playlist.",
+    "dialog.renameTitle": "Rename playlist",
+    "dialog.renameText": "A new name for “{name}”.",
+    "dialog.nameLabel": "Name",
+    "dialog.namePlaceholder": "e.g. Night drive",
+    "dialog.create": "Create",
+    "dialog.save": "Save",
+    "dialog.cancel": "Cancel",
+    "dialog.close": "Close",
+    "dialog.emptyError": "Enter a playlist name",
+    "dialog.duplicateError": "A playlist with this name already exists",
     "downloads.subtitle": "Paste a link to a playlist or a track",
     "downloads.format": "File format",
     "downloads.formatAsIs": "as is",
@@ -334,6 +356,7 @@ function applyLanguage() {
   if (state.jobsLoaded) renderJobs();
   if (state.playlistsLoaded) renderPlaylists();
   closeTrackMenu();
+  if (nameDialogResolve) fillNameDialogLabels();
 
   const playing = currentTrack();
   if (playing) updateNowPlaying(playing);
@@ -1761,8 +1784,157 @@ async function createPlaylist(name, trackId = null) {
   }
 }
 
+/* ---------- диалог имени плейлиста ---------- */
+
+let nameDialogResolve = null;
+let nameDialogReturnFocus = null;
+let nameDialogContext = null;
+let nameDialogHideTimer = null;
+
+function normalizePlaylistName(value) {
+  return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+function playlistWithName(name, exceptId = null) {
+  const lower = name.toLocaleLowerCase();
+  return state.playlists.find(
+    (playlist) =>
+      playlist.id !== exceptId && playlist.name.trim().toLocaleLowerCase() === lower,
+  );
+}
+
+function fillNameDialogLabels() {
+  const context = nameDialogContext;
+  if (!context) return;
+
+  const isRename = context.mode === "rename";
+  $("#name-dialog-title").textContent = t(
+    isRename ? "dialog.renameTitle" : "dialog.newPlaylistTitle",
+  );
+  $("#name-dialog-text").textContent = isRename
+    ? t("dialog.renameText", { name: context.playlistName })
+    : context.track
+      ? t("dialog.newPlaylistTextTrack", { track: context.track.title })
+      : t("dialog.newPlaylistText");
+  $("#name-dialog-submit").textContent = t(isRename ? "dialog.save" : "dialog.create");
+  $("#name-dialog-close").setAttribute("aria-label", t("dialog.close"));
+}
+
+function setNameDialogError(message) {
+  $("#name-dialog-error").textContent = message || "";
+  $("#name-dialog .dialog-input-wrap").classList.toggle("has-error", Boolean(message));
+}
+
+function syncNameDialogInput() {
+  const input = $("#name-dialog-input");
+  const value = normalizePlaylistName(input.value);
+  $("#name-dialog-count").textContent = `${input.value.length}/80`;
+  $("#name-dialog-submit").disabled = !value;
+  if ($("#name-dialog-error").textContent) setNameDialogError("");
+}
+
+function askPlaylistName({ mode, value = "", playlistId = null, playlistName = "", track = null }) {
+  if (nameDialogResolve) closeNameDialog(null);
+
+  const overlay = $("#name-dialog");
+  const input = $("#name-dialog-input");
+
+  nameDialogContext = { mode, playlistId, playlistName, track };
+  nameDialogReturnFocus = document.activeElement;
+  fillNameDialogLabels();
+
+  input.value = value;
+  setNameDialogError("");
+  syncNameDialogInput();
+
+  if (nameDialogHideTimer) {
+    clearTimeout(nameDialogHideTimer);
+    nameDialogHideTimer = null;
+  }
+  overlay.hidden = false;
+
+  return new Promise((resolve) => {
+    nameDialogResolve = resolve;
+    requestAnimationFrame(() => {
+      overlay.classList.add("is-open");
+      input.focus({ preventScroll: true });
+      input.select();
+    });
+  });
+}
+
+function closeNameDialog(result = null) {
+  const resolve = nameDialogResolve;
+  if (!resolve) return;
+
+  nameDialogResolve = null;
+  nameDialogContext = null;
+
+  const overlay = $("#name-dialog");
+  overlay.classList.remove("is-open");
+  if (nameDialogHideTimer) clearTimeout(nameDialogHideTimer);
+  nameDialogHideTimer = setTimeout(() => {
+    overlay.hidden = true;
+    nameDialogHideTimer = null;
+  }, 160);
+
+  const returnFocus = nameDialogReturnFocus;
+  nameDialogReturnFocus = null;
+  if (returnFocus && document.contains(returnFocus)) {
+    returnFocus.focus({ preventScroll: true });
+  }
+
+  resolve(result);
+}
+
+function submitNameDialog(event) {
+  event.preventDefault();
+  if (!nameDialogContext) return;
+
+  const input = $("#name-dialog-input");
+  const name = normalizePlaylistName(input.value);
+
+  if (!name) {
+    setNameDialogError(t("dialog.emptyError"));
+    input.focus();
+    return;
+  }
+
+  if (playlistWithName(name, nameDialogContext.playlistId)) {
+    setNameDialogError(t("dialog.duplicateError"));
+    input.focus();
+    input.select();
+    return;
+  }
+
+  closeNameDialog(name);
+}
+
+/** Держим Tab внутри карточки, пока диалог открыт. */
+function trapNameDialogFocus(event) {
+  if (event.code !== "Tab") return;
+
+  const focusable = [
+    ...event.currentTarget.querySelectorAll("button:not([disabled]), input:not([disabled])"),
+  ];
+  if (!focusable.length) return;
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+
+  if (event.shiftKey && (active === first || !event.currentTarget.contains(active))) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && active === last) {
+    event.preventDefault();
+    first.focus();
+  }
+}
+
 async function promptNewPlaylist(trackId = null) {
-  const name = window.prompt(t("playlist.namePrompt"), "");
+  const track = trackId ? state.tracks.find((item) => item.id === trackId) : null;
+  const name = await askPlaylistName({ mode: "create", track });
   if (name === null) return;
   const playlist = await createPlaylist(name, trackId);
   if (playlist) showToast(t("playlist.created", { name: playlist.name }));
@@ -1816,13 +1988,18 @@ async function removeFromPlaylist(trackId) {
 async function renameCurrentPlaylist() {
   if (!state.playlistId) return;
 
-  const name = window.prompt(t("playlist.renamePrompt"), state.playlistName);
-  if (name === null || !name.trim()) return;
+  const name = await askPlaylistName({
+    mode: "rename",
+    value: state.playlistName,
+    playlistId: state.playlistId,
+    playlistName: state.playlistName,
+  });
+  if (name === null || name === state.playlistName) return;
 
   try {
     const playlist = await api(`/api/playlists/${state.playlistId}`, {
       method: "PATCH",
-      body: JSON.stringify({ name: name.trim() }),
+      body: JSON.stringify({ name }),
     });
     state.playlistName = playlist.name;
     $("#tracks-title").textContent = playlist.name;
@@ -2045,6 +2222,10 @@ function bindEvents() {
 
   document.addEventListener("keydown", (event) => {
     if (event.code !== "Escape") return;
+    if (nameDialogResolve) {
+      closeNameDialog(null);
+      return;
+    }
     if (trackMenu) {
       closeTrackMenu();
       return;
@@ -2068,6 +2249,17 @@ function bindEvents() {
   $("#playlist-new").addEventListener("click", () => promptNewPlaylist());
   $("#playlist-rename").addEventListener("click", renameCurrentPlaylist);
   $("#playlist-remove").addEventListener("click", deleteCurrentPlaylist);
+
+  $("#name-dialog-form").addEventListener("submit", submitNameDialog);
+  $("#name-dialog-input").addEventListener("input", syncNameDialogInput);
+  $("#name-dialog").addEventListener("keydown", trapNameDialogFocus);
+  $("#name-dialog").addEventListener("click", (event) => {
+    if (event.target.closest("[data-dialog-close]")) {
+      closeNameDialog(null);
+      return;
+    }
+    if (event.target === event.currentTarget) closeNameDialog(null);
+  });
 
   $("#playlists").addEventListener("click", (event) => {
     const button = event.target.closest("[data-playlist]");
@@ -2214,6 +2406,7 @@ function bindEvents() {
   });
 
   document.addEventListener("keydown", (event) => {
+    if (nameDialogResolve) return;
     const tag = event.target.tagName;
     if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
 
