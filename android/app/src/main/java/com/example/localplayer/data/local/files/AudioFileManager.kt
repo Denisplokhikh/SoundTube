@@ -54,7 +54,7 @@ class AudioFileManager @Inject constructor(
      * При совпадении имени добавляет суффикс ` (2)`, ` (3)`.
      */
     fun moveIntoLibrary(source: File, artist: String, title: String): File {
-        val safeArtist = FileNameSanitizer.sanitize(artist, fallback = "Неизвестный исполнитель")
+        val safeArtist = FileNameSanitizer.sanitize(artist, fallback = "Unknown artist")
         val safeTitle = FileNameSanitizer.sanitize(title)
         val extension = source.extension.ifEmpty { "m4a" }
 

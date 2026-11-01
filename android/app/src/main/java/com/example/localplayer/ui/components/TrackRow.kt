@@ -33,10 +33,12 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.localplayer.R
 import com.example.localplayer.domain.model.Track
 import com.example.localplayer.ui.theme.SoundTubeTheme
 
@@ -106,7 +108,7 @@ fun TrackRow(
             if (isCurrent && isPlaying) {
                 Icon(
                     imageVector = Icons.Rounded.GraphicEq,
-                    contentDescription = "Играет",
+                    contentDescription = stringResource(R.string.cd_playing),
                     tint = colors.primary,
                     modifier = Modifier.size(14.dp),
                 )
@@ -144,7 +146,7 @@ fun TrackRow(
         }
 
         if (!enabled) {
-            SoundTubeBadge("не скачан")
+            SoundTubeBadge(stringResource(R.string.badge_not_downloaded))
         } else {
             Text(
                 text = track.durationMs.formatDuration(),
@@ -177,7 +179,7 @@ private fun TrackOverflowMenu(
     Box {
         SoundTubeIconButton(
             icon = Icons.Rounded.MoreVert,
-            contentDescription = "Действия с треком",
+            contentDescription = stringResource(R.string.cd_track_actions),
             bordered = false,
             size = 30.dp,
             onClick = { expanded = true },
@@ -194,7 +196,7 @@ private fun TrackOverflowMenu(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text = "В плейлист",
+                            text = stringResource(R.string.action_add_to_playlist),
                             style = MaterialTheme.typography.bodyMedium,
                             color = colors.textPrimary,
                         )
@@ -218,7 +220,7 @@ private fun TrackOverflowMenu(
                 DropdownMenuItem(
                     text = {
                         Text(
-                            text = "Удалить",
+                            text = stringResource(R.string.action_delete),
                             style = MaterialTheme.typography.bodyMedium,
                             color = colors.error,
                         )

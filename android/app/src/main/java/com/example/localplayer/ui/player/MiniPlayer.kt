@@ -31,8 +31,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.example.localplayer.R
 import com.example.localplayer.media.PlayerState
 import com.example.localplayer.ui.components.TrackArtwork
 import com.example.localplayer.ui.components.formatDuration
@@ -103,7 +105,7 @@ fun MiniPlayer(
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = state.title.ifBlank { "Без названия" },
+                    text = state.title.ifBlank { stringResource(R.string.untitled) },
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.textPrimary,
                     maxLines = 1,
@@ -111,7 +113,7 @@ fun MiniPlayer(
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = state.artist.ifBlank { "Неизвестный исполнитель" },
+                        text = state.artist.ifBlank { stringResource(R.string.unknown_artist) },
                         style = MaterialTheme.typography.labelSmall,
                         color = colors.textSecondary,
                         maxLines = 1,
@@ -144,7 +146,11 @@ fun MiniPlayer(
                         } else {
                             Icons.Rounded.PlayArrow
                         },
-                        contentDescription = if (state.isPlaying) "Пауза" else "Играть",
+                        contentDescription = if (state.isPlaying) {
+                            stringResource(R.string.cd_pause)
+                        } else {
+                            stringResource(R.string.cd_play)
+                        },
                         tint = colors.background,
                         modifier = Modifier.size(20.dp),
                     )
@@ -160,7 +166,7 @@ fun MiniPlayer(
             ) {
                 Icon(
                     imageVector = Icons.Rounded.SkipNext,
-                    contentDescription = "Следующий",
+                    contentDescription = stringResource(R.string.cd_next),
                     tint = if (state.hasNext) {
                         colors.textSecondary
                     } else {

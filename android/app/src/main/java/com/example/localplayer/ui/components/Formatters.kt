@@ -19,8 +19,13 @@ fun Long.formatDuration(): String {
     }
 }
 
-/** Сколько осталось: `~2:10`; null, если ETA неизвестна. */
-fun Long?.formatEta(): String? {
+/**
+ * Сколько осталось: `~2:10`; null, если ETA неизвестна.
+ *
+ * [secondsSuffix] — обозначение секунд («с» или «s»): его даёт ресурс,
+ * поэтому сама функция остаётся чистой и тестируемой.
+ */
+fun Long?.formatEta(secondsSuffix: String): String? {
     val seconds = this ?: return null
     if (seconds <= 0L) return null
     val minutesPart = seconds / 60L
@@ -28,7 +33,7 @@ fun Long?.formatEta(): String? {
     return if (minutesPart > 0L) {
         String.format(Locale.ROOT, "~%d:%02d", minutesPart, secondsPart)
     } else {
-        "~$secondsPart с"
+        "~$secondsPart $secondsSuffix"
     }
 }
 
@@ -36,27 +41,3 @@ fun Long?.formatEta(): String? {
 @Composable
 fun Long.formatFileSize(): String =
     Formatter.formatShortFileSize(LocalContext.current, this)
-
-/** Склонение: 1 трек, 2 трека, 5 треков. */
-fun Int.tracksWord(): String {
-    val mod100 = this % 100
-    val mod10 = this % 10
-    return when {
-        mod100 in 11..14 -> "треков"
-        mod10 == 1 -> "трек"
-        mod10 in 2..4 -> "трека"
-        else -> "треков"
-    }
-}
-
-/** Склонение: 1 плейлист, 2 плейлиста, 5 плейлистов. */
-fun Int.playlistsWord(): String {
-    val mod100 = this % 100
-    val mod10 = this % 10
-    return when {
-        mod100 in 11..14 -> "плейлистов"
-        mod10 == 1 -> "плейлист"
-        mod10 in 2..4 -> "плейлиста"
-        else -> "плейлистов"
-    }
-}

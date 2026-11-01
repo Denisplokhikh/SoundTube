@@ -92,7 +92,7 @@ class PlayerController @Inject constructor(
                         }
                     },
                     onFailure = { error ->
-                        AppLog.w("Не удалось подключиться к PlaybackService", error)
+                        AppLog.w("Couldn't connect to PlaybackService", error)
                         controllerFuture = null
                     },
                 )

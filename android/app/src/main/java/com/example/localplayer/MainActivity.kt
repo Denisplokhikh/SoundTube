@@ -1,5 +1,6 @@
 package com.example.localplayer
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -12,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.localplayer.core.i18n.AppLocale
 import com.example.localplayer.ui.SoundTubeApp
 import com.example.localplayer.ui.navigation.Routes
 import com.example.localplayer.ui.player.PlayerViewModel
@@ -30,6 +32,11 @@ class MainActivity : ComponentActivity() {
 
     /** Вкладка, открытая по debug-intent: тапать по экрану через adb MIUI не даёт. */
     private var debugTab by mutableStateOf<String?>(null)
+
+    /** Локаль из настроек применяем к контексту экрана до создания Compose. */
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLocale.wrap(newBase))
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

@@ -46,7 +46,7 @@ class LibraryRepository @Inject constructor(
         val fileDeleted = fileManager.delete(track.localFilePath)
         trackDao.markDeleted(trackId, System.currentTimeMillis())
         AppLog.i(
-            "Трек удалён: ${track.title}" + if (fileDeleted) " (файл стёрт)" else "",
+            "Track deleted: ${track.title}" + if (fileDeleted) " (file removed)" else "",
         )
         true
     }
@@ -79,7 +79,7 @@ class LibraryRepository @Inject constructor(
                 ),
             )
             playlistDao.touch(playlistId, now)
-            AppLog.i("В плейлист «${playlist.name}»: ${track.title}")
+            AppLog.i("Added to playlist «${playlist.name}»: ${track.title}")
             true
         }
 
@@ -101,7 +101,7 @@ class LibraryRepository @Inject constructor(
                 updatedAt = now,
             )
             playlistDao.upsertPlaylist(playlist)
-            AppLog.i("Создан плейлист: $title")
+            AppLog.i("Playlist created: $title")
 
             if (trackId != null) addToPlaylist(playlist.id, trackId)
             playlist.toDomain(trackCount = if (trackId != null) 1 else 0)

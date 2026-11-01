@@ -55,12 +55,14 @@ import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.localplayer.R
 import com.example.localplayer.domain.model.RepeatMode
 import com.example.localplayer.media.QueueItem
 import com.example.localplayer.ui.components.EmptyState
@@ -160,11 +162,11 @@ fun NowPlayingScreen(
                 ),
         ) {
             SoundTubeTopBar(
-                title = "Сейчас играет",
+                title = stringResource(R.string.now_playing),
                 navigationIcon = {
                     SoundTubeIconButton(
                         icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                        contentDescription = "Назад",
+                        contentDescription = stringResource(R.string.action_back),
                         bordered = false,
                         onClick = onBack,
                     )
@@ -175,8 +177,8 @@ fun NowPlayingScreen(
         if (!state.hasTrack) {
             EmptyState(
                 icon = Icons.Rounded.MusicNote,
-                title = "Ничего не играет",
-                message = "Выберите трек в библиотеке или плейлисте.",
+                title = stringResource(R.string.nothing_playing_title),
+                message = stringResource(R.string.nothing_playing_message),
                 modifier = Modifier.weight(1f),
             )
         } else {
@@ -207,14 +209,16 @@ fun NowPlayingScreen(
                 item {
                     Column {
                         Text(
-                            text = state.title.ifBlank { "Без названия" },
+                            text = state.title.ifBlank { stringResource(R.string.untitled) },
                             style = MaterialTheme.typography.headlineSmall,
                             color = colors.textPrimary,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
                         Text(
-                            text = state.artist.ifBlank { "Неизвестный исполнитель" },
+                            text = state.artist.ifBlank {
+                                stringResource(R.string.unknown_artist)
+                            },
                             style = MaterialTheme.typography.labelMedium,
                             color = colors.textSecondary,
                             maxLines = 1,
@@ -255,7 +259,7 @@ fun NowPlayingScreen(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            text = "Очередь",
+                            text = stringResource(R.string.queue),
                             style = MaterialTheme.typography.titleSmall,
                             color = colors.textPrimary,
                             modifier = Modifier.weight(1f),
@@ -364,7 +368,11 @@ private fun PlaybackControls(
         IconButton(onClick = onToggleShuffle) {
             Icon(
                 imageVector = Icons.Rounded.Shuffle,
-                contentDescription = if (shuffle) "Перемешивание включено" else "Перемешивание",
+                contentDescription = if (shuffle) {
+                    stringResource(R.string.cd_shuffle_on)
+                } else {
+                    stringResource(R.string.cd_shuffle)
+                },
                 tint = if (shuffle) colors.primary else muted,
                 modifier = Modifier.size(20.dp),
             )
@@ -373,7 +381,7 @@ private fun PlaybackControls(
         IconButton(onClick = onPrevious) {
             Icon(
                 imageVector = Icons.Rounded.SkipPrevious,
-                contentDescription = "Предыдущий",
+                contentDescription = stringResource(R.string.cd_previous),
                 tint = muted,
                 modifier = Modifier.size(28.dp),
             )
@@ -397,7 +405,11 @@ private fun PlaybackControls(
             } else {
                 Icon(
                     imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                    contentDescription = if (isPlaying) "Пауза" else "Играть",
+                    contentDescription = if (isPlaying) {
+                        stringResource(R.string.cd_pause)
+                    } else {
+                        stringResource(R.string.cd_play)
+                    },
                     tint = colors.background,
                     modifier = Modifier.size(32.dp),
                 )
@@ -407,7 +419,7 @@ private fun PlaybackControls(
         IconButton(onClick = onNext, enabled = hasNext) {
             Icon(
                 imageVector = Icons.Rounded.SkipNext,
-                contentDescription = "Следующий",
+                contentDescription = stringResource(R.string.cd_next),
                 tint = if (hasNext) muted else muted.copy(alpha = 0.35f),
                 modifier = Modifier.size(28.dp),
             )
@@ -421,9 +433,9 @@ private fun PlaybackControls(
                     Icons.Rounded.Repeat
                 },
                 contentDescription = when (repeatMode) {
-                    RepeatMode.OFF -> "Повтор выключен"
-                    RepeatMode.ALL -> "Повтор очереди"
-                    RepeatMode.ONE -> "Повтор трека"
+                    RepeatMode.OFF -> stringResource(R.string.cd_repeat_off)
+                    RepeatMode.ALL -> stringResource(R.string.cd_repeat_all)
+                    RepeatMode.ONE -> stringResource(R.string.cd_repeat_one)
                 },
                 tint = if (repeatMode == RepeatMode.OFF) muted else colors.primary,
                 modifier = Modifier.size(20.dp),
@@ -480,14 +492,14 @@ private fun QueueRow(
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = item.title.ifBlank { "Без названия" },
+                text = item.title.ifBlank { stringResource(R.string.untitled) },
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (isCurrent) colors.primary else colors.textPrimary,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = item.artist.ifBlank { "Неизвестный исполнитель" },
+                text = item.artist.ifBlank { stringResource(R.string.unknown_artist) },
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.textSecondary,
                 maxLines = 1,
@@ -498,7 +510,7 @@ private fun QueueRow(
         if (isCurrent) {
             Icon(
                 imageVector = Icons.Rounded.GraphicEq,
-                contentDescription = "Играет",
+                contentDescription = stringResource(R.string.cd_playing),
                 tint = colors.primary,
                 modifier = Modifier.size(16.dp),
             )

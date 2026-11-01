@@ -44,7 +44,7 @@ class PlaybackService : MediaSessionService() {
         player.addListener(
             object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {
-                    AppLog.w("Ошибка воспроизведения: ${error.errorCodeName}", error)
+                    AppLog.w("Playback error: ${error.errorCodeName}", error)
                 }
             },
         )

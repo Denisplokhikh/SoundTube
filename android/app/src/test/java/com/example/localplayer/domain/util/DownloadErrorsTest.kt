@@ -1,53 +1,51 @@
 package com.example.localplayer.domain.util
 
+import com.example.localplayer.domain.util.DownloadErrors.Cause
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class DownloadErrorsTest {
 
     @Test
-    fun `обрыв сети переводится на русский`() {
+    fun `network failure is recognised`() {
         val stderr = """
             WARNING: [youtube] [Errno 7] No address associated with hostname. Retrying (1/3)...
             ERROR: dQw4w9WgXcQ: Unable to download webpage: [Errno 7] No address associated with hostname
         """.trimIndent()
 
-        assertEquals(
-            "нет связи с интернетом — проверь сеть и попробуй ещё раз",
-            DownloadErrors.humanize(stderr),
-        )
+        assertEquals(Cause.NETWORK, DownloadErrors.classify(stderr))
     }
 
     @Test
-    fun `приватный трек SoundCloud`() {
+    fun `private SoundCloud track`() {
         val message = "ERROR: [soundcloud] https://soundcloud.com/x/y: This track is not available"
 
-        assertEquals(
-            "трек недоступен — возможно, он удалён или скрыт",
-            DownloadErrors.humanize(message),
-        )
+        assertEquals(Cause.UNAVAILABLE, DownloadErrors.classify(message))
     }
 
     @Test
-    fun `неизвестная ошибка — последняя строка без WARNING`() {
+    fun `unknown error keeps the last line without WARNING`() {
         val stderr = """
-            WARNING: что-то пошло не так
-            ERROR: [soundcloud] extractor сломался
+            WARNING: something went wrong
+            ERROR: [soundcloud] extractor broke
         """.trimIndent()
 
-        assertEquals("[soundcloud] extractor сломался", DownloadErrors.humanize(stderr))
+        assertNull(DownloadErrors.classify(stderr))
+        assertEquals("[soundcloud] extractor broke", DownloadErrors.detail(stderr))
     }
 
     @Test
-    fun `пустая ошибка не даёт пустую строку`() {
-        assertEquals("не удалось скачать трек", DownloadErrors.humanize(null))
-        assertEquals("не удалось скачать трек", DownloadErrors.humanize("   "))
+    fun `empty error gives no detail`() {
+        assertNull(DownloadErrors.classify(null))
+        assertEquals("", DownloadErrors.detail(null))
+        assertEquals("", DownloadErrors.detail("   "))
     }
 
     @Test
-    fun `сетевые ошибки распознаются, логические — нет`() {
+    fun `network errors are detected, logical ones are not`() {
         assertTrue(DownloadErrors.isNetworkError("unable to resolve host soundcloud.com"))
         assertTrue(DownloadErrors.isNetworkError("[Errno 103] Software caused connection abort"))
         assertTrue(

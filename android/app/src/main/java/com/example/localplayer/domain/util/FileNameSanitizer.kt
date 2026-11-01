@@ -15,7 +15,7 @@ object FileNameSanitizer {
         "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
     )
 
-    fun sanitize(raw: String, maxLength: Int = 80, fallback: String = "Без названия"): String {
+    fun sanitize(raw: String, maxLength: Int = 80, fallback: String = "Untitled"): String {
         val cleaned = raw
             .replace(ILLEGAL, " ")
             .replace(WHITESPACE, " ")

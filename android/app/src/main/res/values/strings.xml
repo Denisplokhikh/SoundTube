@@ -1,8 +1,226 @@
 <resources>
     <string name="app_name">SoundTube</string>
-    <string name="library">Библиотека</string>
-    <string name="tracks">Треки</string>
-    <string name="playlists">Плейлисты</string>
-    <string name="downloads">Загрузки</string>
-    <string name="settings">Настройки</string>
+
+    <!-- Bottom navigation -->
+    <string name="library">Library</string>
+    <string name="tracks">Tracks</string>
+    <string name="playlists">Playlists</string>
+    <string name="downloads">Downloads</string>
+    <string name="settings">Settings</string>
+
+    <!-- Common actions -->
+    <string name="action_back">Back</string>
+    <string name="action_close">Close</string>
+    <string name="action_cancel">Cancel</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_hide">Hide</string>
+    <string name="action_update">Update</string>
+    <string name="action_run">Run</string>
+    <string name="action_check">Check</string>
+    <string name="action_listen">Listen</string>
+    <string name="action_create">Create</string>
+    <string name="action_enable">Enable</string>
+    <string name="action_configure">Configure</string>
+    <string name="action_reset_search">Reset search</string>
+    <string name="action_open_downloads">Go to downloads</string>
+    <string name="action_play_all">Play all</string>
+    <string name="action_download">Download</string>
+    <string name="action_expand">Expand</string>
+    <string name="action_collapse">Collapse</string>
+    <string name="action_copy">Copy</string>
+
+    <!-- Content descriptions -->
+    <string name="cd_search">Search</string>
+    <string name="cd_close_search">Close search</string>
+    <string name="cd_settings">Settings</string>
+    <string name="cd_clear">Clear</string>
+    <string name="cd_hide">Hide</string>
+    <string name="cd_cancel_download">Cancel</string>
+    <string name="cd_queue_download">Add to queue</string>
+    <string name="cd_previous">Previous</string>
+    <string name="cd_next">Next</string>
+    <string name="cd_play">Play</string>
+    <string name="cd_pause">Pause</string>
+    <string name="cd_shuffle_on">Shuffle on</string>
+    <string name="cd_shuffle_off">Shuffle off</string>
+    <string name="cd_shuffle">Shuffle</string>
+    <string name="cd_repeat_off">Repeat off</string>
+    <string name="cd_repeat_all">Repeat queue</string>
+    <string name="cd_repeat_one">Repeat track</string>
+    <string name="cd_playing">Playing</string>
+    <string name="cd_track_actions">Track actions</string>
+
+    <!-- Library -->
+    <string name="library_title">Library</string>
+    <string name="library_subtitle_local">Local library</string>
+    <string name="library_subtitle_filtering">Found %1$d of %2$d · %3$s</string>
+    <string name="search_placeholder">Track, artist, album</string>
+    <string name="empty_library_title">Your library is empty</string>
+    <string name="empty_library_message">Download your first track — it will show up here and play offline.</string>
+    <string name="empty_search_title">Nothing found</string>
+    <string name="empty_search_message">No tracks match “%1$s”. Try a different name.</string>
+    <string name="sort_by_artist">By artist</string>
+    <string name="sort_by_title">By title</string>
+    <string name="sort_recent">Newest first</string>
+    <string name="sort_short_artist">artist</string>
+    <string name="sort_short_title">title</string>
+    <string name="sort_short_recent">newest</string>
+    <string name="badge_not_downloaded">not downloaded</string>
+    <string name="untitled">Untitled</string>
+    <string name="unknown_artist">Unknown artist</string>
+
+    <!-- Library notices -->
+    <string name="notice_deleted">Deleted: %1$s</string>
+    <string name="notice_track_already_deleted">The track is already deleted</string>
+    <string name="notice_added_to_playlist">“%1$s” → “%2$s”</string>
+    <string name="notice_playlist_add_failed">Couldn’t add to the playlist</string>
+    <string name="notice_playlist_created">Playlist “%1$s” created</string>
+    <string name="notice_playlist_name_required">Enter a playlist name</string>
+
+    <!-- Track menu and dialogs -->
+    <string name="action_add_to_playlist">Add to playlist</string>
+    <string name="action_new_playlist">New playlist</string>
+    <string name="playlist_name_placeholder">Playlist name</string>
+    <string name="playlist_empty">empty</string>
+    <string name="dialog_delete_track_title">Delete track?</string>
+    <string name="dialog_delete_track_message">“%1$s” will be removed from the library and playlists. The file will be deleted from the device.</string>
+
+    <!-- Playlists -->
+    <string name="playlists_title">Playlists</string>
+    <string name="playlists_empty_title">No playlists</string>
+    <string name="playlists_empty_message">Downloaded tracks are added to platform playlists automatically.</string>
+    <string name="playlist_title">Playlist</string>
+    <string name="playlist_empty_title">The playlist is empty</string>
+    <string name="playlist_empty_message">Downloaded tracks from this platform will show up here automatically.</string>
+
+    <!-- Player -->
+    <string name="now_playing">Now playing</string>
+    <string name="nothing_playing_title">Nothing is playing</string>
+    <string name="nothing_playing_message">Pick a track in the library or a playlist.</string>
+    <string name="queue">Queue</string>
+
+    <!-- Downloads -->
+    <string name="downloads_title">Downloads</string>
+    <string name="downloads_subtitle">engine: %1$s</string>
+    <string name="new_download">New download</string>
+    <string name="url_placeholder">music.youtube.com, youtube.com, soundcloud.com</string>
+    <string name="downloading_preparing">Preparing…</string>
+    <string name="download_hint">YouTube, SoundCloud, playlists and sets. Files are saved on the device.</string>
+    <string name="notifications_off_title">Notifications are off</string>
+    <string name="notifications_off_message">Without them, download progress won’t appear in the shade.</string>
+    <string name="completed_title">Completed</string>
+    <string name="queue_empty_title">The queue is empty</string>
+    <string name="queue_empty_message">Paste a YouTube or SoundCloud link — the download starts right away.</string>
+    <string name="completed_shown">Showing the last %1$d of %2$d</string>
+    <string name="dialog_clear_queue_title">Clear the queue?</string>
+    <string name="dialog_clear_queue_message">Current downloads will be stopped and unfinished tasks removed from the queue. Downloaded files and history stay on the device.</string>
+    <string name="status_queued">queued</string>
+    <string name="status_fetching_metadata">fetching metadata…</string>
+    <string name="status_preparing">Preparing</string>
+    <string name="status_processing">Processing the file</string>
+    <string name="status_completed">done</string>
+    <string name="status_cancelled">cancelled</string>
+    <string name="status_failed">error: %1$s</string>
+    <string name="platform_link">link</string>
+
+    <!-- Download messages -->
+    <string name="msg_reading_link">Reading the link…</string>
+    <string name="msg_queued">Queued: %1$s</string>
+    <string name="msg_all_tracks_downloaded">All %1$d tracks are already downloaded</string>
+    <string name="msg_queued_playlist">Queued: %1$d of %2$d tracks</string>
+    <string name="msg_already_downloaded">Already downloaded: %1$s</string>
+    <string name="msg_error">Error: %1$s</string>
+    <string name="msg_invalid_url">A link like https://… is required</string>
+    <string name="msg_queue_empty">The queue is already empty</string>
+    <string name="msg_queue_cleared">Queue cleared: %1$d</string>
+
+    <!-- Settings -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_subtitle">theme · engine · storage</string>
+    <string name="section_appearance">Appearance</string>
+    <string name="theme_title">Theme</string>
+    <string name="theme_system_hint">System follows the Android setting</string>
+    <string name="theme_system">System</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="section_language">Language</string>
+    <string name="language_title">App language</string>
+    <string name="language_hint">English by default</string>
+    <string name="language_system">System</string>
+    <string name="language_english">English</string>
+    <string name="language_russian">Русский</string>
+    <string name="section_downloads">Downloads</string>
+    <string name="engine_ytdlp">yt-dlp engine</string>
+    <string name="download_missing_title">Download missing files</string>
+    <string name="download_missing_hint">Tracks from the library that aren’t on disk</string>
+    <string name="cleanup_duplicates_title">Remove duplicate files</string>
+    <string name="cleanup_duplicates_hint">Copies like “Title (2).m4a”</string>
+    <string name="section_storage">Storage</string>
+    <string name="tracks_on_disk">Tracks on disk</string>
+    <string name="tracks_on_disk_hint">Ready to play without internet</string>
+    <string name="used_space">Used</string>
+    <string name="used_space_hint">Audio and artwork in app storage</string>
+    <string name="section_notifications">Notifications</string>
+    <string name="notifications_title">Notifications</string>
+    <string name="notifications_on_hint">Download progress is visible in the shade</string>
+    <string name="notifications_off_hint">Download progress isn’t shown</string>
+    <string name="state_on">on</string>
+    <string name="state_off">off</string>
+    <string name="log_title">Log</string>
+    <string name="log_entries">%1$d entries</string>
+    <string name="log_empty">Nothing yet</string>
+    <string name="section_about">About</string>
+    <string name="about_version">version %1$s</string>
+    <string name="about_description">A local player and downloader. The library stays on the device, no cloud.</string>
+    <string name="msg_engine_updating">Updating yt-dlp…</string>
+    <string name="msg_engine_updated">yt-dlp updated</string>
+    <string name="msg_engine_update_failed">Couldn’t update yt-dlp: %1$s</string>
+    <string name="msg_nothing_to_download">Nothing to download — everything is already on disk</string>
+    <string name="msg_queued_for_download">Queued for download: %1$d</string>
+    <string name="msg_no_duplicates">No duplicates found</string>
+    <string name="msg_duplicates_removed">Duplicates removed: %1$d</string>
+
+    <!-- yt-dlp engine state -->
+    <string name="engine_not_initialized">not initialised</string>
+    <string name="engine_initializing">initialising…</string>
+    <string name="engine_ready">ready</string>
+    <string name="engine_ready_version">ready · %1$s</string>
+    <string name="engine_updating">updating…</string>
+    <string name="engine_failed">error: %1$s</string>
+    <string name="engine_init_failed">couldn’t initialise yt-dlp</string>
+    <string name="engine_no_tracks">yt-dlp didn’t return a single track</string>
+    <string name="engine_no_file">yt-dlp didn’t create a file in %1$s</string>
+
+    <!-- Download notifications -->
+    <string name="notification_channel_downloads">Downloads</string>
+    <string name="notification_channel_downloads_description">Downloading tracks and processing files</string>
+    <string name="notification_downloaded">Downloaded</string>
+    <string name="notification_downloading">Downloading</string>
+
+    <!-- Download errors -->
+    <string name="error_network">no internet connection — check your network and try again</string>
+    <string name="error_auth">the platform requires signing in — the link won’t open without it</string>
+    <string name="error_unavailable">the track is unavailable — it may be deleted or private</string>
+    <string name="error_forbidden">the platform rejected the request (403) — try again later</string>
+    <string name="error_rate_limited">too many requests in a row — wait a couple of minutes</string>
+    <string name="error_unsupported_link">this link isn’t supported</string>
+    <string name="error_live">this is a live stream or premiere — it can’t be downloaded</string>
+    <string name="error_no_audio">the platform didn’t return audio — try again</string>
+    <string name="error_processing">couldn’t process the audio — try updating yt-dlp</string>
+    <string name="error_download_failed">couldn’t download the track</string>
+
+    <!-- Formatters -->
+    <string name="eta_seconds_suffix">s</string>
+
+    <plurals name="tracks_count">
+        <item quantity="one">%d track</item>
+        <item quantity="other">%d tracks</item>
+    </plurals>
+
+    <plurals name="playlists_count">
+        <item quantity="one">%d playlist</item>
+        <item quantity="other">%d playlists</item>
+    </plurals>
 </resources>

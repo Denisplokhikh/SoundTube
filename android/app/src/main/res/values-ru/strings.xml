@@ -1,0 +1,230 @@
+<resources>
+    <string name="app_name">SoundTube</string>
+
+    <!-- Нижняя навигация -->
+    <string name="library">Библиотека</string>
+    <string name="tracks">Треки</string>
+    <string name="playlists">Плейлисты</string>
+    <string name="downloads">Загрузки</string>
+    <string name="settings">Настройки</string>
+
+    <!-- Общие действия -->
+    <string name="action_back">Назад</string>
+    <string name="action_close">Закрыть</string>
+    <string name="action_cancel">Отмена</string>
+    <string name="action_delete">Удалить</string>
+    <string name="action_clear">Очистить</string>
+    <string name="action_retry">Повторить</string>
+    <string name="action_hide">Скрыть</string>
+    <string name="action_update">Обновить</string>
+    <string name="action_run">Запустить</string>
+    <string name="action_check">Проверить</string>
+    <string name="action_listen">Слушать</string>
+    <string name="action_create">Создать</string>
+    <string name="action_enable">Включить</string>
+    <string name="action_configure">Настроить</string>
+    <string name="action_reset_search">Сбросить поиск</string>
+    <string name="action_open_downloads">К загрузкам</string>
+    <string name="action_play_all">Играть всё</string>
+    <string name="action_download">Скачать</string>
+    <string name="action_expand">Развернуть</string>
+    <string name="action_collapse">Свернуть</string>
+    <string name="action_copy">Копировать</string>
+
+    <!-- Описания для доступности -->
+    <string name="cd_search">Поиск</string>
+    <string name="cd_close_search">Закрыть поиск</string>
+    <string name="cd_settings">Настройки</string>
+    <string name="cd_clear">Очистить</string>
+    <string name="cd_hide">Скрыть</string>
+    <string name="cd_cancel_download">Отменить</string>
+    <string name="cd_queue_download">Поставить в очередь</string>
+    <string name="cd_previous">Предыдущий</string>
+    <string name="cd_next">Следующий</string>
+    <string name="cd_play">Играть</string>
+    <string name="cd_pause">Пауза</string>
+    <string name="cd_shuffle_on">Перемешивание включено</string>
+    <string name="cd_shuffle_off">Перемешивание выключено</string>
+    <string name="cd_shuffle">Перемешивание</string>
+    <string name="cd_repeat_off">Повтор выключен</string>
+    <string name="cd_repeat_all">Повтор очереди</string>
+    <string name="cd_repeat_one">Повтор трека</string>
+    <string name="cd_playing">Играет</string>
+    <string name="cd_track_actions">Действия с треком</string>
+
+    <!-- Библиотека -->
+    <string name="library_title">Библиотека</string>
+    <string name="library_subtitle_local">Локальная библиотека</string>
+    <string name="library_subtitle_filtering">Найдено %1$d из %2$d · %3$s</string>
+    <string name="search_placeholder">Трек, артист, альбом</string>
+    <string name="empty_library_title">Библиотека пуста</string>
+    <string name="empty_library_message">Скачайте первый трек — он появится здесь и будет играть без интернета.</string>
+    <string name="empty_search_title">Ничего не найдено</string>
+    <string name="empty_search_message">По запросу «%1$s» нет треков. Попробуйте другое название.</string>
+    <string name="sort_by_artist">По артисту</string>
+    <string name="sort_by_title">По названию</string>
+    <string name="sort_recent">Сначала новые</string>
+    <string name="sort_short_artist">артист</string>
+    <string name="sort_short_title">название</string>
+    <string name="sort_short_recent">новые</string>
+    <string name="badge_not_downloaded">не скачан</string>
+    <string name="untitled">Без названия</string>
+    <string name="unknown_artist">Неизвестный исполнитель</string>
+
+    <!-- Уведомления библиотеки -->
+    <string name="notice_deleted">Удалено: %1$s</string>
+    <string name="notice_track_already_deleted">Трек уже удалён</string>
+    <string name="notice_added_to_playlist">«%1$s» → «%2$s»</string>
+    <string name="notice_playlist_add_failed">Не удалось добавить в плейлист</string>
+    <string name="notice_playlist_created">Плейлист «%1$s» создан</string>
+    <string name="notice_playlist_name_required">Введите название плейлиста</string>
+
+    <!-- Меню трека и диалоги -->
+    <string name="action_add_to_playlist">В плейлист</string>
+    <string name="action_new_playlist">Новый плейлист</string>
+    <string name="playlist_name_placeholder">Название плейлиста</string>
+    <string name="playlist_empty">пока пусто</string>
+    <string name="dialog_delete_track_title">Удалить трек?</string>
+    <string name="dialog_delete_track_message">«%1$s» больше не будет в библиотеке и плейлистах. Файл будет стёрт с устройства.</string>
+
+    <!-- Плейлисты -->
+    <string name="playlists_title">Плейлисты</string>
+    <string name="playlists_empty_title">Плейлистов нет</string>
+    <string name="playlists_empty_message">Скачанные треки автоматически попадают в плейлисты площадок.</string>
+    <string name="playlist_title">Плейлист</string>
+    <string name="playlist_empty_title">Плейлист пуст</string>
+    <string name="playlist_empty_message">Скачанные треки этой площадки появятся здесь автоматически.</string>
+
+    <!-- Плеер -->
+    <string name="now_playing">Сейчас играет</string>
+    <string name="nothing_playing_title">Ничего не играет</string>
+    <string name="nothing_playing_message">Выберите трек в библиотеке или плейлисте.</string>
+    <string name="queue">Очередь</string>
+
+    <!-- Загрузки -->
+    <string name="downloads_title">Загрузки</string>
+    <string name="downloads_subtitle">движок: %1$s</string>
+    <string name="new_download">Новая загрузка</string>
+    <string name="url_placeholder">music.youtube.com, youtube.com, soundcloud.com</string>
+    <string name="downloading_preparing">Готовим…</string>
+    <string name="download_hint">YouTube, SoundCloud, плейлисты и сеты. Файлы сохраняются на устройство.</string>
+    <string name="notifications_off_title">Уведомления выключены</string>
+    <string name="notifications_off_message">Без них не видно прогресс в шторке.</string>
+    <string name="completed_title">Готово</string>
+    <string name="queue_empty_title">Очередь пуста</string>
+    <string name="queue_empty_message">Вставьте ссылку на YouTube или SoundCloud — загрузка начнётся сразу.</string>
+    <string name="completed_shown">Показаны последние %1$d из %2$d</string>
+    <string name="dialog_clear_queue_title">Очистить очередь?</string>
+    <string name="dialog_clear_queue_message">Текущие загрузки будут остановлены, а незавершённые задачи — убраны из очереди. Скачанные файлы и история останутся на месте.</string>
+    <string name="status_queued">в очереди</string>
+    <string name="status_fetching_metadata">получаем метаданные…</string>
+    <string name="status_preparing">Подготовка</string>
+    <string name="status_processing">Обработка файла</string>
+    <string name="status_completed">готово</string>
+    <string name="status_cancelled">отменено</string>
+    <string name="status_failed">ошибка: %1$s</string>
+    <string name="platform_link">ссылка</string>
+
+    <!-- Сообщения о загрузках -->
+    <string name="msg_reading_link">Читаем ссылку…</string>
+    <string name="msg_queued">В очереди: %1$s</string>
+    <string name="msg_all_tracks_downloaded">Все %1$d треков уже скачаны</string>
+    <string name="msg_queued_playlist">В очереди: %1$d треков из %2$d</string>
+    <string name="msg_already_downloaded">Уже скачано: %1$s</string>
+    <string name="msg_error">Ошибка: %1$s</string>
+    <string name="msg_invalid_url">Нужна ссылка вида https://…</string>
+    <string name="msg_queue_empty">Очередь уже пуста</string>
+    <string name="msg_queue_cleared">Очередь очищена: %1$d</string>
+
+    <!-- Настройки -->
+    <string name="settings_title">Настройки</string>
+    <string name="settings_subtitle">тема · движок · хранилище</string>
+    <string name="section_appearance">Оформление</string>
+    <string name="theme_title">Тема</string>
+    <string name="theme_system_hint">Системная следует настройке Android</string>
+    <string name="theme_system">Система</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="section_language">Язык</string>
+    <string name="language_title">Язык приложения</string>
+    <string name="language_hint">По умолчанию — английский</string>
+    <string name="language_system">Система</string>
+    <string name="language_english">English</string>
+    <string name="language_russian">Русский</string>
+    <string name="section_downloads">Загрузки</string>
+    <string name="engine_ytdlp">Движок yt-dlp</string>
+    <string name="download_missing_title">Докачать недостающее</string>
+    <string name="download_missing_hint">Треки из базы, которых нет на диске</string>
+    <string name="cleanup_duplicates_title">Убрать дубли файлов</string>
+    <string name="cleanup_duplicates_hint">Копии вида «Название (2).m4a»</string>
+    <string name="section_storage">Хранилище</string>
+    <string name="tracks_on_disk">Треков на диске</string>
+    <string name="tracks_on_disk_hint">Готовы играть без интернета</string>
+    <string name="used_space">Занято</string>
+    <string name="used_space_hint">Аудио и обложки в памяти приложения</string>
+    <string name="section_notifications">Уведомления</string>
+    <string name="notifications_title">Уведомления</string>
+    <string name="notifications_on_hint">Прогресс загрузок виден в шторке</string>
+    <string name="notifications_off_hint">Прогресс загрузок не показывается</string>
+    <string name="state_on">включены</string>
+    <string name="state_off">выключены</string>
+    <string name="log_title">Журнал</string>
+    <string name="log_entries">%1$d записей</string>
+    <string name="log_empty">Пока пусто</string>
+    <string name="section_about">О приложении</string>
+    <string name="about_version">версия %1$s</string>
+    <string name="about_description">Локальный плеер и загрузчик. Библиотека хранится на устройстве, без облака.</string>
+    <string name="msg_engine_updating">Обновляем yt-dlp…</string>
+    <string name="msg_engine_updated">yt-dlp обновлён</string>
+    <string name="msg_engine_update_failed">Не удалось обновить yt-dlp: %1$s</string>
+    <string name="msg_nothing_to_download">Нечего докачивать — всё уже на диске</string>
+    <string name="msg_queued_for_download">В очередь на докачку: %1$d</string>
+    <string name="msg_no_duplicates">Дублей не найдено</string>
+    <string name="msg_duplicates_removed">Убрано дублей: %1$d</string>
+
+    <!-- Состояние движка yt-dlp -->
+    <string name="engine_not_initialized">не инициализирован</string>
+    <string name="engine_initializing">инициализация…</string>
+    <string name="engine_ready">готов</string>
+    <string name="engine_ready_version">готов · %1$s</string>
+    <string name="engine_updating">обновление…</string>
+    <string name="engine_failed">ошибка: %1$s</string>
+    <string name="engine_init_failed">не удалось инициализировать yt-dlp</string>
+    <string name="engine_no_tracks">yt-dlp не вернул ни одного трека</string>
+    <string name="engine_no_file">yt-dlp не создал файл в %1$s</string>
+
+    <!-- Уведомления о загрузках -->
+    <string name="notification_channel_downloads">Загрузки</string>
+    <string name="notification_channel_downloads_description">Скачивание треков и обработка файлов</string>
+    <string name="notification_downloaded">Скачано</string>
+    <string name="notification_downloading">Скачивание</string>
+
+    <!-- Ошибки загрузки -->
+    <string name="error_network">нет связи с интернетом — проверь сеть и попробуй ещё раз</string>
+    <string name="error_auth">площадка требует вход в аккаунт — ссылка не откроется без него</string>
+    <string name="error_unavailable">трек недоступен — возможно, он удалён или скрыт</string>
+    <string name="error_forbidden">площадка отклонила запрос (403) — попробуй позже</string>
+    <string name="error_rate_limited">слишком много запросов подряд — подожди пару минут</string>
+    <string name="error_unsupported_link">эта ссылка не поддерживается</string>
+    <string name="error_live">это прямой эфир или премьера — такое не скачивается</string>
+    <string name="error_no_audio">площадка не отдала аудио — попробуй ещё раз</string>
+    <string name="error_processing">не удалось обработать аудио — попробуй обновить yt-dlp</string>
+    <string name="error_download_failed">не удалось скачать трек</string>
+
+    <!-- Форматирование -->
+    <string name="eta_seconds_suffix">с</string>
+
+    <plurals name="tracks_count">
+        <item quantity="one">%d трек</item>
+        <item quantity="few">%d трека</item>
+        <item quantity="many">%d треков</item>
+        <item quantity="other">%d трека</item>
+    </plurals>
+
+    <plurals name="playlists_count">
+        <item quantity="one">%d плейлист</item>
+        <item quantity="few">%d плейлиста</item>
+        <item quantity="many">%d плейлистов</item>
+        <item quantity="other">%d плейлиста</item>
+    </plurals>
+</resources>

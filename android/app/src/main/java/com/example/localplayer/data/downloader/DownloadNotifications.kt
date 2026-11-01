@@ -9,6 +9,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.localplayer.MainActivity
+import com.example.localplayer.R
 
 /** Уведомления загрузчика: один канал, одно foreground-уведомление на задачу. */
 object DownloadNotifications {
@@ -21,15 +22,15 @@ object DownloadNotifications {
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        if (manager.getNotificationChannel(CHANNEL_ID) != null) return
-
+        // Канал создаём каждый раз, а не только при первом запуске: так его название
+        // и описание обновляются после смены языка интерфейса.
         manager.createNotificationChannel(
             NotificationChannel(
                 CHANNEL_ID,
-                "Загрузки",
+                context.getString(R.string.notification_channel_downloads),
                 NotificationManager.IMPORTANCE_LOW,
             ).apply {
-                description = "Скачивание треков и обработка файлов"
+                description = context.getString(R.string.notification_channel_downloads_description)
                 setShowBadge(false)
             },
         )
@@ -63,7 +64,7 @@ object DownloadNotifications {
             DONE_NOTIFICATION_ID,
             NotificationCompat.Builder(context, CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.stat_sys_download_done)
-                .setContentTitle("Скачано")
+                .setContentTitle(context.getString(R.string.notification_downloaded))
                 .setContentText(title)
                 .setAutoCancel(true)
                 .setContentIntent(openAppIntent(context))
@@ -104,8 +105,8 @@ object DownloadNotifications {
     }
 
     /** Строка для уведомления: обрезаем простыню из вывода yt-dlp. */
-    fun statusLine(raw: String): String {
+    fun statusLine(context: Context, raw: String): String {
         val cleaned = raw.substringAfter("]").trim().ifEmpty { raw.trim() }
-        return cleaned.take(120).ifEmpty { "Скачивание" }
+        return cleaned.take(120).ifEmpty { context.getString(R.string.notification_downloading) }
     }
 }

@@ -1,13 +1,16 @@
 package com.example.localplayer.ui.screens.downloads
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.localplayer.R
 import com.example.localplayer.core.AppLog
 import com.example.localplayer.data.repository.DownloadRepository
 import com.example.localplayer.data.repository.SubmitResult
 import com.example.localplayer.domain.model.DownloadState
 import com.example.localplayer.domain.model.DownloadTask
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +21,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class DownloadsViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val repository: DownloadRepository,
 ) : ViewModel() {
 
@@ -50,19 +54,29 @@ class DownloadsViewModel @Inject constructor(
             _busy.value = true
             // Плейлист читается целиком до постановки в очередь: это может занять минуту,
             // поэтому сразу говорим, что приложение не зависло.
-            _message.value = "Читаем ссылку…"
+            _message.value = context.getString(R.string.msg_reading_link)
             _messageIsError.value = false
 
             val result = repository.submit(url)
             _message.value = when (result) {
-                is SubmitResult.Queued -> "В очереди: ${result.title}"
+                is SubmitResult.Queued -> context.getString(R.string.msg_queued, result.title)
                 is SubmitResult.QueuedPlaylist -> when {
-                    result.count == 0 -> "Все ${result.total} треков уже скачаны"
-                    else -> "В очереди: ${result.count} треков из ${result.total}"
+                    result.count == 0 -> context.getString(
+                        R.string.msg_all_tracks_downloaded,
+                        result.total,
+                    )
+                    else -> context.getString(
+                        R.string.msg_queued_playlist,
+                        result.count,
+                        result.total,
+                    )
                 }
-                is SubmitResult.AlreadyDownloaded -> "Уже скачано: ${result.title}"
-                is SubmitResult.Failed -> "Ошибка: ${result.message}"
-                SubmitResult.InvalidUrl -> "Нужна ссылка вида https://…"
+                is SubmitResult.AlreadyDownloaded -> context.getString(
+                    R.string.msg_already_downloaded,
+                    result.title,
+                )
+                is SubmitResult.Failed -> context.getString(R.string.msg_error, result.message)
+                SubmitResult.InvalidUrl -> context.getString(R.string.msg_invalid_url)
             }
             _messageIsError.value = result is SubmitResult.Failed || result is SubmitResult.InvalidUrl
             _busy.value = false
@@ -74,8 +88,10 @@ class DownloadsViewModel @Inject constructor(
             _busy.value = true
             val result = repository.updateEngine()
             _message.value = result.fold(
-                onSuccess = { "yt-dlp обновлён" },
-                onFailure = { "Не удалось обновить yt-dlp: ${it.message}" },
+                onSuccess = { context.getString(R.string.msg_engine_updated) },
+                onFailure = {
+                    context.getString(R.string.msg_engine_update_failed, it.message.orEmpty())
+                },
             )
             _messageIsError.value = result.isFailure
             _busy.value = false
@@ -93,9 +109,9 @@ class DownloadsViewModel @Inject constructor(
             _busy.value = true
             val count = repository.enqueuePendingDownloads()
             _message.value = if (count == 0) {
-                "Нечего докачивать — всё уже на диске"
+                context.getString(R.string.msg_nothing_to_download)
             } else {
-                "В очередь на докачку: $count"
+                context.getString(R.string.msg_queued_for_download, count)
             }
             _messageIsError.value = false
             _busy.value = false
@@ -118,9 +134,9 @@ class DownloadsViewModel @Inject constructor(
         _confirmClearQueue.value = false
         val removed = repository.clearQueue()
         _message.value = if (removed == 0) {
-            "Очередь уже пуста"
+            context.getString(R.string.msg_queue_empty)
         } else {
-            "Очередь очищена: $removed"
+            context.getString(R.string.msg_queue_cleared, removed)
         }
         _messageIsError.value = false
     }
@@ -137,9 +153,9 @@ class DownloadsViewModel @Inject constructor(
             _busy.value = true
             val removed = repository.removeDuplicateFiles()
             _message.value = if (removed == 0) {
-                "Дублей не найдено"
+                context.getString(R.string.msg_no_duplicates)
             } else {
-                "Убрано дублей: $removed"
+                context.getString(R.string.msg_duplicates_removed, removed)
             }
             _messageIsError.value = false
             _busy.value = false

@@ -15,30 +15,9 @@ class FormattersTest {
 
     @Test
     fun eta() {
-        assertEquals("~2:10", 130L.formatEta())
-        assertEquals("~45 с", 45L.formatEta())
-        assertNull(null.formatEta())
-        assertNull(0L.formatEta())
-    }
-
-    @Test
-    fun tracksWord() {
-        assertEquals("треков", 0.tracksWord())
-        assertEquals("трек", 1.tracksWord())
-        assertEquals("трека", 2.tracksWord())
-        assertEquals("треков", 5.tracksWord())
-        assertEquals("треков", 11.tracksWord())
-        assertEquals("трек", 21.tracksWord())
-        assertEquals("трека", 22.tracksWord())
-        assertEquals("треков", 111.tracksWord())
-    }
-
-    @Test
-    fun playlistsWord() {
-        assertEquals("плейлистов", 0.playlistsWord())
-        assertEquals("плейлист", 1.playlistsWord())
-        assertEquals("плейлиста", 3.playlistsWord())
-        assertEquals("плейлистов", 12.playlistsWord())
-        assertEquals("плейлист", 31.playlistsWord())
+        assertEquals("~2:10", 130L.formatEta("s"))
+        assertEquals("~45 s", 45L.formatEta("s"))
+        assertNull(null.formatEta("s"))
+        assertNull(0L.formatEta("s"))
     }
 }

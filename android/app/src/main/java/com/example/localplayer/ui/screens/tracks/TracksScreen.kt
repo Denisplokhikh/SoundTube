@@ -39,11 +39,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.localplayer.R
 import com.example.localplayer.domain.model.Track
 import com.example.localplayer.ui.components.AddToPlaylistDialog
 import com.example.localplayer.ui.components.ConfirmDeleteTrackDialog
@@ -53,7 +56,6 @@ import com.example.localplayer.ui.components.SoundTubeIconButton
 import com.example.localplayer.ui.components.SoundTubeTopBar
 import com.example.localplayer.ui.components.TrackRow
 import com.example.localplayer.ui.components.formatFileSize
-import com.example.localplayer.ui.components.tracksWord
 import com.example.localplayer.ui.player.PlayerViewModel
 import com.example.localplayer.ui.theme.SoundTubeTheme
 import kotlinx.coroutines.delay
@@ -89,18 +91,34 @@ fun TracksScreen(
             .imePadding(),
     ) {
         SoundTubeTopBar(
-            title = "Библиотека",
+            title = stringResource(R.string.library_title),
             subtitle = when {
-                ui.totalCount == 0 -> "Локальная библиотека"
-                ui.isFiltering -> "Найдено ${ui.tracks.size} из ${ui.totalCount} · ${ui.sort.label.lowercase()}"
-                ui.librarySize > 0L -> "${ui.totalCount} ${ui.totalCount.tracksWord()} · " +
-                    ui.librarySize.formatFileSize()
-                else -> "${ui.totalCount} ${ui.totalCount.tracksWord()}"
+                ui.totalCount == 0 -> stringResource(R.string.library_subtitle_local)
+                ui.isFiltering -> stringResource(
+                    R.string.library_subtitle_filtering,
+                    ui.tracks.size,
+                    ui.totalCount,
+                    stringResource(ui.sort.shortLabelRes),
+                )
+                ui.librarySize > 0L -> pluralStringResource(
+                    R.plurals.tracks_count,
+                    ui.totalCount,
+                    ui.totalCount,
+                ) + " · " + ui.librarySize.formatFileSize()
+                else -> pluralStringResource(
+                    R.plurals.tracks_count,
+                    ui.totalCount,
+                    ui.totalCount,
+                )
             },
             actions = {
                 SoundTubeIconButton(
                     icon = if (searchVisible) Icons.Rounded.Close else Icons.Rounded.Search,
-                    contentDescription = if (searchVisible) "Закрыть поиск" else "Поиск",
+                    contentDescription = if (searchVisible) {
+                        stringResource(R.string.cd_close_search)
+                    } else {
+                        stringResource(R.string.cd_search)
+                    },
                     bordered = false,
                     onClick = {
                         searchVisible = !searchVisible
@@ -109,7 +127,7 @@ fun TracksScreen(
                 )
                 SoundTubeIconButton(
                     icon = Icons.Rounded.Settings,
-                    contentDescription = "Настройки",
+                    contentDescription = stringResource(R.string.cd_settings),
                     bordered = false,
                     onClick = onOpenSettings,
                 )
@@ -130,7 +148,7 @@ fun TracksScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
-                placeholder = { Text("Трек, артист, альбом") },
+                placeholder = { Text(stringResource(R.string.search_placeholder)) },
                 leadingIcon = {
                     Icon(
                         imageVector = Icons.Rounded.Search,
@@ -143,7 +161,7 @@ fun TracksScreen(
                     if (ui.query.isNotEmpty()) {
                         Icon(
                             imageVector = Icons.Rounded.Close,
-                            contentDescription = "Очистить",
+                            contentDescription = stringResource(R.string.cd_clear),
                             tint = colors.textSecondary,
                             modifier = Modifier
                                 .size(18.dp)
@@ -177,7 +195,7 @@ fun TracksScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 SoundTubeButton(
-                    text = "Играть всё",
+                    text = stringResource(R.string.action_play_all),
                     icon = Icons.Rounded.PlayArrow,
                     onClick = { playerViewModel.play(trackIds) },
                 )
@@ -185,7 +203,7 @@ fun TracksScreen(
                 Spacer(Modifier.weight(1f))
 
                 SoundTubeButton(
-                    text = ui.sort.shortLabel,
+                    text = stringResource(ui.sort.shortLabelRes),
                     icon = Icons.AutoMirrored.Rounded.Sort,
                     primary = false,
                     compact = true,
@@ -195,9 +213,9 @@ fun TracksScreen(
                 SoundTubeIconButton(
                     icon = Icons.Rounded.Shuffle,
                     contentDescription = if (player.shuffle) {
-                        "Перемешивание включено"
+                        stringResource(R.string.cd_shuffle_on)
                     } else {
-                        "Перемешивание выключено"
+                        stringResource(R.string.cd_shuffle_off)
                     },
                     tint = if (player.shuffle) colors.primary else colors.textSecondary,
                     onClick = playerViewModel::toggleShuffle,
@@ -208,12 +226,12 @@ fun TracksScreen(
         when {
             ui.totalCount == 0 -> EmptyState(
                 icon = Icons.Rounded.LibraryMusic,
-                title = "Библиотека пуста",
-                message = "Скачайте первый трек — он появится здесь и будет играть без интернета.",
+                title = stringResource(R.string.empty_library_title),
+                message = stringResource(R.string.empty_library_message),
                 modifier = Modifier.weight(1f),
                 action = {
                     SoundTubeButton(
-                        text = "К загрузкам",
+                        text = stringResource(R.string.action_open_downloads),
                         onClick = onOpenDownloads,
                     )
                 },
@@ -221,12 +239,12 @@ fun TracksScreen(
 
             ui.tracks.isEmpty() -> EmptyState(
                 icon = Icons.Rounded.SearchOff,
-                title = "Ничего не найдено",
-                message = "По запросу «${ui.query.trim()}» нет треков. Попробуйте другое название.",
+                title = stringResource(R.string.empty_search_title),
+                message = stringResource(R.string.empty_search_message, ui.query.trim()),
                 modifier = Modifier.weight(1f),
                 action = {
                     SoundTubeButton(
-                        text = "Сбросить поиск",
+                        text = stringResource(R.string.action_reset_search),
                         primary = false,
                         onClick = tracksViewModel::clearQuery,
                     )
@@ -302,7 +320,7 @@ private fun LibraryNotice(text: String, isError: Boolean, onDismiss: () -> Unit)
         )
         Icon(
             imageVector = Icons.Rounded.Close,
-            contentDescription = "Скрыть",
+            contentDescription = stringResource(R.string.cd_hide),
             tint = colors.textSecondary,
             modifier = Modifier
                 .size(16.dp)
@@ -313,16 +331,9 @@ private fun LibraryNotice(text: String, isError: Boolean, onDismiss: () -> Unit)
 
 private const val NOTICE_TIMEOUT_MS = 4_000L
 
-private val TrackSort.label: String
+private val TrackSort.shortLabelRes: Int
     get() = when (this) {
-        TrackSort.ARTIST -> "По артисту"
-        TrackSort.TITLE -> "По названию"
-        TrackSort.RECENT -> "Сначала новые"
-    }
-
-private val TrackSort.shortLabel: String
-    get() = when (this) {
-        TrackSort.ARTIST -> "артист"
-        TrackSort.TITLE -> "название"
-        TrackSort.RECENT -> "новые"
+        TrackSort.ARTIST -> R.string.sort_short_artist
+        TrackSort.TITLE -> R.string.sort_short_title
+        TrackSort.RECENT -> R.string.sort_short_recent
     }

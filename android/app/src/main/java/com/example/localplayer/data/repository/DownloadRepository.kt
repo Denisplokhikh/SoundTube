@@ -1,8 +1,10 @@
 package com.example.localplayer.data.repository
 
+import android.content.Context
 import androidx.work.ExistingWorkPolicy
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.example.localplayer.R
 import com.example.localplayer.core.AppLog
 import com.example.localplayer.data.downloader.AudioDownloadWorker
 import com.example.localplayer.data.downloader.EngineState
@@ -16,6 +18,7 @@ import com.example.localplayer.domain.model.DownloadTask
 import com.example.localplayer.domain.model.SourcePlatform
 import com.example.localplayer.domain.util.DownloadErrors
 import com.example.localplayer.domain.util.TrackIds
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
@@ -56,6 +59,7 @@ sealed interface SubmitResult {
  */
 @Singleton
 class DownloadRepository @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val client: YoutubeDLClient,
     private val trackDao: TrackDao,
     private val workManager: WorkManager,
@@ -73,17 +77,17 @@ class DownloadRepository @Inject constructor(
 
     suspend fun submit(rawUrl: String): SubmitResult {
         val url = rawUrl.trim()
-        AppLog.i("Ссылка: $url")
+        AppLog.i("Link: $url")
         if (!TrackIds.looksLikeUrl(url)) return SubmitResult.InvalidUrl
 
         val infos = try {
             readMutex.withLock { fetchTracks(url) }
         } catch (error: Exception) {
-            AppLog.w("Не удалось прочитать ссылку", error)
-            return SubmitResult.Failed(DownloadErrors.humanize(error.message))
+            AppLog.w("Couldn't read the link", error)
+            return SubmitResult.Failed(DownloadErrors.humanize(context, error.message))
         }
 
-        AppLog.i("Найдено треков: ${infos.size}")
+        AppLog.i("Tracks found: ${infos.size}")
 
         return if (infos.size <= 1) {
             submitSingle(infos.first(), url)
@@ -108,7 +112,7 @@ class DownloadRepository @Inject constructor(
 
         val existing = trackDao.findAnyById(trackId)
         if (existing != null && fileManager.exists(existing.localFilePath)) {
-            AppLog.i("Уже скачано: ${existing.title}")
+            AppLog.i("Already downloaded: ${existing.title}")
             return SubmitResult.AlreadyDownloaded(trackId, existing.title)
         }
 
@@ -136,7 +140,7 @@ class DownloadRepository @Inject constructor(
             policy,
             AudioDownloadWorker.request(trackId, canonicalUrl),
         )
-        AppLog.i("В очереди: $title ($policy)")
+        AppLog.i("Queued: $title ($policy)")
 
         return SubmitResult.Queued(trackId, title)
     }
@@ -179,10 +183,10 @@ class DownloadRepository @Inject constructor(
             )
             queued++
 
-            AppLog.i("В плейлисте ${queued + skipped}/${infos.size}: ${info.displayTitle}")
+            AppLog.i("Playlist ${queued + skipped}/${infos.size}: ${info.displayTitle}")
         }
 
-        AppLog.i("Плейлист: в очередь $queued, уже было $skipped")
+        AppLog.i("Playlist: queued $queued, already there $skipped")
         return SubmitResult.QueuedPlaylist(count = queued, total = infos.size)
     }
 
@@ -202,7 +206,7 @@ class DownloadRepository @Inject constructor(
                         while (isActive) {
                             delay(TICKER_INTERVAL_MS)
                             seconds += (TICKER_INTERVAL_MS / 1000L).toInt()
-                            AppLog.i("Читаем ссылку… $seconds с")
+                            AppLog.i("Reading the link… $seconds s")
                         }
                     }
                     try {
@@ -214,7 +218,7 @@ class DownloadRepository @Inject constructor(
             } catch (error: Exception) {
                 val retryable = DownloadErrors.isNetworkError(error.message) && attempt < INFO_ATTEMPTS
                 if (!retryable) throw error
-                AppLog.w("Чтение ссылки не удалось (попытка $attempt), повторяю", error)
+                AppLog.w("Reading the link failed (attempt $attempt), retrying", error)
                 delay(INFO_RETRY_DELAY_MS)
                 attempt++
             }
@@ -307,7 +311,7 @@ class DownloadRepository @Inject constructor(
             }.getOrDefault(emptyList()).any { it.state.isActive() }
         }
         if (active) {
-            AppLog.i("Уже в очереди: ${track.title}")
+            AppLog.i("Already queued: ${track.title}")
             return false
         }
 
@@ -319,7 +323,7 @@ class DownloadRepository @Inject constructor(
             ExistingWorkPolicy.REPLACE,
             AudioDownloadWorker.request(trackId, track.sourceUrl),
         )
-        AppLog.i("Повтор загрузки: ${track.title}")
+        AppLog.i("Retrying download: ${track.title}")
         return true
     }
 
@@ -334,7 +338,7 @@ class DownloadRepository @Inject constructor(
     fun cancel(trackId: String) {
         client.cancel(trackId)
         workManager.cancelUniqueWork(AudioDownloadWorker.uniqueName(trackId))
-        AppLog.i("Загрузка отменена: $trackId")
+        AppLog.i("Download cancelled: $trackId")
     }
 
     /**
@@ -361,7 +365,7 @@ class DownloadRepository @Inject constructor(
         val now = System.currentTimeMillis()
         pending.forEach { trackDao.markDeleted(it.id, now) }
 
-        AppLog.i("Очередь очищена: ${pending.size}")
+        AppLog.i("Queue cleared: ${pending.size}")
         pending.size
     }
 
@@ -386,14 +390,14 @@ class DownloadRepository @Inject constructor(
                 AudioDownloadWorker.request(track.id, track.sourceUrl),
             )
         }
-        AppLog.i("Докачка: в очередь ${pending.size}")
+        AppLog.i("Missing downloads queued: ${pending.size}")
         return pending.size
     }
 
     /** Исправляет названия, которые старые сборки сохранили из служебных ссылок. */
     suspend fun fixLegacyTitles(): Int = withContext(Dispatchers.IO) {
         val fixed = trackDao.fixServiceTitles(System.currentTimeMillis())
-        if (fixed > 0) AppLog.i("Поправлены названия в очереди: $fixed")
+        if (fixed > 0) AppLog.i("Fixed queue titles: $fixed")
         fixed
     }
 
@@ -433,7 +437,7 @@ class DownloadRepository @Inject constructor(
                         trackDao.markDeleted(extra.id, now)
                         removed++
                         AppLog.i(
-                            "Убран дубль: ${extra.title}" +
+                            "Duplicate removed: ${extra.title}" +
                                 if (deleted) " → ${extra.localFilePath?.substringAfterLast('/')}" else "",
                         )
                     }
@@ -469,7 +473,8 @@ class DownloadRepository @Inject constructor(
             url = track.sourceUrl,
             progress = progress.getFloat(AudioDownloadWorker.KEY_PROGRESS, 0f),
             etaSeconds = progress.getLong(AudioDownloadWorker.KEY_ETA, -1L).takeIf { it > 0 },
-            status = progress.getString(AudioDownloadWorker.KEY_STATUS) ?: "Скачивание",
+            status = progress.getString(AudioDownloadWorker.KEY_STATUS)
+                ?: context.getString(R.string.notification_downloading),
         )
 
         WorkInfo.State.SUCCEEDED -> when {
@@ -484,13 +489,14 @@ class DownloadRepository @Inject constructor(
             else -> DownloadState.Failed(
                 url = track.sourceUrl,
                 message = outputData.getString(AudioDownloadWorker.KEY_ERROR)
-                    ?: "не удалось скачать",
+                    ?: context.getString(R.string.error_download_failed),
             )
         }
 
         WorkInfo.State.FAILED -> DownloadState.Failed(
             url = track.sourceUrl,
-            message = outputData.getString(AudioDownloadWorker.KEY_ERROR) ?: "не удалось скачать",
+            message = outputData.getString(AudioDownloadWorker.KEY_ERROR)
+                ?: context.getString(R.string.error_download_failed),
         )
 
         WorkInfo.State.CANCELLED -> DownloadState.Cancelled(track.sourceUrl)

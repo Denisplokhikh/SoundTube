@@ -35,10 +35,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
+import com.example.localplayer.R
 import com.example.localplayer.domain.model.Playlist
 import com.example.localplayer.ui.theme.SoundTubeTheme
 
@@ -69,7 +72,7 @@ fun AddToPlaylistDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "В плейлист",
+                        text = stringResource(R.string.action_add_to_playlist),
                         style = MaterialTheme.typography.titleSmall,
                         color = colors.textPrimary,
                     )
@@ -83,7 +86,7 @@ fun AddToPlaylistDialog(
                 }
                 SoundTubeIconButton(
                     icon = Icons.Rounded.Close,
-                    contentDescription = "Закрыть",
+                    contentDescription = stringResource(R.string.action_close),
                     bordered = false,
                     size = 30.dp,
                     onClick = onDismiss,
@@ -97,7 +100,7 @@ fun AddToPlaylistDialog(
                     value = name,
                     onValueChange = { name = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Название плейлиста") },
+                    placeholder = { Text(stringResource(R.string.playlist_name_placeholder)) },
                     singleLine = true,
                     shape = RoundedCornerShape(8.dp),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
@@ -119,14 +122,14 @@ fun AddToPlaylistDialog(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     SoundTubeButton(
-                        text = "Создать",
+                        text = stringResource(R.string.action_create),
                         icon = Icons.Rounded.Add,
                         enabled = name.isNotBlank(),
                         onClick = { onCreate(name) },
                     )
                     if (playlists.isNotEmpty()) {
                         SoundTubeButton(
-                            text = "Отмена",
+                            text = stringResource(R.string.action_cancel),
                             primary = false,
                             onClick = {
                                 creating = false
@@ -152,7 +155,7 @@ fun AddToPlaylistDialog(
                 }
 
                 SoundTubeButton(
-                    text = "Новый плейлист",
+                    text = stringResource(R.string.action_new_playlist),
                     icon = Icons.Rounded.Add,
                     primary = false,
                     modifier = Modifier.fillMaxWidth(),
@@ -204,9 +207,13 @@ private fun PlaylistPickRow(
             )
             Text(
                 text = if (playlist.trackCount == 0) {
-                    "пока пусто"
+                    stringResource(R.string.playlist_empty)
                 } else {
-                    "${playlist.trackCount} ${playlist.trackCount.tracksWord()}"
+                    pluralStringResource(
+                        R.plurals.tracks_count,
+                        playlist.trackCount,
+                        playlist.trackCount,
+                    )
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.textSecondary,
@@ -251,28 +258,27 @@ fun ConfirmDeleteTrackDialog(
                     modifier = Modifier.size(20.dp),
                 )
                 Text(
-                    text = "Удалить трек?",
+                    text = stringResource(R.string.dialog_delete_track_title),
                     style = MaterialTheme.typography.titleSmall,
                     color = colors.textPrimary,
                 )
             }
 
             Text(
-                text = "«$trackTitle» больше не будет в библиотеке и плейлистах. " +
-                    "Файл будет стёрт с устройства.",
+                text = stringResource(R.string.dialog_delete_track_message, trackTitle),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textSecondary,
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SoundTubeButton(
-                    text = "Удалить",
+                    text = stringResource(R.string.action_delete),
                     danger = true,
                     modifier = Modifier.weight(1f),
                     onClick = onConfirm,
                 )
                 SoundTubeButton(
-                    text = "Отмена",
+                    text = stringResource(R.string.action_cancel),
                     primary = false,
                     modifier = Modifier.weight(1f),
                     onClick = onDismiss,

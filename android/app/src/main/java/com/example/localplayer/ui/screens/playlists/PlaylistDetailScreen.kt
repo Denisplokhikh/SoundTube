@@ -25,17 +25,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.localplayer.R
 import com.example.localplayer.domain.model.Playlist
 import com.example.localplayer.ui.components.EmptyState
 import com.example.localplayer.ui.components.SoundTubeButton
 import com.example.localplayer.ui.components.SoundTubeIconButton
 import com.example.localplayer.ui.components.SoundTubeTopBar
 import com.example.localplayer.ui.components.TrackRow
-import com.example.localplayer.ui.components.tracksWord
 import com.example.localplayer.ui.player.PlayerViewModel
 import com.example.localplayer.ui.theme.SoundTubeTheme
 
@@ -60,11 +62,11 @@ fun PlaylistDetailScreen(
             .background(colors.background),
     ) {
         SoundTubeTopBar(
-            title = "Плейлист",
+            title = stringResource(R.string.playlist_title),
             navigationIcon = {
                 SoundTubeIconButton(
                     icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Назад",
+                    contentDescription = stringResource(R.string.action_back),
                     bordered = false,
                     onClick = onBack,
                 )
@@ -91,8 +93,8 @@ fun PlaylistDetailScreen(
             if (entries.isEmpty()) {
                 EmptyState(
                     icon = Icons.AutoMirrored.Rounded.QueueMusic,
-                    title = "Плейлист пуст",
-                    message = "Скачанные треки этой площадки появятся здесь автоматически.",
+                    title = stringResource(R.string.playlist_empty_title),
+                    message = stringResource(R.string.playlist_empty_message),
                     modifier = Modifier.weight(1f),
                 )
             } else {
@@ -149,16 +151,20 @@ private fun PlaylistHeader(
             )
             Text(
                 text = if (playlist.trackCount == 0) {
-                    "пока пусто"
+                    stringResource(R.string.playlist_empty)
                 } else {
-                    "${playlist.trackCount} ${playlist.trackCount.tracksWord()}"
+                    pluralStringResource(
+                        R.plurals.tracks_count,
+                        playlist.trackCount,
+                        playlist.trackCount,
+                    )
                 },
                 style = MaterialTheme.typography.labelMedium,
                 color = colors.textSecondary,
             )
             Spacer(Modifier.size(10.dp))
             SoundTubeButton(
-                text = "Играть всё",
+                text = stringResource(R.string.action_play_all),
                 icon = Icons.Rounded.PlayArrow,
                 enabled = playEnabled,
                 onClick = onPlay,

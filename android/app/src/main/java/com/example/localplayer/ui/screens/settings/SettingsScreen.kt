@@ -1,5 +1,8 @@
 package com.example.localplayer.ui.screens.settings
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.provider.Settings
 import androidx.compose.foundation.background
@@ -25,6 +28,7 @@ import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadForOffline
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.MusicNote
 import androidx.compose.material.icons.rounded.Notifications
 import androidx.compose.material.icons.rounded.Palette
@@ -44,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
@@ -51,7 +56,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.localplayer.BuildConfig
+import com.example.localplayer.R
 import com.example.localplayer.core.AppLog
+import com.example.localplayer.core.i18n.LanguageMode
 import com.example.localplayer.ui.components.SectionLabel
 import com.example.localplayer.ui.components.SoundTubeButton
 import com.example.localplayer.ui.components.SoundTubeCard
@@ -62,7 +69,7 @@ import com.example.localplayer.ui.components.formatFileSize
 import com.example.localplayer.ui.theme.SoundTubeTheme
 import com.example.localplayer.ui.theme.ThemeMode
 
-/** Настройки: тема, движок, хранилище, журнал и версия. */
+/** Настройки: язык, тема, движок, хранилище, журнал и версия. */
 @Composable
 fun SettingsScreen(
     onBack: () -> Unit,
@@ -72,6 +79,7 @@ fun SettingsScreen(
     val colors = SoundTubeTheme.colors
     val engine by viewModel.engineState.collectAsStateWithLifecycle()
     val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+    val languageMode by viewModel.languageMode.collectAsStateWithLifecycle()
     val trackCount by viewModel.trackCount.collectAsStateWithLifecycle()
     val librarySize by viewModel.librarySize.collectAsStateWithLifecycle()
     val busy by viewModel.busy.collectAsStateWithLifecycle()
@@ -80,6 +88,8 @@ fun SettingsScreen(
     val logs by viewModel.logs.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
+    // Смена языка пересоздаёт экран: ресурсы читаются заново из контекста Activity.
+    val activity = remember(context) { context.findActivity() }
     var notificationsEnabled by remember {
         mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
     }
@@ -107,12 +117,12 @@ fun SettingsScreen(
             .navigationBarsPadding(),
     ) {
         SoundTubeTopBar(
-            title = "Настройки",
-            subtitle = "тема · движок · хранилище",
+            title = stringResource(R.string.settings_title),
+            subtitle = stringResource(R.string.settings_subtitle),
             navigationIcon = {
                 SoundTubeIconButton(
                     icon = Icons.AutoMirrored.Rounded.ArrowBack,
-                    contentDescription = "Назад",
+                    contentDescription = stringResource(R.string.action_back),
                     bordered = false,
                     onClick = onBack,
                 )
@@ -124,7 +134,7 @@ fun SettingsScreen(
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            item { SectionLabel("Оформление") }
+            item { SectionLabel(stringResource(R.string.section_appearance)) }
             item {
                 SettingsCard {
                     Row(
@@ -134,12 +144,12 @@ fun SettingsScreen(
                         SettingsIcon(Icons.Rounded.Palette)
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "Тема",
+                                text = stringResource(R.string.theme_title),
                                 style = MaterialTheme.typography.titleSmall,
                                 color = colors.textPrimary,
                             )
                             Text(
-                                text = "Системная следует настройке Android",
+                                text = stringResource(R.string.theme_system_hint),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = colors.textSecondary,
                             )
@@ -152,7 +162,7 @@ fun SettingsScreen(
                     ) {
                         ThemeMode.entries.forEach { mode ->
                             SoundTubeButton(
-                                text = mode.label,
+                                text = stringResource(mode.labelRes()),
                                 primary = themeMode == mode,
                                 compact = true,
                                 onClick = { viewModel.setTheme(mode) },
@@ -162,32 +172,79 @@ fun SettingsScreen(
                 }
             }
 
-            item { SectionLabel("Загрузки") }
+            item { SectionLabel(stringResource(R.string.section_language)) }
+            item {
+                SettingsCard {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        SettingsIcon(Icons.Rounded.Language)
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.language_title),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = colors.textPrimary,
+                            )
+                            Text(
+                                text = stringResource(R.string.language_hint),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colors.textSecondary,
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        LanguageMode.entries.forEach { mode ->
+                            SoundTubeButton(
+                                text = stringResource(mode.labelRes()),
+                                primary = languageMode == mode,
+                                compact = true,
+                                onClick = {
+                                    if (languageMode != mode) {
+                                        viewModel.setLanguage(mode)
+                                        activity?.recreate()
+                                    }
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+
+            item { SectionLabel(stringResource(R.string.section_downloads)) }
             item {
                 SettingsCard {
                     SettingsRow(
                         icon = Icons.Rounded.Download,
-                        title = "Движок yt-dlp",
+                        title = stringResource(R.string.engine_ytdlp),
                         subtitle = engine.describe(),
-                        actionLabel = if (busy) "…" else "Обновить",
+                        actionLabel = if (busy) {
+                            "…"
+                        } else {
+                            stringResource(R.string.action_update)
+                        },
                         actionEnabled = !busy,
                         onAction = viewModel::updateEngine,
                     )
                     SettingsDivider()
                     SettingsRow(
                         icon = Icons.Rounded.DownloadForOffline,
-                        title = "Докачать недостающее",
-                        subtitle = "Треки из базы, которых нет на диске",
-                        actionLabel = "Запустить",
+                        title = stringResource(R.string.download_missing_title),
+                        subtitle = stringResource(R.string.download_missing_hint),
+                        actionLabel = stringResource(R.string.action_run),
                         actionEnabled = !busy,
                         onAction = viewModel::downloadMissing,
                     )
                     SettingsDivider()
                     SettingsRow(
                         icon = Icons.Rounded.DeleteSweep,
-                        title = "Убрать дубли файлов",
-                        subtitle = "Копии вида «Название (2).m4a»",
-                        actionLabel = "Проверить",
+                        title = stringResource(R.string.cleanup_duplicates_title),
+                        subtitle = stringResource(R.string.cleanup_duplicates_hint),
+                        actionLabel = stringResource(R.string.action_check),
                         actionEnabled = !busy,
                         onAction = viewModel::cleanupDuplicates,
                     )
@@ -210,7 +267,7 @@ fun SettingsScreen(
                                 modifier = Modifier.weight(1f),
                             )
                             SoundTubeButton(
-                                text = "Скрыть",
+                                text = stringResource(R.string.action_hide),
                                 primary = false,
                                 compact = true,
                                 onClick = viewModel::clearMessage,
@@ -220,40 +277,44 @@ fun SettingsScreen(
                 }
             }
 
-            item { SectionLabel("Хранилище") }
+            item { SectionLabel(stringResource(R.string.section_storage)) }
             item {
                 SettingsCard {
                     SettingsRow(
                         icon = Icons.Rounded.MusicNote,
-                        title = "Треков на диске",
-                        subtitle = "Готовы играть без интернета",
+                        title = stringResource(R.string.tracks_on_disk),
+                        subtitle = stringResource(R.string.tracks_on_disk_hint),
                         value = trackCount.toString(),
                     )
                     SettingsDivider()
                     SettingsRow(
                         icon = Icons.Rounded.Storage,
-                        title = "Занято",
-                        subtitle = "Аудио и обложки в памяти приложения",
+                        title = stringResource(R.string.used_space),
+                        subtitle = stringResource(R.string.used_space_hint),
                         value = librarySize.formatFileSize(),
-                        actionLabel = "Обновить",
+                        actionLabel = stringResource(R.string.action_update),
                         onAction = viewModel::refreshStorage,
                     )
                 }
             }
 
-            item { SectionLabel("Уведомления") }
+            item { SectionLabel(stringResource(R.string.section_notifications)) }
             item {
                 SettingsCard {
                     SettingsRow(
                         icon = Icons.Rounded.Notifications,
-                        title = "Уведомления",
+                        title = stringResource(R.string.notifications_title),
                         subtitle = if (notificationsEnabled) {
-                            "Прогресс загрузок виден в шторке"
+                            stringResource(R.string.notifications_on_hint)
                         } else {
-                            "Прогресс загрузок не показывается"
+                            stringResource(R.string.notifications_off_hint)
                         },
-                        value = if (notificationsEnabled) "включены" else "выключены",
-                        actionLabel = "Настроить",
+                        value = if (notificationsEnabled) {
+                            stringResource(R.string.state_on)
+                        } else {
+                            stringResource(R.string.state_off)
+                        },
+                        actionLabel = stringResource(R.string.action_configure),
                         onAction = openNotificationSettings,
                     )
                 }
@@ -266,7 +327,7 @@ fun SettingsScreen(
                 )
             }
 
-            item { SectionLabel("О приложении") }
+            item { SectionLabel(stringResource(R.string.section_about)) }
             item {
                 SettingsCard {
                     Row(
@@ -276,19 +337,22 @@ fun SettingsScreen(
                         SettingsIcon(Icons.Rounded.Info)
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "SoundTube",
+                                text = stringResource(R.string.app_name),
                                 style = MaterialTheme.typography.titleSmall,
                                 color = colors.textPrimary,
                             )
                             Text(
-                                text = "версия ${BuildConfig.VERSION_NAME}",
+                                text = stringResource(
+                                    R.string.about_version,
+                                    BuildConfig.VERSION_NAME,
+                                ),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = colors.textSecondary,
                             )
                         }
                     }
                     Text(
-                        text = "Локальный плеер и загрузчик. Библиотека хранится на устройстве, без облака.",
+                        text = stringResource(R.string.about_description),
                         style = MaterialTheme.typography.labelSmall,
                         color = colors.textSecondary,
                     )
@@ -296,6 +360,15 @@ fun SettingsScreen(
             }
         }
     }
+}
+
+private fun Context.findActivity(): Activity? {
+    var current = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return null
 }
 
 @Composable
@@ -401,18 +474,22 @@ private fun DiagnosticsCard(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Журнал",
+                    text = stringResource(R.string.log_title),
                     style = MaterialTheme.typography.titleSmall,
                     color = colors.textPrimary,
                 )
                 Text(
-                    text = "${entries.size} записей",
+                    text = stringResource(R.string.log_entries, entries.size),
                     style = MaterialTheme.typography.labelSmall,
                     color = colors.textSecondary,
                 )
             }
             SoundTubeButton(
-                text = if (expanded) "Свернуть" else "Развернуть",
+                text = if (expanded) {
+                    stringResource(R.string.action_collapse)
+                } else {
+                    stringResource(R.string.action_expand)
+                },
                 primary = false,
                 compact = true,
                 onClick = { expanded = !expanded },
@@ -425,14 +502,14 @@ private fun DiagnosticsCard(
                 horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
             ) {
                 SoundTubeButton(
-                    text = "Копировать",
+                    text = stringResource(R.string.action_copy),
                     primary = false,
                     compact = true,
                     enabled = entries.isNotEmpty(),
                     onClick = { clipboard.setText(AnnotatedString(AppLog.dump())) },
                 )
                 SoundTubeButton(
-                    text = "Очистить",
+                    text = stringResource(R.string.action_clear),
                     primary = false,
                     compact = true,
                     enabled = entries.isNotEmpty(),
@@ -442,7 +519,7 @@ private fun DiagnosticsCard(
 
             if (entries.isEmpty()) {
                 Text(
-                    text = "Пока пусто",
+                    text = stringResource(R.string.log_empty),
                     style = MaterialTheme.typography.labelSmall,
                     color = colors.textSecondary,
                 )

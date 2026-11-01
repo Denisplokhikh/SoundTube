@@ -50,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -58,6 +59,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.localplayer.R
 import com.example.localplayer.data.downloader.EngineState
 import com.example.localplayer.domain.model.DownloadState
 import com.example.localplayer.domain.model.DownloadTask
@@ -120,13 +122,13 @@ fun DownloadsScreen(
             .imePadding(),
     ) {
         SoundTubeTopBar(
-            title = "Загрузки",
-            subtitle = "движок: ${engine.describe()}",
+            title = stringResource(R.string.downloads_title),
+            subtitle = stringResource(R.string.downloads_subtitle, engine.describe()),
             subtitleDot = if (engine is EngineState.Ready) colors.statusGreen else colors.warning,
             actions = {
                 SoundTubeIconButton(
                     icon = Icons.Rounded.Settings,
-                    contentDescription = "Настройки",
+                    contentDescription = stringResource(R.string.cd_settings),
                     bordered = false,
                     onClick = onOpenSettings,
                 )
@@ -174,11 +176,11 @@ fun DownloadsScreen(
 
             item {
                 SectionHeader(
-                    title = "Очередь",
+                    title = stringResource(R.string.queue),
                     count = active.size,
                     action = {
                         SoundTubeButton(
-                            text = "Очистить",
+                            text = stringResource(R.string.action_clear),
                             primary = false,
                             compact = true,
                             enabled = active.isNotEmpty() && !busy,
@@ -192,8 +194,8 @@ fun DownloadsScreen(
                 item {
                     EmptyState(
                         icon = Icons.Rounded.CloudDownload,
-                        title = "Очередь пуста",
-                        message = "Вставьте ссылку на YouTube или SoundCloud — загрузка начнётся сразу.",
+                        title = stringResource(R.string.queue_empty_title),
+                        message = stringResource(R.string.queue_empty_message),
                     )
                 }
             } else {
@@ -210,7 +212,7 @@ fun DownloadsScreen(
             if (completed.isNotEmpty()) {
                 item {
                     SectionHeader(
-                        title = "Готово",
+                        title = stringResource(R.string.completed_title),
                         count = completed.size,
                     )
                 }
@@ -225,7 +227,11 @@ fun DownloadsScreen(
                 if (completed.size > MAX_COMPLETED) {
                     item {
                         Text(
-                            text = "Показаны последние $MAX_COMPLETED из ${completed.size}",
+                            text = stringResource(
+                                R.string.completed_shown,
+                                MAX_COMPLETED,
+                                completed.size,
+                            ),
                             style = MaterialTheme.typography.labelSmall,
                             color = colors.textSecondary,
                             modifier = Modifier.padding(start = 4.dp),
@@ -263,7 +269,7 @@ private fun DownloadInputCard(
 
     SoundTubeCard {
         Text(
-            text = "Новая загрузка",
+            text = stringResource(R.string.new_download),
             style = MaterialTheme.typography.titleSmall,
             color = colors.textPrimary,
         )
@@ -272,7 +278,7 @@ private fun DownloadInputCard(
             value = url,
             onValueChange = onUrlChange,
             modifier = Modifier.fillMaxWidth(),
-            placeholder = { Text("music.youtube.com, youtube.com, soundcloud.com") },
+            placeholder = { Text(stringResource(R.string.url_placeholder)) },
             textStyle = MaterialTheme.typography.bodyMedium,
             singleLine = true,
             shape = RoundedCornerShape(8.dp),
@@ -299,7 +305,11 @@ private fun DownloadInputCard(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             SoundTubeButton(
-                text = if (busy) "Готовим…" else "Скачать",
+                text = if (busy) {
+                    stringResource(R.string.downloading_preparing)
+                } else {
+                    stringResource(R.string.action_download)
+                },
                 onClick = onSubmit,
                 enabled = !busy && url.isNotBlank(),
                 icon = if (busy) null else Icons.Rounded.Download,
@@ -308,7 +318,7 @@ private fun DownloadInputCard(
 
             if (url.isNotBlank() && !busy) {
                 SoundTubeButton(
-                    text = "Очистить",
+                    text = stringResource(R.string.action_clear),
                     primary = false,
                     onClick = onClear,
                 )
@@ -316,7 +326,7 @@ private fun DownloadInputCard(
         }
 
         Text(
-            text = "YouTube, SoundCloud, плейлисты и сеты. Файлы сохраняются на устройство.",
+            text = stringResource(R.string.download_hint),
             style = MaterialTheme.typography.labelSmall,
             color = colors.textSecondary,
         )
@@ -340,18 +350,18 @@ private fun NotificationPermissionCard(onRequest: () -> Unit) {
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Уведомления выключены",
+                    text = stringResource(R.string.notifications_off_title),
                     style = MaterialTheme.typography.titleSmall,
                     color = colors.textPrimary,
                 )
                 Text(
-                    text = "Без них не видно прогресс в шторке.",
+                    text = stringResource(R.string.notifications_off_message),
                     style = MaterialTheme.typography.labelSmall,
                     color = colors.textSecondary,
                 )
             }
             SoundTubeButton(
-                text = "Включить",
+                text = stringResource(R.string.action_enable),
                 primary = false,
                 compact = true,
                 onClick = onRequest,
@@ -384,28 +394,27 @@ private fun ConfirmClearQueueDialog(
                     modifier = Modifier.size(20.dp),
                 )
                 Text(
-                    text = "Очистить очередь?",
+                    text = stringResource(R.string.dialog_clear_queue_title),
                     style = MaterialTheme.typography.titleSmall,
                     color = colors.textPrimary,
                 )
             }
 
             Text(
-                text = "Текущие загрузки будут остановлены, а незавершённые задачи — " +
-                    "убраны из очереди. Скачанные файлы и история останутся на месте.",
+                text = stringResource(R.string.dialog_clear_queue_message),
                 style = MaterialTheme.typography.bodySmall,
                 color = colors.textSecondary,
             )
 
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 SoundTubeButton(
-                    text = "Очистить",
+                    text = stringResource(R.string.action_clear),
                     danger = true,
                     modifier = Modifier.weight(1f),
                     onClick = onConfirm,
                 )
                 SoundTubeButton(
-                    text = "Отмена",
+                    text = stringResource(R.string.action_cancel),
                     primary = false,
                     modifier = Modifier.weight(1f),
                     onClick = onDismiss,
@@ -444,7 +453,7 @@ private fun MessageCard(
             )
             if (canRetry) {
                 SoundTubeButton(
-                    text = "Повторить",
+                    text = stringResource(R.string.action_retry),
                     primary = false,
                     compact = true,
                     onClick = onRetry,
@@ -524,7 +533,7 @@ private fun DownloadTaskCard(
             when {
                 task.isActive -> SoundTubeIconButton(
                     icon = Icons.Rounded.Close,
-                    contentDescription = "Отменить",
+                    contentDescription = stringResource(R.string.cd_cancel_download),
                     bordered = false,
                     size = 30.dp,
                     onClick = onCancel,
@@ -533,7 +542,7 @@ private fun DownloadTaskCard(
                 task.state is DownloadState.Failed ||
                     task.state is DownloadState.Cancelled -> SoundTubeIconButton(
                     icon = Icons.Rounded.Refresh,
-                    contentDescription = "Повторить",
+                    contentDescription = stringResource(R.string.action_retry),
                     bordered = false,
                     size = 30.dp,
                     onClick = onRetry,
@@ -541,7 +550,7 @@ private fun DownloadTaskCard(
 
                 task.state is DownloadState.Idle -> SoundTubeIconButton(
                     icon = Icons.Rounded.Refresh,
-                    contentDescription = "Поставить в очередь",
+                    contentDescription = stringResource(R.string.cd_queue_download),
                     bordered = false,
                     size = 30.dp,
                     onClick = onRetry,
@@ -552,7 +561,7 @@ private fun DownloadTaskCard(
         Spacer(Modifier.height(4.dp))
 
         when (val state = task.state) {
-            DownloadState.Idle -> StatusText("в очереди")
+            DownloadState.Idle -> StatusText(stringResource(R.string.status_queued))
 
             is DownloadState.FetchingMetadata -> {
                 LinearProgressIndicator(
@@ -563,7 +572,7 @@ private fun DownloadTaskCard(
                     trackColor = colors.border,
                     strokeCap = StrokeCap.Butt,
                 )
-                StatusText("получаем метаданные…")
+                StatusText(stringResource(R.string.status_fetching_metadata))
             }
 
             is DownloadState.Downloading -> {
@@ -585,7 +594,9 @@ private fun DownloadTaskCard(
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f),
                     )
-                    state.etaSeconds.formatEta()?.let { eta ->
+                    state.etaSeconds.formatEta(
+                        stringResource(R.string.eta_seconds_suffix),
+                    )?.let { eta ->
                         Text(
                             text = eta,
                             style = MaterialTheme.typography.labelSmall,
@@ -608,13 +619,13 @@ private fun DownloadTaskCard(
                         modifier = Modifier.size(14.dp),
                     )
                     Text(
-                        text = "готово",
+                        text = stringResource(R.string.status_completed),
                         style = MaterialTheme.typography.labelSmall,
                         color = colors.statusGreen,
                         modifier = Modifier.weight(1f),
                     )
                     SoundTubeButton(
-                        text = "Слушать",
+                        text = stringResource(R.string.action_listen),
                         icon = Icons.Rounded.PlayArrow,
                         primary = false,
                         compact = true,
@@ -624,14 +635,14 @@ private fun DownloadTaskCard(
             }
 
             is DownloadState.Failed -> Text(
-                text = "ошибка: ${state.message}",
+                text = stringResource(R.string.status_failed, state.message),
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.error,
                 maxLines = 3,
                 overflow = TextOverflow.Ellipsis,
             )
 
-            is DownloadState.Cancelled -> StatusText("отменено")
+            is DownloadState.Cancelled -> StatusText(stringResource(R.string.status_cancelled))
         }
     }
 }
@@ -646,10 +657,11 @@ private fun StatusText(text: String) {
 }
 
 /** Площадка по ссылке: бейдж `youtube` / `soundcloud`, как в карточке задачи на ПК. */
+@Composable
 private fun platformOf(url: String): String = when {
     url.contains("soundcloud", ignoreCase = true) -> "soundcloud"
     url.contains("youtu", ignoreCase = true) -> "youtube"
-    else -> "ссылка"
+    else -> stringResource(R.string.platform_link)
 }
 
 /** Сколько завершённых задач показывать: история не должна хоронить очередь. */

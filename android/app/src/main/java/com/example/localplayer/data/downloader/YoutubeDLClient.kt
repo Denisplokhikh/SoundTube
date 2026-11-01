@@ -2,6 +2,7 @@ package com.example.localplayer.data.downloader
 
 import android.content.Context
 import android.os.SystemClock
+import com.example.localplayer.R
 import com.example.localplayer.core.AppLog
 import com.example.localplayer.domain.util.TrackIds
 import com.yausername.ffmpeg.FFmpeg
@@ -73,7 +74,7 @@ class YoutubeDLClient @Inject constructor(
                 },
                 onFailure = { error ->
                     _state.value = EngineState.Failed(
-                        error.message ?: "не удалось инициализировать yt-dlp",
+                        error.message ?: context.getString(R.string.engine_init_failed),
                     )
                     Result.failure(error)
                 },
@@ -100,8 +101,8 @@ class YoutubeDLClient @Inject constructor(
         val tracks = probe(url, flat = true)
         val unnamed = tracks.count { it.title.isNullOrBlank() }
         AppLog.i(
-            "Ссылка: ${tracks.size} треков за ${elapsedSeconds(started)} с" +
-                if (unnamed > 0) ", без названия $unnamed (подтянем при скачивании)" else "",
+            "Link: ${tracks.size} tracks in ${elapsedSeconds(started)} s" +
+                if (unnamed > 0) ", $unnamed unnamed (will resolve on download)" else "",
         )
         tracks
     }
@@ -124,7 +125,7 @@ class YoutubeDLClient @Inject constructor(
         // пишем их количество в журнал, а не прячем в stderr.
         val failed = response.err.lineSequence().count { it.startsWith("ERROR:") }
         if (failed > 0) {
-            AppLog.w("yt-dlp: не удалось прочитать $failed записей")
+            AppLog.w("yt-dlp: couldn't read $failed entries")
         }
 
         val tracks = response.out.lineSequence()
@@ -138,7 +139,7 @@ class YoutubeDLClient @Inject constructor(
             throw IOException(
                 response.err.lineSequence()
                     .lastOrNull { it.isNotBlank() && !it.startsWith("WARNING") }
-                    ?: "yt-dlp не вернул ни одного трека",
+                    ?: context.getString(R.string.engine_no_tracks),
             )
         }
         return tracks
@@ -236,7 +237,9 @@ class YoutubeDLClient @Inject constructor(
         val audio = files
             .filter { it.extension.lowercase() in AUDIO_EXTENSIONS }
             .maxByOrNull { it.lastModified() }
-            ?: throw IOException("yt-dlp не создал файл в ${outputDir.absolutePath}")
+            ?: throw IOException(
+                context.getString(R.string.engine_no_file, outputDir.absolutePath),
+            )
 
         DownloadResult(audio, meta)
     }

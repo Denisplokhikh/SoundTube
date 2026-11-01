@@ -16,6 +16,7 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import com.example.localplayer.R
 import com.example.localplayer.data.local.db.AppDatabase
 import com.example.localplayer.data.local.db.dao.PlaylistDao
 import com.example.localplayer.data.local.db.dao.TrackDao
@@ -67,22 +68,22 @@ class AudioDownloadWorker @AssistedInject constructor(
         val trackId = ownTrackId()
         val url = inputData.getString(KEY_URL)
         if (trackId == null || url.isNullOrBlank()) {
-            AppLog.w("Задача без трека или ссылки — пропускаю")
+            AppLog.w("Task without a track or link — skipping")
             return Result.success()
         }
         val track = trackDao.findAnyById(trackId)
         if (track == null || track.isDeleted) {
             // Удалённый трек мог остаться в очереди: пользователь очистил её, а задача
             // успела стартовать. Качать его нельзя — файл стал бы сиротой в библиотеке.
-            AppLog.i("Трека нет в базе или он удалён — пропускаю: $trackId")
+            AppLog.i("Track is missing or deleted — skipping: $trackId")
             fileManager.discardWorkDir(trackId)
             return Result.success()
         }
-        AppLog.i("Загрузка: ${track.title} (попытка ${runAttemptCount + 1})")
+        AppLog.i("Downloading: ${track.title} (attempt ${runAttemptCount + 1})")
 
         // Отмену могли нажать до старта задачи: тогда качать нечего.
         if (client.consumeCancellation(trackId)) {
-            AppLog.i("Отменено до старта: ${track.title}")
+            AppLog.i("Cancelled before start: ${track.title}")
             fileManager.discardWorkDir(track.id)
             return Result.success(cancelledData())
         }
@@ -100,7 +101,7 @@ class AudioDownloadWorker @AssistedInject constructor(
                 url = url,
                 progress = 0f,
                 etaSeconds = null,
-                status = "Подготовка",
+                status = applicationContext.getString(R.string.status_preparing),
             ),
         )
 
@@ -138,11 +139,16 @@ class AudioDownloadWorker @AssistedInject constructor(
                     url = url,
                     progress = fraction.coerceIn(0f, 1f),
                     etaSeconds = eta.takeIf { it > 0 },
-                    status = DownloadNotifications.statusLine(line),
+                    status = DownloadNotifications.statusLine(applicationContext, line),
                 )
             }
 
-            progress.value = DownloadState.Downloading(url, 1f, null, "Обработка файла")
+            progress.value = DownloadState.Downloading(
+                url,
+                1f,
+                null,
+                applicationContext.getString(R.string.status_processing),
+            )
 
             // В плоском списке SoundCloud иногда отдаёт ссылки api-v2, и id такого трека
             // не совпадает с id того же трека, импортированного по permalink. Каноническую
@@ -157,7 +163,7 @@ class AudioDownloadWorker @AssistedInject constructor(
             if (duplicate != null) {
                 fileManager.discardWorkDir(track.id)
                 trackDao.markDeleted(track.id, System.currentTimeMillis())
-                AppLog.i("Уже есть на диске: ${duplicate.title}")
+                AppLog.i("Already on disk: ${duplicate.title}")
                 return Result.success()
             }
 
@@ -200,7 +206,7 @@ class AudioDownloadWorker @AssistedInject constructor(
             val seconds = (SystemClock.elapsedRealtime() - startedAt) / 1000L
             DownloadNotifications.done(applicationContext, title)
             progress.value = DownloadState.Completed(url, track.id)
-            AppLog.i("Готово: $title → ${target.name} за $seconds с")
+            AppLog.i("Done: $title → ${target.name} in $seconds s")
             // Поздний тап «Отмены» не должен «отравить» следующий запуск этого трека.
             client.clearCancellation(track.id)
             // Данные наружу не отдаём: WorkManager перекладывает output предыдущей
@@ -216,7 +222,7 @@ class AudioDownloadWorker @AssistedInject constructor(
             throw cancellation
         } catch (canceled: YoutubeDL.CanceledException) {
             fileManager.discardWorkDir(track.id)
-            AppLog.i("Отменено пользователем: ${track.title}")
+            AppLog.i("Cancelled by user: ${track.title}")
             client.clearCancellation(track.id)
             // Именно success, а не failure: иначе WorkManager снимет остаток плейлиста.
             Result.success(cancelledData())
@@ -226,12 +232,12 @@ class AudioDownloadWorker @AssistedInject constructor(
             // «Отмена» часто прилетает не как CanceledException, а как обычная ошибка
             // прерванного процесса — повтором такое лечить нельзя.
             if (client.consumeCancellation(track.id)) {
-                AppLog.i("Отменено пользователем: ${track.title}")
+                AppLog.i("Cancelled by user: ${track.title}")
                 return Result.success(cancelledData())
             }
 
-            val message = DownloadErrors.humanize(error.message)
-            AppLog.w("Ошибка: ${track.title} — $message", error)
+            val message = DownloadErrors.humanize(applicationContext, error.message)
+            AppLog.w("Error: ${track.title} — $message", error)
             if (shouldRetry(error) && runAttemptCount < MAX_ATTEMPTS) {
                 Result.retry()
             } else {
@@ -260,7 +266,7 @@ class AudioDownloadWorker @AssistedInject constructor(
         val fromInput = inputData.getString(KEY_TRACK_ID)
 
         if (fromTag != null && fromInput != null && fromTag != fromInput) {
-            AppLog.w("Задача ${fromTag}: inputData перезаписан (${fromInput}), беру тег")
+            AppLog.w("Task ${fromTag}: inputData was overwritten (${fromInput}), using tag")
         }
         return fromTag ?: fromInput
     }

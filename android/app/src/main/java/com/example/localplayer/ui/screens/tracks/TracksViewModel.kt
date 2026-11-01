@@ -2,6 +2,8 @@ package com.example.localplayer.ui.screens.tracks
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import android.content.Context
+import com.example.localplayer.R
 import com.example.localplayer.data.local.db.dao.TrackDao
 import com.example.localplayer.data.local.db.toDomain
 import com.example.localplayer.data.local.files.AudioFileManager
@@ -9,6 +11,7 @@ import com.example.localplayer.data.repository.LibraryRepository
 import com.example.localplayer.domain.model.Playlist
 import com.example.localplayer.domain.model.Track
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -59,6 +62,7 @@ data class TracksUiState(
  */
 @HiltViewModel
 class TracksViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     trackDao: TrackDao,
     private val fileManager: AudioFileManager,
     private val library: LibraryRepository,
@@ -125,20 +129,29 @@ class TracksViewModel @Inject constructor(
         _action.value = null
         val deleted = library.deleteTrack(target.track.id)
         _message.value = if (deleted) {
-            LibraryMessage("Удалено: ${target.track.title}")
+            LibraryMessage(context.getString(R.string.notice_deleted, target.track.title))
         } else {
-            LibraryMessage("Трек уже удалён", isError = true)
+            LibraryMessage(
+                context.getString(R.string.notice_track_already_deleted),
+                isError = true,
+            )
         }
     }
 
     fun addToPlaylist(playlistId: String) = viewModelScope.launch {
         val target = _action.value as? TrackAction.AddToPlaylist ?: return@launch
         _action.value = null
-        val name = playlists.value.firstOrNull { it.id == playlistId }?.name ?: "плейлист"
+        val name = playlists.value.firstOrNull { it.id == playlistId }?.name
+            ?: context.getString(R.string.playlist_title)
         _message.value = if (library.addToPlaylist(playlistId, target.track.id)) {
-            LibraryMessage("«${target.track.title}» → «$name»")
+            LibraryMessage(
+                context.getString(R.string.notice_added_to_playlist, target.track.title, name),
+            )
         } else {
-            LibraryMessage("Не удалось добавить в плейлист", isError = true)
+            LibraryMessage(
+                context.getString(R.string.notice_playlist_add_failed),
+                isError = true,
+            )
         }
     }
 
@@ -147,9 +160,12 @@ class TracksViewModel @Inject constructor(
         val created = library.createPlaylist(name, target.track.id)
         _action.value = null
         _message.value = if (created != null) {
-            LibraryMessage("Плейлист «${created.name}» создан")
+            LibraryMessage(context.getString(R.string.notice_playlist_created, created.name))
         } else {
-            LibraryMessage("Введите название плейлиста", isError = true)
+            LibraryMessage(
+                context.getString(R.string.notice_playlist_name_required),
+                isError = true,
+            )
         }
     }
 

@@ -25,8 +25,8 @@ class FileNameSanitizerTest {
 
     @Test
     fun `falls back when nothing is left`() {
-        assertEquals("Без названия", FileNameSanitizer.sanitize("   "))
-        assertEquals("Неизвестный исполнитель", FileNameSanitizer.sanitize("///", fallback = "Неизвестный исполнитель"))
+        assertEquals("Untitled", FileNameSanitizer.sanitize("   "))
+        assertEquals("Unknown artist", FileNameSanitizer.sanitize("///", fallback = "Unknown artist"))
     }
 
     @Test

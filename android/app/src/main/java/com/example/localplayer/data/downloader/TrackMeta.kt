@@ -29,14 +29,14 @@ data class TrackMeta(
      */
     val displayTitle: String
         get() = title?.takeIf { it.isNotBlank() }
-            ?: apiTrackId()?.let { "Трек $it" }
+            ?: apiTrackId()?.let { "Track $it" }
             ?: webpageUrl
                 ?.substringAfterLast('/')
                 ?.substringBefore('?')
                 ?.takeIf { it.isNotBlank() }
                 ?.replace('-', ' ')
                 ?.replace('_', ' ')
-            ?: "Без названия"
+            ?: "Untitled"
 
     /** Исполнитель до скачивания: первый сегмент permalink (`soundcloud.com/<artist>/<track>`). */
     val displayArtist: String
@@ -50,7 +50,7 @@ data class TrackMeta(
                     ?.substringAfter('/')
                     ?.substringBefore('/')
                     ?.takeIf { it.isNotBlank() }
-                    ?: "Неизвестный исполнитель"
+                    ?: "Unknown artist"
             }
 
     /**
