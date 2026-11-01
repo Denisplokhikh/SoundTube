@@ -146,8 +146,15 @@ gradle :app:testDebugUnitTest
 
 ## Релиз APK
 
-Релиз собирает `.github/workflows/release.yml` по пушу тега `v*`: джоба `android` подписывает
-APK и прикладывает `SoundTube-<тег>-android.apk` к релизу, который создаёт десктопная джоба.
+Релиз собирает `.github/workflows/release.yml` по пушу тега. Два вида тегов:
+
+| Тег | Что происходит |
+| --- | --- |
+| `v1.2.1` | Десктоп-инсталляторы (tauri-action) + APK в том же релизе |
+| `android-v1.2.1` | Только APK: десктопная джоба пропускается, релиз создаёт джоба `android` |
+
+Релиз с тегом `android-*` создаётся с `--latest=false`: десктоп ищет обновления через
+`/releases/latest` (`app/core/updates.py`) и не должен получать андроидный релиз вместо своего.
 
 Ключ подписи в git не попадает (`.gitignore`), он лежит в **секретах окружения** `android-env`
 (Settings → Environments → android-env → Environment secrets), а джоба `android` объявляет

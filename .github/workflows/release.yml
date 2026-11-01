@@ -4,9 +4,13 @@ on:
   push:
     tags:
       - 'v*'
+      # Тег android-vX.Y.Z запускает только сборку APK: десктопные артефакты не пересобираются.
+      - 'android-v*'
 
 jobs:
   build:
+    # Для тега android-v* десктоп не пересобираем: релиз нужен только под Android.
+    if: ${{ !startsWith(github.ref_name, 'android-v') }}
     permissions:
       contents: write
     strategy:
@@ -86,7 +90,9 @@ jobs:
   android:
     # Только после десктопа: релиз для тега уже создан tauri-action, APK лишь докладываем в него.
     # Иначе две джобы наперегонки создавали бы один и тот же релиз.
+    # Исключение — тег android-v*: десктопная джоба пропущена, релиз создаёт эта же джоба.
     needs: build
+    if: ${{ !cancelled() && needs.build.result != 'failure' }}
     runs-on: ubuntu-latest
     # Ключ подписи лежит в секретах окружения android-env, поэтому джоба обязана его объявить.
     # Секреты уровня репозитория сюда не подмешиваются — источник подписи один.
@@ -96,12 +102,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Resolve version
+        run: |
+          VERSION="${GITHUB_REF_NAME#android-}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "APK_NAME=SoundTube-${VERSION#v}-android.apk" >> "$GITHUB_ENV"
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
 
       - name: Sync version from tag
-        run: python scripts/version.py "${{ github.ref_name }}"
+        run: python scripts/version.py "$VERSION"
 
       # Android SDK 35 предустановлен на ubuntu-latest, ставить его не нужно.
       - uses: actions/setup-java@v4
@@ -134,11 +146,19 @@ jobs:
           chmod +x gradlew
           ./gradlew :app:assembleRelease --no-daemon
 
-      - name: Attach APK to release
+      - name: Publish APK
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          cp android/app/build/outputs/apk/release/app-release.apk \
-            "SoundTube-${{ github.ref_name }}-android.apk"
-          gh release upload "${{ github.ref_name }}" \
-            "SoundTube-${{ github.ref_name }}-android.apk" --clobber
+          cp android/app/build/outputs/apk/release/app-release.apk "$APK_NAME"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$APK_NAME" --clobber
+          else
+            # Тег android-v* приходит без десктопной сборки: релиз создаём здесь.
+            # --latest=false обязателен: десктоп ищет обновления через /releases/latest
+            # и не должен получить андроидный релиз вместо своей сборки.
+            gh release create "$GITHUB_REF_NAME" "$APK_NAME" \
+              --title "SoundTube ${VERSION#v} (Android)" \
+              --notes "APK для Android. Десктопные сборки — в релизах без префикса android-." \
+              --latest=false
+          fi
