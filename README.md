@@ -1,284 +1,287 @@
+<div align="center">
+
+<!-- Logo: swap for a dedicated asset in docs/ if you have one -->
+<img src="src-tauri/icons/128x128.png" width="112" alt="SoundTube logo" />
+
 # SoundTube
 
-Self-hosted архив музыки: вставляете ссылку на плейлист **YouTube Music** или сет **SoundCloud** — сервис разбирает его, скачивает треки и раскладывает файлы с тегами и обложками в локальную папку.
+**Every track from YouTube and SoundCloud. One lightweight player. Desktop and mobile.**
 
-> **Только для личного использования.** Инструмент не размещает музыку, не раздаёт её и не предоставляет публичный доступ. Скачивание контента может нарушать правила площадок и местное законодательство — ответственность несёт пользователь. Проект распространяется как есть, без гарантий.
+No ads. No subscriptions. No limits.
+
+[![Android](https://img.shields.io/badge/Android-8.0%2B-3DDC84?style=for-the-badge&logo=android&logoColor=white)](#-download--install)
+[![Windows](https://img.shields.io/badge/Windows-10%2F11-0078D6?style=for-the-badge&logo=windows11&logoColor=white)](#-download--install)
+[![Linux](https://img.shields.io/badge/Linux-x64-FCC624?style=for-the-badge&logo=linux&logoColor=black)](#-download--install)
+
+[![License](https://img.shields.io/github/license/Denisplokhikh/SoundTube?style=for-the-badge&color=blue)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/Denisplokhikh/SoundTube?style=for-the-badge&color=ff6b35)](https://github.com/Denisplokhikh/SoundTube/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/Denisplokhikh/SoundTube/total?style=for-the-badge&color=brightgreen)](https://github.com/Denisplokhikh/SoundTube/releases)
+[![Tauri](https://img.shields.io/badge/Tauri-2-24C8D8?style=for-the-badge&logo=tauri&logoColor=white)](https://tauri.app)
+[![Kotlin](https://img.shields.io/badge/Kotlin-Native-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
+
+<sub>[**Features**](#-features) • [**Screenshots**](#-screenshots) • [**Download**](#-download--install) • [**Tech Stack**](#-tech-stack) • [**Build from Source**](#-build-from-source)</sub>
+
+</div>
+
+<!-- 🎬 Hero preview: drop docs/screenshots/hero.gif and uncomment the block below -->
+
+<!--
+<p align="center">
+  <img src="docs/screenshots/hero.gif" alt="SoundTube in action" width="100%" />
+</p>
+-->
 
 ---
 
-## Что умеет
+## Your music is scattered. Your player is bloated.
 
-- Плейлист, альбом или отдельный трек по ссылке: `music.youtube.com`, `youtube.com`, `youtu.be`, `soundcloud.com`
-- Ссылки-радио вида `watch?v=...&list=RD...` трактуются как **один трек**: YouTube разворачивает их в сотни автоматически подобранных песен
-- Очередь задач с прогрессом в реальном времени
-- Файлы вида `Артист/Альбом/Артист - Название.m4a`
-- Теги (ID3/MP4/Vorbis/FLAC) и обложка из миниатюры
-- Пропуск треков, которые уже есть в библиотеке
-- Авто-плейлисты «YouTube» и «SoundCloud»: каждый скачанный трек попадает в плейлист своей площадки
-- Полноэкранный плеер с живым фоном: цветные волны берут палитру из обложки и пульсируют в такт музыке
-- Повтор упавших треков, удаление задач
-- Удаление трека из библиотеки одной кнопкой: файл стирается с диска
-- Форматы: как есть (без перекодирования), mp3, m4a, opus, flac
-- Интерфейс на русском и английском: язык переключается кнопкой с глобусом в правом верхнем углу
-- Веб-интерфейс, работает и с телефона в локальной сети
-- Электронная обёртка для запуска как обычного приложения
-- Docker-образ
+Your favorite album is on YouTube. The remix you actually want is on SoundCloud. The "all-in-one" player wants a monthly fee, the free one wants your attention, and the "lightweight" one turns out to be a 400 MB Electron app idling at 1.5 GB of RAM.
 
-Чего пока нет: Spotify, VK, Яндекс.Музыка, поиск по названию, синхронизация с Navidrome/Jellyfin, мобильный клиент. См. [Roadmap](#roadmap).
+**SoundTube is the opposite.**
+
+Paste a link — a single track, a 300-song playlist, a SoundCloud set — and it becomes **files on your disk**: tagged, sorted by artist and album, with cover art, playable with zero internet. The player itself is native, quiet on resources, and it never asks you to sign in, upgrade, or watch anything before the music starts.
+
+> **One link in. A real library out.**
 
 ---
 
-## Требования
+## ✨ Features
 
-- Python 3.11+ и [uv](https://docs.astral.sh/uv/)
-- **ffmpeg** в `PATH` (нужен для конвертации и извлечения аудио)
-- Node.js 20+, [Rust](https://rustup.rs) и WebView2 — только для сборки desktop-приложения (WebView2 уже есть в Windows 10/11)
+- 🎧 **Two giants, one window** — YouTube, YouTube Music and SoundCloud side by side. No tab juggling, no copy-pasting URLs between apps.
+- 📦 **Batch downloads & full playlists** — Grab a single track or pull an entire playlist in one click. SoundCloud sets are parsed and queued just as easily as YouTube playlists.
+- ⚡ **Ultra-light and fast** — Tauri 2 on desktop, native Kotlin on Android. Native webview and native UI mean no Chromium bundle and no RAM bonfire.
+- 🖥️📱 **Cross-platform by design** — The same library, the same workflow, on Windows, Linux and Android — each one built as a first-class native experience, not a wrapped website.
 
-Проверка:
+<br>
+
+- 🏷️ **Tagged on arrival** — ID3 / MP4 / Vorbis / FLAC tags and embedded artwork, files organized as `Artist/Album/Artist - Title`.
+- 🎚️ **Formats on your terms** — Keep the original stream, or convert to MP3, M4A, Opus or FLAC.
+- 🔁 **No duplicates** — Every track is tracked by its source URL. Already downloaded? It gets skipped, not downloaded twice.
+- 🌈 **Living artwork** — A full-screen player whose waves borrow the palette from the cover and pulse with the beat.
+- 📡 **Library over LAN** — The desktop app serves its UI on your local network, so your phone can browse the library stored on your PC.
+- 🌐 **Two languages** — The interface speaks Russian and English; flip it with the globe button in the top-right corner.
+- 🐳 **Docker, if that's your thing** — `docker compose up --build` and you have the same library on a home server.
+
+---
+
+## 📸 Screenshots
+
+<!-- Add docs/screenshots/desktop.png and docs/screenshots/mobile.png to bring this to life -->
+
+<table align="center">
+  <tr>
+    <td width="68%"><img src="docs/screenshots/desktop.png" alt="SoundTube desktop player" /></td>
+    <td width="32%"><img src="docs/screenshots/mobile.png" alt="SoundTube on Android" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Desktop</b> — library, queue and playlists</sub></td>
+    <td align="center"><sub><b>Android</b> — native Compose player</sub></td>
+  </tr>
+</table>
+
+---
+
+## 📥 Download & Install
+
+Everything ships through **[GitHub Releases](https://github.com/Denisplokhikh/SoundTube/releases/latest)** — binaries are built by CI from the tagged source, not uploaded by hand.
+
+### 🪟 Windows
+
+| File | What it is |
+| :--- | :--- |
+| `SoundTube_<version>_x64-setup.exe` | NSIS installer — recommended |
+| `SoundTube_<version>_x64_en-US.msi` | MSI package for managed / silent installs |
+
+Download, run, done. Windows 10 and 11 already include WebView2.
+
+### 🐧 Linux
+
+| File | What it is |
+| :--- | :--- |
+| `SoundTube_<version>_amd64.AppImage` | Portable, no installation — `chmod +x` and run |
+| `SoundTube_<version>_amd64.deb` | Debian / Ubuntu package, pulls `ffmpeg` automatically |
+
+> On older distributions the AppImage may need `libfuse2`. `ffmpeg` is required at runtime and is bundled as a dependency in the `.deb`.
+
+### 🤖 Android
+
+| File | What it is |
+| :--- | :--- |
+| `SoundTube-<version>-android.apk` | Universal APK — Android 8.0+ |
+
+Enable *Install unknown apps* for your browser or file manager, then open the APK. `arm64-v8a` and `x86_64` are both included.
+
+<br>
+
+<div align="center">
+
+### [**⬇️ Download the latest release**](https://github.com/Denisplokhikh/SoundTube/releases/latest)
+
+</div>
+
+---
+
+## 🛠 Tech Stack
+
+Two codebases, one product. No shared runtime, no compromise.
+
+<table>
+<tr>
+<td width="50%" valign="top">
+
+### 🖥️ Desktop
+
+**Shell**
+- **Rust + Tauri 2** — native window, tray icon, single-digit MB binary
+- **Python 3.11 / FastAPI** backend compiled to one binary with **PyInstaller**, spawned as a Tauri sidecar on `127.0.0.1`
+
+**Engine**
+- **yt-dlp** — link resolution and stream extraction
+- **ffmpeg** — remuxing and format conversion
+- **mutagen** — tags and embedded artwork
+- **SQLite + SQLAlchemy** — job queue that survives restarts
+
+**UI**
+- Dependency-free **HTML / CSS / JS** — no bundler, no framework, instant load
+
+</td>
+<td width="50%" valign="top">
+
+### 📱 Android
+
+**UI**
+- **Kotlin + Jetpack Compose** — Material 3, OLED-friendly dark theme
+- **Navigation Compose**, **Coil** for artwork
+
+**Architecture**
+- **Hilt** — dependency injection
+- **Room** — local library, schema migrations committed
+- **WorkManager** — unique work queues per track/playlist, retries with backoff
+- **Media3 / ExoPlayer + MediaSessionService** — background playback, lock-screen controls
+- **Ktor + kotlinx.serialization** — LAN sync and JSON import/export
+
+**Engine**
+- **youtubedl-android** — yt-dlp, ffmpeg and aria2c as native libraries
+
+</td>
+</tr>
+</table>
+
+```text
+soundtube/
+├── app/          FastAPI core: queue, downloader, naming, tagging, platform parsers
+├── web/          the entire desktop UI — plain HTML/CSS/JS
+├── src-tauri/    Rust shell, sidecar wiring, bundle config
+├── android/      native Kotlin app (Compose, Room, Media3, Hilt)
+├── scripts/      build, release and dev helpers
+└── tests/        pytest suite for the download pipeline
+```
+
+---
+
+## 🚀 Build from Source
+
+### Prerequisites
+
+| Tool | Version | Needed for |
+| :--- | :--- | :--- |
+| [Python](https://python.org) + [uv](https://docs.astral.sh/uv/) | 3.11+ | Backend and sidecar |
+| [Node.js](https://nodejs.org) | 20+ | Tauri CLI |
+| [Rust](https://rustup.rs) | 1.77.2+ | Desktop shell |
+| [ffmpeg](https://ffmpeg.org) | recent, on `PATH` | Download and conversion |
+| JDK | 17 | Android |
+| Android SDK | API 35 | Android |
 
 ```bash
-ffmpeg -version
-uv --version
+git clone https://github.com/Denisplokhikh/SoundTube.git
+cd SoundTube
 ```
 
----
-
-## Быстрый старт (Windows)
+### 🖥️ Desktop (Windows)
 
 ```powershell
-cd melodown
-
-# создаст .venv и поставит зависимости
 uv sync --extra dev
+npm install
 
-# запуск с автоперезагрузкой
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8765 --reload
-```
-
-Откройте <http://127.0.0.1:8765>.
-
-Или готовыми скриптами:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File scripts\dev.ps1
-powershell -ExecutionPolicy Bypass -File scripts\start.ps1
-```
-
-По умолчанию музыка складывается в `~/Music/Melodown` (`C:\Users\<вы>\Music\Melodown`).
-
-### Запуск как приложение (Tauri)
-
-```powershell
+# build the Python sidecar and launch the app
 powershell -ExecutionPolicy Bypass -File scripts\desktop.ps1
 ```
 
-Скрипт собирает Python-сервер в один `.exe` через PyInstaller, кладёт его в `src-tauri\binaries\` как sidecar, ставит Tauri CLI и открывает окно. Tauri сам поднимает сервер на `127.0.0.1:8765`, гасит его при закрытии, а логи сервера пишет в `%LOCALAPPDATA%\app.melodown.desktop\logs\server.log`.
-
-Первый запуск занимает несколько минут: компилируется Rust-оболочка и собирается sidecar.
-
-Сборка установщика:
+Build an installer:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\build-desktop.ps1
+# → src-tauri\target\release\bundle\
 ```
 
-Готовые файлы появятся в `src-tauri\target\release\bundle\` (MSI/NSIS на Windows).
-
-Если сервер уже запущен вручную (`uv run uvicorn app.main:app`), Tauri переиспользует его вместо sidecar — удобно при разработке интерфейса.
-
-> В установленном приложении база и временные файлы лежат в `%LOCALAPPDATA%\app.melodown.desktop\data`, музыка — по-прежнему в `~/Music/Melodown`. При запуске из репозитория (`tauri dev` + Python из `.venv`) используется `data/` проекта.
-
-### Версия и релиз
-
-Версия продублирована в файлах, которые читают пять разных тулчейнов (Python, uv, npm, Cargo, Tauri, Gradle), поэтому руками её не правим:
+Just the backend, with hot reload:
 
 ```powershell
-python scripts\version.py 1.2.0      # проставить версию везде
-python scripts\version.py --check    # проверить, что везде одно и то же
+uv run uvicorn app.main:app --reload --port 8765
+# → http://127.0.0.1:8765
 ```
 
-То же через npm: `npm run version:bump -- 1.2.0`.
-
-Скрипт обновляет `app/__init__.py` (её отдают `/api/health` и проверка обновлений), `pyproject.toml`, `uv.lock`, `package.json`, `package-lock.json`, `src-tauri/Cargo.toml`, `src-tauri/Cargo.lock`, `src-tauri/tauri.conf.json` и `versionName`/`versionCode` Android-приложения.
-
-Выпуск релиза:
-
-```powershell
-git add -A
-git commit -m "chore: release 1.2.0"
-git tag v1.2.0
-git push; git push --tags
-```
-
-Тег `v*` запускает `.github/workflows/release.yml`: версия ещё раз подставляется из тега (поэтому забытая правка не попадёт в установщик), собираются sidecar и пакеты, создаётся релиз на GitHub. Бейдж «Обновление» появляется, когда опубликован релиз новее установленной версии, — то есть после публикации следующего тега.
-
-### Сборка под Linux (.deb / AppImage)
-
-Tauri не кросс-компилируется с Windows, поэтому сборка идёт внутри Linux. Проще всего — WSL2 с Ubuntu 22.04: собранное на 22.04 работает и на Debian 12 / Ubuntu 24.04+.
-
-```powershell
-wsl --install -d Ubuntu-22.04 --no-launch
-powershell -ExecutionPolicy Bypass -File scripts\build-linux.ps1
-```
-
-Скрипт один раз ставит системные зависимости (`apt`), Rust, Node.js 22 и `uv`, собирает Python-sidecar через PyInstaller, затем пакеты Tauri. Исходники синхронизируются в `~/build/soundtube` (нативная ФС WSL — сборка на `/mnt/c` заметно медленнее), готовые файлы возвращаются в `dist\linux\`:
-
-- `SoundTube_<версия>_amd64.deb`
-- `SoundTube_<версия>_amd64.AppImage`
-
-Опции: `-Distro Ubuntu-22.04`, `-Bundles deb`, `-InPlace`, `-SkipDeps`.
-
-Внутри Linux те же шаги напрямую:
+### 🐧 Desktop (Linux)
 
 ```bash
-sudo bash scripts/linux/deps.sh
-bash scripts/build-linux.sh              # сборка в ~/build/soundtube
-bash scripts/build-linux.sh --in-place   # сборка прямо в папке репозитория
+sudo bash scripts/linux/deps.sh   # system packages, Rust, Node, uv
+bash scripts/build-linux.sh       # builds in ~/build/soundtube for speed
+# → dist/linux/*.deb and *.AppImage
 ```
 
-`ffmpeg` нужен в рантайме (yt-dlp склеивает дорожки): для `.deb` он прописан в зависимостях, для AppImage установите отдельно. Для запуска AppImage на старых системах может понадобиться `libfuse2`.
+Add `--in-place` to build inside the repository instead of a sync copy.
 
-На Linux крестик закрывает приложение целиком, а не прячет в трей: в GNOME без расширения иконка трея не отображается, и окно было бы не вернуть.
-
-### Docker
+### 🤖 Android
 
 ```bash
-docker compose up --build
+cd android
+./gradlew assembleDebug
+# → app/build/outputs/apk/debug/app-debug.apk
+
+./gradlew assembleRelease   # signed via ANDROID_KEYSTORE_* env vars; debug key otherwise
 ```
 
-Музыка — в `./library`, база и временные файлы — в `./data`.
+The app targets API 35, supports Android 8.0+ and builds only for `arm64-v8a` and `x86_64` — the ABIs shipped by `youtubedl-android`.
 
-Порт проброшен только на `127.0.0.1`, чтобы интерфейс не был доступен из сети. В приложении нет аутентификации: если открываете его для телефона, делайте это осознанно и не выставляйте в интернет.
-
----
-
-## Настройки
-
-Все переменные опциональны, читаются из `.env` (см. `.env.example`) или окружения.
-
-| Переменная | По умолчанию | Что делает |
-|---|---|---|
-| `MELODOWN_MUSIC_DIR` | `~/Music/Melodown` | Папка библиотеки |
-| `MELODOWN_DATA_DIR` | `./data` | База SQLite и временные файлы |
-| `MELODOWN_AUDIO_FORMAT` | `original` | `original`, `mp3`, `m4a`, `opus`, `flac` |
-| `MELODOWN_AUDIO_QUALITY` | `0` | Качество mp3 (0 — лучший VBR) |
-| `MELODOWN_MAX_CONCURRENT_JOBS` | `1` | Параллельных плейлистов |
-| `MELODOWN_MAX_CONCURRENT_TRACKS` | `1` | Параллельных загрузок внутри задачи |
-| `MELODOWN_RETRIES` | `3` | Повторы при сетевых ошибках |
-| `MELODOWN_LIMIT_TRACKS` | `500` | Предохранитель от бесконечных радио-миксов |
-| `MELODOWN_YOUTUBE_COOKIES` | — | Путь к `cookies.txt` |
-| `MELODOWN_SOUNDCLOUD_COOKIES` | — | Путь к `cookies.txt` |
-| `MELODOWN_PROXY` | — | Прокси для загрузки |
-| `MELODOWN_HOST` / `MELODOWN_PORT` | `127.0.0.1` / `8765` | Адрес сервера |
-
-### Cookies
-
-Если YouTube требует вход (возрастные ограничения, приватные плейлисты, `Sign in to confirm you're not a bot`), экспортируйте cookies браузера в формате Netscape и укажите путь:
-
-```env
-MELODOWN_YOUTUBE_COOKIES=./cookies/youtube.txt
-```
-
-Cookies — это доступ к аккаунту. Не коммитьте их и не выкладывайте.
-
----
-
-## Как это работает
-
-```
-ссылка
-  ├─ platforms/        определяет площадку и достаёт список треков (yt-dlp, flat)
-  ├─ core/runner.py    очередь задач, воркеры, статусы в SQLite
-  ├─ core/downloader   скачивание во временную папку, метаданные, обложка
-  ├─ core/naming.py    безопасные имена файлов и папок
-  └─ core/tagging.py   запись тегов и обложки (mutagen)
-```
-
-- Список треков берётся «плоским» запросом yt-dlp — без скачивания, быстро даже на больших плейлистах.
-- Каждый трек скачивается отдельно в `data/tmp`, затем переносится в библиотеку и тегируется.
-- Дубликаты определяются по исходному URL: трек, уже скачанный в другой задаче, получает статус `skipped`.
-- После рестарта незавершённые задачи возвращаются в очередь.
-
-### API
-
-| Метод | Путь | Назначение |
-|---|---|---|
-| `GET` | `/api/health` | Состояние сервера и папка библиотеки |
-| `GET` | `/api/update` | Есть ли новый релиз (`?refresh=true` — без кэша) |
-| `POST` | `/api/import` | `{"url": "...", "audio_format": "mp3"}` → задача |
-| `GET` | `/api/jobs` | Список задач |
-| `GET` | `/api/jobs/{id}` | Задача с треками |
-| `POST` | `/api/jobs/{id}/retry` | Повторить упавшие треки |
-| `DELETE` | `/api/jobs/{id}` | Удалить задачу (файлы остаются) |
-| `GET` | `/api/library` | Файлы в папке библиотеки |
-| `DELETE` | `/api/library?path=...` | Удалить файл трека с диска |
-
-Документация FastAPI: <http://127.0.0.1:8765/docs>.
-
----
-
-## Ограничения платформ
-
-| Площадка | Статус | Комментарий |
-|---|---|---|
-| YouTube / YouTube Music | ✅ | Основной источник. Иногда нужны cookies и свежий `yt-dlp` |
-| SoundCloud | ✅ | Сеты и треки. Go+-треки и превью — только 30 секунд |
-| Spotify | ⚠️ только метаданные | Web API отдаёт состав плейлиста, но не аудио (Widevine DRM). Планируется как источник метаданных с матчингом на YouTube |
-| VK Музыка | ❌ | Неофициальный API, короткоживущие ссылки, нужен токен пользователя. Отдельный плагин, хрупко |
-| Яндекс.Музыка | ❌ | `yt-dlp` не поддерживает. Возможно через неофициальный API и OAuth-токен, но это отдельная интеграция и она часто ломается |
-
-### Про Яндекс.Музыку
-
-Технически реально, но сложнее, чем YouTube:
-
-- официального API для скачивания нет;
-- нужен OAuth-токен пользователя;
-- ссылки на поток подписанные и живут ограниченное время;
-- структура ответов периодически меняется, библиотеки вроде `yandex-music` приходится обновлять.
-
-Это отдельный плагин `platforms/yandex.py`, а не часть MVP. Если делать — через `yandex-music` + свой загрузчик, с честной пометкой «может сломаться».
-
----
-
-## Roadmap
-
-- [ ] Spotify: импорт плейлиста по метаданным (Web API) + матчинг
-- [ ] Поиск трека по названию («Artist - Title»)
-- [ ] Экспорт M3U и интеграция с Navidrome/Jellyfin
-- [ ] Плагин Яндекс.Музыки
-- [ ] Плагин VK
-- [ ] Отдельный экран настроек в UI
-- [x] Desktop-приложение на Tauri
-- [ ] PWA-манифест для установки на телефон
-
----
-
-## Разработка
+### 🧪 Tests
 
 ```bash
-uv sync --extra dev
 uv run pytest
-uv run uvicorn app.main:app --reload
-```
-
-Структура:
-
-```
-app/
-  api/routes.py      HTTP API
-  core/              очередь, загрузка, имена, теги
-  platforms/         youtube.py, soundcloud.py + базовые типы
-  config.py          настройки из env
-  db.py, models.py   SQLite + SQLAlchemy
-  main.py            FastAPI + статика
-web/                 интерфейс без сборки (HTML/CSS/JS)
-src-tauri/           Tauri-оболочка (Rust), конфиг и sidecar
-melodown-server.spec PyInstaller-сборка Python-сервера
-tests/               pytest
 ```
 
 ---
 
-## Лицензия
+## 🗺 Roadmap
 
-MIT. См. [LICENSE](LICENSE).
+- [x] Desktop application on Tauri 2
+- [x] Native Android app with offline playback
+- [ ] Spotify playlist import by metadata + YouTube matching
+- [ ] Search by `Artist - Title`
+- [ ] M3U export and Navidrome / Jellyfin integration
+- [ ] In-app settings screen
+
+Got an idea or found a bug? [Open an issue](https://github.com/Denisplokhikh/SoundTube/issues) — pull requests are welcome.
+
+---
+
+## ⚠️ Disclaimer
+
+SoundTube is an **educational, personal-use** project. It does not host, index, or distribute any copyrighted content — it only downloads media that *you* point it at, into *your* local library.
+
+Downloading content may violate the terms of service of the source platforms and the copyright laws of your country. **You are responsible for how you use this tool.** The software is provided "as is", without warranty of any kind. If you are a rights holder and believe your work is being misused, open an issue and it will be addressed.
+
+---
+
+<div align="center">
+
+### Enjoying SoundTube?
+
+**It takes one click — and it helps the project more than you think.**
+
+[![Star this repository](https://img.shields.io/badge/⭐_Star_this_repo-181717?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Denisplokhikh/SoundTube/stargazers)
+
+[![Star History Chart](https://api.star-history.com/svg?repos=Denisplokhikh/SoundTube&type=Date)](https://star-history.com/#Denisplokhikh/SoundTube&Date)
+
+<sub>Built with Rust, Python and Kotlin — because your music player shouldn't need a data center.</sub>
+
+</div>
