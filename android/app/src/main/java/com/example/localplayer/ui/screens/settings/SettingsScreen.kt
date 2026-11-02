@@ -5,6 +5,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.provider.Settings
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -24,9 +26,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Autorenew
+import androidx.compose.material.icons.rounded.BatterySaver
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadForOffline
+import androidx.compose.material.icons.rounded.FileUpload
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Language
 import androidx.compose.material.icons.rounded.MusicNote
@@ -86,6 +91,7 @@ fun SettingsScreen(
     val message by viewModel.message.collectAsStateWithLifecycle()
     val messageIsError by viewModel.messageIsError.collectAsStateWithLifecycle()
     val logs by viewModel.logs.collectAsStateWithLifecycle()
+    val batteryUnrestricted by viewModel.batteryUnrestricted.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     // Смена языка пересоздаёт экран: ресурсы читаются заново из контекста Activity.
@@ -97,6 +103,7 @@ fun SettingsScreen(
     // Вернулись из системных настроек — статус мог измениться.
     LifecycleResumeEffect(Unit) {
         notificationsEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+        viewModel.refreshBackgroundState()
         onPauseOrDispose { }
     }
 
@@ -108,6 +115,14 @@ fun SettingsScreen(
             )
         }
         Unit
+    }
+
+    // Файл экспортируется на компьютере и переносится любым способом: SAF не
+    // привязывает нас к конкретной папке и не требует разрешений на хранилище.
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) viewModel.importLibrary(uri)
     }
 
     Column(
@@ -247,6 +262,66 @@ fun SettingsScreen(
                         actionLabel = stringResource(R.string.action_check),
                         actionEnabled = !busy,
                         onAction = viewModel::cleanupDuplicates,
+                    )
+                }
+            }
+
+            item { SectionLabel(stringResource(R.string.section_background)) }
+            item {
+                SettingsCard {
+                    SettingsRow(
+                        icon = Icons.Rounded.BatterySaver,
+                        title = stringResource(R.string.battery_title),
+                        subtitle = if (batteryUnrestricted) {
+                            stringResource(R.string.battery_unrestricted_hint)
+                        } else {
+                            stringResource(R.string.battery_restricted_hint)
+                        },
+                        actionLabel = if (batteryUnrestricted) {
+                            null
+                        } else {
+                            stringResource(R.string.action_allow)
+                        },
+                        onAction = if (batteryUnrestricted) {
+                            null
+                        } else {
+                            viewModel::allowBackgroundWork
+                        },
+                        value = if (batteryUnrestricted) {
+                            stringResource(R.string.state_off_limits)
+                        } else {
+                            null
+                        },
+                    )
+                    SettingsDivider()
+                    SettingsRow(
+                        icon = Icons.Rounded.Autorenew,
+                        title = stringResource(R.string.autostart_title),
+                        subtitle = stringResource(R.string.autostart_hint),
+                        actionLabel = stringResource(R.string.action_open),
+                        onAction = viewModel::openAutostartSettings,
+                    )
+                }
+            }
+
+            item { SectionLabel(stringResource(R.string.section_sync)) }
+            item {
+                SettingsCard {
+                    SettingsRow(
+                        icon = Icons.Rounded.FileUpload,
+                        title = stringResource(R.string.import_title),
+                        subtitle = stringResource(R.string.import_hint),
+                        actionLabel = stringResource(R.string.action_choose_file),
+                        actionEnabled = !busy,
+                        onAction = {
+                            importLauncher.launch(
+                                arrayOf(
+                                    "application/json",
+                                    "text/plain",
+                                    "application/octet-stream",
+                                ),
+                            )
+                        },
                     )
                 }
             }

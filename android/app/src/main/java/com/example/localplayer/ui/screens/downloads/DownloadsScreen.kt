@@ -97,9 +97,6 @@ fun DownloadsScreen(
     val confirmClearQueue by viewModel.confirmClearQueue.collectAsStateWithLifecycle()
 
     var url by rememberSaveable { mutableStateOf("") }
-    val submit = {
-        if (url.isNotBlank() && !busy) viewModel.submit(url)
-    }
 
     val context = LocalContext.current
     var notificationsAllowed by remember {
@@ -110,6 +107,18 @@ fun DownloadsScreen(
     ) { granted ->
         notificationsAllowed = granted ||
             NotificationManagerCompat.from(context).areNotificationsEnabled()
+    }
+
+    // Разрешение просим в момент запуска загрузки, а не когда пользователь
+    // сам дойдёт до карточки: без уведомления foreground-сервис невидим,
+    // и система (особенно MIUI) снимает его вместе с процессом.
+    val submit = {
+        if (url.isNotBlank() && !busy) {
+            if (!notificationsAllowed && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+            }
+            viewModel.submit(url)
+        }
     }
 
     val completed = tasks.filter { it.state is DownloadState.Completed }

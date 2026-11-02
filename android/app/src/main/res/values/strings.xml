@@ -168,6 +168,17 @@
     <string name="notifications_off_hint">Download progress isn’t shown</string>
     <string name="state_on">on</string>
     <string name="state_off">off</string>
+
+    <!-- Background work -->
+    <string name="section_background">Background work</string>
+    <string name="battery_title">Battery optimization</string>
+    <string name="battery_restricted_hint">The system may stop downloads in the background</string>
+    <string name="battery_unrestricted_hint">Downloads keep running with the screen off</string>
+    <string name="autostart_title">Autostart</string>
+    <string name="autostart_hint">Keeps the queue going after the app is closed</string>
+    <string name="state_off_limits">unrestricted</string>
+    <string name="action_allow">Allow</string>
+    <string name="action_open">Open</string>
     <string name="log_title">Log</string>
     <string name="log_entries">%1$d entries</string>
     <string name="log_empty">Nothing yet</string>
@@ -179,6 +190,14 @@
     <string name="msg_engine_update_failed">Couldn’t update yt-dlp: %1$s</string>
     <string name="msg_nothing_to_download">Nothing to download — everything is already on disk</string>
     <string name="msg_queued_for_download">Queued for download: %1$d</string>
+    <string name="section_sync">Sync</string>
+    <string name="import_title">Import library</string>
+    <string name="import_hint">JSON file exported from the desktop app</string>
+    <string name="action_choose_file">Choose file</string>
+    <string name="msg_import_done">Imported: %1$d added, %2$d already there, %3$d new playlists. Queued: %4$d</string>
+    <string name="msg_import_nothing">Nothing new — everything is already in the library</string>
+    <string name="msg_import_unreadable">Couldn’t open the file</string>
+    <string name="msg_import_failed">Couldn’t read the file. Choose a JSON exported from SoundTube</string>
     <string name="msg_no_duplicates">No duplicates found</string>
     <string name="msg_duplicates_removed">Duplicates removed: %1$d</string>
 

@@ -24,6 +24,9 @@ const MESSAGES = {
     "status.unavailable": "сервер недоступен",
     "search.placeholder": "Трек, артист, альбом",
     "library.rescan": "Пересканировать папку",
+    "library.export": "Экспорт библиотеки для телефона",
+    "sync.exported": "Экспортировано треков: {count}. Файл: {path}",
+    "sync.failed": "Не удалось экспортировать: {message}",
     "library.scanning": "Сканирую папку…",
     "library.playAll": "Играть всё",
     "update.checking": "Проверяю обновления…",
@@ -142,6 +145,9 @@ const MESSAGES = {
     "status.unavailable": "server unavailable",
     "search.placeholder": "Track, artist, album",
     "library.rescan": "Rescan folder",
+    "library.export": "Export library for phone",
+    "sync.exported": "Exported {count} tracks. File: {path}",
+    "sync.failed": "Export failed: {message}",
     "library.scanning": "Scanning folder…",
     "library.playAll": "Play all",
     "update.checking": "Checking for updates…",
@@ -2240,6 +2246,17 @@ function bindEvents() {
   $("#search").addEventListener("input", renderTracks);
   $("#play-all").addEventListener("click", playAll);
   $("#library-refresh").addEventListener("click", () => loadLibrary(true));
+  $("#library-export").addEventListener("click", async (event) => {
+    // Сервер кладёт файл сам: в десктопной оболочке браузерная загрузка
+    // по ссылке может быть недоступна, а путь к файлу всё равно нужен.
+    event.preventDefault();
+    try {
+      const result = await api("/api/sync/export", { method: "POST" });
+      showToast(t("sync.exported", { count: result.tracks, path: result.path }));
+    } catch (error) {
+      showToast(t("sync.failed", { message: error.message }));
+    }
+  });
   $("#lang-toggle").addEventListener("click", toggleLanguage);
 
   $("#update-badge").addEventListener("click", () => {

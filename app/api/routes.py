@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import FileResponse
@@ -13,6 +14,7 @@ from app.config import settings
 from app.core.artwork import extract_cover
 from app.core.library import invalidate_cache, resolve_track_path, scan_library
 from app.core.runner import runner
+from app.core.sync_export import build_export, export_target
 from app.core.tagging import guess_image_mime
 from app.core.updates import check_for_update
 from app.db import get_session
@@ -198,6 +200,40 @@ async def delete_track(path: str) -> Response:
 
     invalidate_cache()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# ---------- экспорт для мобильного приложения ----------
+
+
+@router.get("/sync/export")
+async def export_library(session: AsyncSession = Depends(get_session)) -> Response:
+    """JSON-снимок библиотеки: телефон импортирует его и скачает недостающее."""
+    payload = await build_export(session)
+    body = json.dumps(payload, ensure_ascii=False, indent=2)
+    return Response(
+        content=body,
+        media_type="application/json; charset=utf-8",
+        headers={
+            "Content-Disposition": 'attachment; filename="soundtube-library.json"',
+        },
+    )
+
+
+@router.post("/sync/export")
+async def save_library_export(session: AsyncSession = Depends(get_session)) -> dict:
+    """Сохраняет тот же снимок в «Загрузки» и возвращает путь к файлу.
+
+    Нужен для десктопной оболочки: вебвью не обязана поддерживать скачивание
+    по ссылке, а файл пользователю всё равно надо как-то перенести на телефон.
+    """
+    payload = await build_export(session)
+    target = export_target()
+    target.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return {
+        "path": str(target),
+        "tracks": len(payload["tracks"]),
+        "playlists": len(payload["playlists"]),
+    }
 
 
 @router.get("/stream")

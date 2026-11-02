@@ -168,6 +168,17 @@
     <string name="notifications_off_hint">Прогресс загрузок не показывается</string>
     <string name="state_on">включены</string>
     <string name="state_off">выключены</string>
+
+    <!-- Работа в фоне -->
+    <string name="section_background">Работа в фоне</string>
+    <string name="battery_title">Экономия батареи</string>
+    <string name="battery_restricted_hint">Система может останавливать загрузки в фоне</string>
+    <string name="battery_unrestricted_hint">Загрузки не останавливаются при выключенном экране</string>
+    <string name="autostart_title">Автозапуск</string>
+    <string name="autostart_hint">Чтобы очередь не обрывалась после закрытия приложения</string>
+    <string name="state_off_limits">без ограничений</string>
+    <string name="action_allow">Разрешить</string>
+    <string name="action_open">Открыть</string>
     <string name="log_title">Журнал</string>
     <string name="log_entries">%1$d записей</string>
     <string name="log_empty">Пока пусто</string>
@@ -179,6 +190,14 @@
     <string name="msg_engine_update_failed">Не удалось обновить yt-dlp: %1$s</string>
     <string name="msg_nothing_to_download">Нечего докачивать — всё уже на диске</string>
     <string name="msg_queued_for_download">В очередь на докачку: %1$d</string>
+    <string name="section_sync">Синхронизация</string>
+    <string name="import_title">Импорт библиотеки</string>
+    <string name="import_hint">JSON-файл, экспортированный с компьютера</string>
+    <string name="action_choose_file">Выбрать файл</string>
+    <string name="msg_import_done">Импорт: добавлено %1$d, уже было %2$d, новых плейлистов %3$d. В очереди: %4$d</string>
+    <string name="msg_import_nothing">Новых треков нет — всё уже в библиотеке</string>
+    <string name="msg_import_unreadable">Не удалось открыть файл</string>
+    <string name="msg_import_failed">Не удалось прочитать файл. Нужен JSON, экспортированный из SoundTube</string>
     <string name="msg_no_duplicates">Дублей не найдено</string>
     <string name="msg_duplicates_removed">Убрано дублей: %1$d</string>
 

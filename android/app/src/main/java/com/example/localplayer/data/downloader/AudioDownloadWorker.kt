@@ -60,6 +60,9 @@ class AudioDownloadWorker @AssistedInject constructor(
 
     private val progressScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
+    /** Причину сбоя foreground-сервиса пишем в журнал один раз на задачу. */
+    private var foregroundFailureReported = false
+
     override suspend fun doWork(): Result {
         // Цепочка плейлиста — это зависимые друг от друга задачи: `Result.failure()`
         // снимает вместе с текущим треком все следующие. Поэтому «плохой» трек
@@ -120,18 +123,17 @@ class AudioDownloadWorker @AssistedInject constructor(
 
                 runCatching {
                     setProgress(progressData(state))
-                    // Текст в уведомлении меняется только через setForeground.
-                    setForeground(foregroundInfo(track.title, state))
                 }
+                // Текст в уведомлении меняется только через setForeground.
+                showForeground(track.title, state)
             }
         }
 
         return try {
-            runCatching {
-                setForeground(
-                    foregroundInfo(track.title, progress.value as DownloadState.Downloading),
-                )
-            }
+            showForeground(
+                track.title,
+                progress.value as DownloadState.Downloading,
+            )
 
             val startedAt = SystemClock.elapsedRealtime()
             val downloaded = client.download(url, fileManager.newWorkDir(track.id), track.id) { fraction, eta, line ->
@@ -290,6 +292,28 @@ class AudioDownloadWorker @AssistedInject constructor(
             ),
         )
         playlistDao.touch(playlistId, now)
+    }
+
+    /**
+     * Поднимает foreground-сервис и обновляет уведомление.
+     *
+     * На Android 12+ система может запретить запуск сервиса из фона, а MIUI
+     * без исключения из экономии батареи вообще замораживает процесс. Молча
+     * проглатывать ошибку нельзя: именно так загрузка «замирает» без следа
+     * в журнале, поэтому причину пишем один раз на задачу.
+     */
+    private suspend fun showForeground(title: String, state: DownloadState.Downloading) {
+        val failure = runCatching { setForeground(foregroundInfo(title, state)) }
+            .exceptionOrNull()
+            ?: return
+        // Отмена задачи — не сбой сервиса: её нельзя глушить.
+        if (failure is CancellationException) throw failure
+        if (foregroundFailureReported) return
+        foregroundFailureReported = true
+        AppLog.w(
+            "Couldn't start the foreground download service — the system may pause background downloads",
+            failure,
+        )
     }
 
     private fun foregroundInfo(title: String, state: DownloadState.Downloading): ForegroundInfo {
