@@ -74,6 +74,38 @@ interface TrackDao {
     @Query("UPDATE tracks SET isDeleted = 1, localFilePath = NULL, updatedAt = :updatedAt WHERE id = :id")
     suspend fun markDeleted(id: String, updatedAt: Long)
 
+    /**
+     * Снимает надгробие с трека, у которого никогда не было файла.
+     *
+     * «Очистить очередь» и старые сборки ставили надгробие и тем трекам, которые
+     * ни разу не скачивались. Для синхронизации удаление — это про пропавший файл,
+     * а не про отменённую загрузку: такие записи повторный импорт возвращает в очередь.
+     * Признак «файла не было» — пустой `fileHash`: [markDeleted] чистит только путь,
+     * а хэш скачанного файла остаётся.
+     *
+     * @return сколько строк обновилось (0 — трек уже живой).
+     */
+    @Query(
+        """
+        UPDATE tracks
+        SET isDeleted = 0,
+            title = :title,
+            artist = :artist,
+            sourceUrl = :sourceUrl,
+            sourcePlatform = :sourcePlatform,
+            updatedAt = :updatedAt
+        WHERE id = :id AND isDeleted = 1
+        """,
+    )
+    suspend fun restoreDeleted(
+        id: String,
+        title: String,
+        artist: String,
+        sourceUrl: String,
+        sourcePlatform: String,
+        updatedAt: Long,
+    ): Int
+
     /** Перекачка/обновление файла: путь, хэш и метаданные приходят из загрузчика. */
     @Query(
         """

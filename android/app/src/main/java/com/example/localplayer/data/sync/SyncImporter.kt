@@ -38,9 +38,11 @@ sealed interface ImportOutcome {
  * Импорт JSON-снимка библиотеки с десктопа.
  *
  * Работает только на добавление: существующие треки не перезаписываются,
- * надгробия не снимаются, телефонные плейлисты не трогаются. Поэтому один и тот
- * же файл можно импортировать сколько угодно раз — счётчики просто покажут
- * «уже было». Скачивание недостающего запускает вызывающая сторона
+ * телефонные плейлисты не трогаются. Единственное исключение — надгробия треков,
+ * у которых никогда не было файла: их снимаем, иначе отменённая загрузка навсегда
+ * блокировала бы повторный импорт. Поэтому один и тот же файл можно импортировать
+ * сколько угодно раз — счётчики просто покажут «уже было». Скачивание недостающего
+ * запускает вызывающая сторона
  * ([com.example.localplayer.data.repository.DownloadRepository.enqueuePendingDownloads]).
  */
 @Singleton
@@ -91,6 +93,24 @@ class SyncImporter @Inject constructor(
 
             val existing = trackDao.findAnyById(trackId)
             if (existing != null) {
+                // Надгробие с пустым хэшем — трек никогда не скачивался: его убрали
+                // из очереди («Очистить очередь») или загрузка не удалась. Такие
+                // возвращаем, иначе повторный импорт навсегда считал бы их «уже
+                // в библиотеке», хотя файла нет и в плейлисты они не попадут.
+                val neverDownloaded = existing.isDeleted && existing.fileHash == null
+                if (neverDownloaded) {
+                    trackDao.restoreDeleted(
+                        id = trackId,
+                        title = item.title.trim(),
+                        artist = item.artist.trim(),
+                        sourceUrl = TrackIds.canonicalize(url),
+                        sourcePlatform = platformFor(url, item.platform).key,
+                        updatedAt = now,
+                    )
+                    tracksAdded++
+                    return@forEach
+                }
+
                 tracksSkipped++
                 if (existing.isDeleted) deletedIds.add(trackId)
                 return@forEach
