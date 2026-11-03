@@ -263,11 +263,11 @@ uv run pytest
 
 - [x] Desktop application on Tauri 2
 - [x] Native Android app with offline playback
-- [x] Library export from the desktop app to Android (JSON)
-- [ ] Spotify playlist import by metadata + YouTube matching
-- [ ] Search by `Artist - Title`
-- [ ] M3U export and Navidrome / Jellyfin integration
-- [ ] In-app settings screen
+- [x] Library export from the desktop app and import button on Android (JSON)
+- [ ] Import JSON from PC to PC
+- [ ] Add another sources of download
+- [ ] Android widgets
+- [ ] Mobile design improvement
 
 Got an idea or found a bug? [Open an issue](https://github.com/Denisplokhikh/SoundTube/issues) — pull requests are welcome.
 
