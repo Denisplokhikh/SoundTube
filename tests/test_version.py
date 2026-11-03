@@ -18,9 +18,16 @@ from scripts.version import (
     UV_LOCK,
     VersionError,
     _validate,
+    android_code,
+    android_version,
+    apply_android,
+    apply_desktop,
     apply_version,
+    check,
     current_version,
     read_all,
+    read_desktop,
+    version_code_for,
 )
 
 FILES = [
@@ -51,8 +58,12 @@ def repo(tmp_path: Path) -> Path:
 
 
 def test_versions_are_consistent() -> None:
-    canonical = current_version()
-    assert {entry.version for entry in read_all()} == {canonical}
+    # Десктоп и Android нумеруются независимо: сверяем только внутри групп.
+    desktop = {entry.version for entry in read_desktop()}
+    assert len(desktop) == 1, desktop
+
+    version = android_version()
+    assert android_code() == version_code_for(version)
 
 
 def test_bump_updates_every_file(repo: Path) -> None:
@@ -64,25 +75,60 @@ def test_bump_updates_every_file(repo: Path) -> None:
 
 
 def test_bump_is_idempotent(repo: Path) -> None:
-    version = current_version(repo)
     before = {relative: (repo / relative).read_bytes() for relative in FILES}
 
-    assert apply_version(version, repo) == []
+    assert apply_desktop(current_version(repo), repo) == []
+    assert apply_android(android_version(repo), repo) == []
 
     after = {relative: (repo / relative).read_bytes() for relative in FILES}
     assert before == after
 
 
 def test_android_version_code_follows_version(repo: Path) -> None:
-    apply_version("2.5.1", repo)
+    apply_android("2.5.1", repo)
 
     gradle = (repo / ANDROID_GRADLE).read_text(encoding="utf-8")
     assert 'versionName = "2.5.1"' in gradle
     assert "versionCode = 20501" in gradle
 
 
+def test_desktop_and_android_bump_independently(repo: Path) -> None:
+    apply_desktop("1.3.0", repo)
+    apply_android("1.2.3", repo)
+
+    assert current_version(repo) == "1.3.0"
+    assert {entry.version for entry in read_desktop(repo)} == {"1.3.0"}
+    assert android_version(repo) == "1.2.3"
+    assert android_code(repo) == 10203
+    assert check("all", repo)
+
+
+def test_check_catches_desktop_drift(repo: Path) -> None:
+    apply_desktop("1.2.4", repo)
+    init = repo / APP_INIT
+    init.write_text(
+        init.read_text(encoding="utf-8").replace('__version__ = "1.2.4"', '__version__ = "1.2.5"'),
+        encoding="utf-8",
+    )
+
+    assert not check("desktop", repo)
+    assert check("android", repo)
+
+
+def test_check_catches_android_code_drift(repo: Path) -> None:
+    apply_android("1.2.3", repo)
+    gradle = repo / ANDROID_GRADLE
+    gradle.write_text(
+        gradle.read_text(encoding="utf-8").replace("versionCode = 10203", "versionCode = 999"),
+        encoding="utf-8",
+    )
+
+    assert not check("android", repo)
+    assert check("desktop", repo)
+
+
 def test_lockfile_package_entries_updated(repo: Path) -> None:
-    apply_version("0.9.9", repo)
+    apply_desktop("0.9.9", repo)
 
     for relative in (UV_LOCK, CARGO_LOCK):
         text = (repo / relative).read_text(encoding="utf-8")

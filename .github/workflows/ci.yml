@@ -1,9 +1,17 @@
 name: CI
 
+# Десктоп: Python-тесты и согласованность версии десктопа.
+# Android проверяется отдельно — .github/workflows/android-ci.yml.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'android/**'
+      - '.github/workflows/android-ci.yml'
   pull_request:
+    paths-ignore:
+      - 'android/**'
+      - '.github/workflows/android-ci.yml'
 
 jobs:
   tests:
@@ -12,8 +20,8 @@ jobs:
       - uses: actions/checkout@v4
 
       # До uv sync: он сам правит uv.lock, и разъехавшуюся версию было бы не видно.
-      - name: Check version consistency
-        run: python3 scripts/version.py --check
+      - name: Check desktop version consistency
+        run: python3 scripts/version.py --check desktop
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5

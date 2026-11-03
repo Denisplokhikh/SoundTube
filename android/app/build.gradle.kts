@@ -20,6 +20,9 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
+        // Подпись приложения в лаунчере; для сборки «рядом с обычной» переопределяется.
+        manifestPlaceholders["appLabel"] = "@string/app_name"
+
         // youtubedl-android поставляет JNI-библиотеки (ffmpeg/aria2c) только под эти ABI.
         ndk {
             abiFilters += listOf("arm64-v8a", "x86_64")
@@ -49,6 +52,16 @@ android {
     }
 
     buildTypes {
+        debug {
+            // `gradlew assembleDebug -PsideBySide` — APK, который ставится рядом
+            // с обычным приложением: свой applicationId, своя библиотека и свои
+            // настройки, release-сборка на телефоне не затрагивается.
+            if (project.hasProperty("sideBySide")) {
+                applicationIdSuffix = ".debug"
+                versionNameSuffix = "-dev"
+                manifestPlaceholders["appLabel"] = "SoundTube dev"
+            }
+        }
         release {
             signingConfig = signingConfigs.findByName("upload") ?: signingConfigs.getByName("local")
             isMinifyEnabled = true

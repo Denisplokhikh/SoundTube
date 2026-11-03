@@ -1,6 +1,7 @@
 ﻿$ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
+. "$PSScriptRoot\common.ps1"
 
 if (-not (Get-Command rustc -ErrorAction SilentlyContinue)) {
     Write-Host "Не найден Rust. Установите toolchain: https://rustup.rs" -ForegroundColor Yellow
@@ -8,7 +9,8 @@ if (-not (Get-Command rustc -ErrorAction SilentlyContinue)) {
     exit 1
 }
 
-$triple = (& rustc -Vv | Select-String -Pattern '^host:').Line -replace '^host:\s*', ''
+$triple = (Invoke-Native rustc @("-Vv") -Capture |
+    Select-String -Pattern '^host:').Line -replace '^host:\s*', ''
 $suffix = if ($triple -like "*-windows-*") { ".exe" } else { "" }
 $sidecar = "src-tauri\binaries\melodown-server-$triple$suffix"
 
@@ -25,12 +27,12 @@ if (-not $stale) {
 
 if ($stale) {
     Write-Host "Sidecar устарел или не найден, собираю..." -ForegroundColor Cyan
-    & powershell -ExecutionPolicy Bypass -File scripts\build-sidecar.ps1
+    Invoke-Native powershell.exe @("-ExecutionPolicy", "Bypass", "-File", "scripts\build-sidecar.ps1")
 }
 
 if (-not (Test-Path "node_modules")) {
     Write-Host "Устанавливаю Tauri CLI..." -ForegroundColor Cyan
-    npm install
+    Invoke-Native npm.cmd @("install")
 }
 
-npm run desktop
+Invoke-Native npm.cmd @("run", "desktop")

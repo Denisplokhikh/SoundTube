@@ -1,6 +1,7 @@
 ﻿$ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
+. "$PSScriptRoot\common.ps1"
 
 function Get-TargetTriple {
     if ($env:TAURI_ENV_TARGET_TRIPLE) { return $env:TAURI_ENV_TARGET_TRIPLE }
@@ -20,8 +21,8 @@ $triple = Get-TargetTriple
 $suffix = if ($triple -like "*-windows-*") { ".exe" } else { "" }
 
 Write-Host "Собираю Python-сервер (PyInstaller)..." -ForegroundColor Cyan
-uv sync --extra dev
-uv run pyinstaller --noconfirm --clean melodown-server.spec
+Invoke-Native uv @("sync", "--extra", "dev")
+Invoke-Native uv @("run", "pyinstaller", "--noconfirm", "--clean", "melodown-server.spec")
 
 $source = "dist\melodown-server$suffix"
 if (-not (Test-Path $source)) {

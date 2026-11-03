@@ -1,0 +1,40 @@
+name: Android CI
+
+# Свой пайплайн у Android: номер версии независим от десктопа,
+# поэтому и проверка здесь только по андроидной группе.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android/**'
+      - 'scripts/version.py'
+      - '.github/workflows/android-ci.yml'
+  pull_request:
+    paths:
+      - 'android/**'
+      - 'scripts/version.py'
+      - '.github/workflows/android-ci.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Android version consistency
+        run: python3 scripts/version.py --check android
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # testDebugUnitTest компилирует и основной код, так что ошибки сборки
+      # тоже видны — отдельный assembleDebug не нужен.
+      - name: Unit tests
+        working-directory: android
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:testDebugUnitTest --no-daemon

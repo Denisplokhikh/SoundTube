@@ -1,0 +1,79 @@
+name: Release Android
+
+# Тег android-vX.Y.Z — только APK. Номер берётся из тега и не зависит
+# от версии десктопа: в репозитории может быть 1.2.4, а APK — 1.2.3.
+on:
+  push:
+    tags:
+      - 'android-v*'
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    # Ключ подписи лежит в секретах окружения android-env, поэтому джоба обязана его объявить.
+    # Секреты уровня репозитория сюда не подмешиваются — источник подписи один.
+    environment: android-env
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        run: |
+          VERSION="${GITHUB_REF_NAME#android-}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "APK_NAME=SoundTube-${VERSION#v}-android.apk" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Sync Android version from tag
+        run: python scripts/version.py --android "$VERSION"
+
+      # Android SDK 35 предустановлен на ubuntu-latest, ставить его не нужно.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # Keystore не коммитится: в secrets хранится base64, на раннере разворачиваем его
+      # во временный файл и отдаём Gradle через ANDROID_KEYSTORE_PATH.
+      - name: Decode keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "::error::Секрет ANDROID_KEYSTORE_BASE64 не задан"
+            exit 1
+          fi
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        working-directory: android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          chmod +x gradlew
+          ./gradlew :app:assembleRelease --no-daemon
+
+      - name: Publish APK
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cp android/app/build/outputs/apk/release/app-release.apk "$APK_NAME"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" "$APK_NAME" --clobber
+          else
+            # --latest=false обязателен: десктоп ищет обновления через /releases/latest
+            # и не должен получить андроидный релиз вместо своей сборки.
+            gh release create "$GITHUB_REF_NAME" "$APK_NAME" \
+              --title "SoundTube ${VERSION#v} (Android)" \
+              --notes "APK для Android. Десктопные сборки — в релизах без префикса android-." \
+              --latest=false
+          fi
