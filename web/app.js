@@ -26,6 +26,7 @@ const MESSAGES = {
     "library.rescan": "Пересканировать папку",
     "library.export": "Экспорт библиотеки для телефона",
     "sync.exported": "Экспортировано треков: {count}. Файл: {path}",
+    "sync.exportedPartial": "Экспортировано треков: {count}. Без ссылки: {skipped}. Файл: {path}",
     "sync.failed": "Не удалось экспортировать: {message}",
     "library.scanning": "Сканирую папку…",
     "library.playAll": "Играть всё",
@@ -147,6 +148,7 @@ const MESSAGES = {
     "library.rescan": "Rescan folder",
     "library.export": "Export library for phone",
     "sync.exported": "Exported {count} tracks. File: {path}",
+    "sync.exportedPartial": "Exported {count} tracks. Without source: {skipped}. File: {path}",
     "sync.failed": "Export failed: {message}",
     "library.scanning": "Scanning folder…",
     "library.playAll": "Play all",
@@ -2252,7 +2254,14 @@ function bindEvents() {
     event.preventDefault();
     try {
       const result = await api("/api/sync/export", { method: "POST" });
-      showToast(t("sync.exported", { count: result.tracks, path: result.path }));
+      const message = result.withoutSource
+        ? t("sync.exportedPartial", {
+            count: result.tracks,
+            skipped: result.withoutSource,
+            path: result.path,
+          })
+        : t("sync.exported", { count: result.tracks, path: result.path });
+      showToast(message);
     } catch (error) {
       showToast(t("sync.failed", { message: error.message }));
     }

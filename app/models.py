@@ -60,13 +60,34 @@ class Track(Base):
     artist: Mapped[str | None] = mapped_column(Text)
     album: Mapped[str | None] = mapped_column(Text)
     duration: Mapped[float | None] = mapped_column(Float)
-    source_url: Mapped[str] = mapped_column(Text, nullable=False)
+    # индекс нужен поиску дублей: WHERE source_url = ? AND status = 'done'
+    source_url: Mapped[str] = mapped_column(Text, nullable=False, index=True)
 
     status: Mapped[str] = mapped_column(String(16), default="pending", index=True)
     file_path: Mapped[str | None] = mapped_column(Text)
     error: Mapped[str | None] = mapped_column(Text)
 
     job: Mapped[Job] = relationship(back_populates="tracks")
+
+
+class LibrarySource(Base):
+    """Откуда скачан файл библиотеки.
+
+    Живёт дольше задач: удаление задачи в «Загрузках» не должно стирать ссылку,
+    иначе файл останется на диске, но выпадет из экспорта для телефона.
+    Ключ — путь относительно папки музыки, как в плейлистах: файлы — источник истины.
+    """
+
+    __tablename__ = "library_sources"
+
+    relative_path: Mapped[str] = mapped_column(Text, primary_key=True)
+    source_url: Mapped[str] = mapped_column(Text, nullable=False)
+    platform: Mapped[str] = mapped_column(String(32), default="")
+    title: Mapped[str] = mapped_column(Text, default="")
+    artist: Mapped[str] = mapped_column(Text, default="")
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow, onupdate=utcnow
+    )
 
 
 class Playlist(Base):

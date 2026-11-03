@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.config import settings
 from app.models import Base
-
 settings.data_dir.mkdir(parents=True, exist_ok=True)
 
 DATABASE_URL = f"sqlite+aiosqlite:///{(settings.data_dir / 'melodown.db').as_posix()}"
@@ -27,6 +26,19 @@ def _sqlite_pragmas(dbapi_connection, _connection_record) -> None:  # pragma: no
 async def init_db() -> None:
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
+        await connection.run_sync(_create_missing_indexes)
+
+
+def _create_missing_indexes(connection) -> None:
+    """Достраивает индексы для таблиц, которые уже существуют.
+
+    `create_all` создаёт только отсутствующие таблицы, поэтому новый индекс
+    на `tracks.source_url` не появился бы у тех, кто обновился, и поиск дублей
+    остался бы перебором по всем скачанным трекам.
+    """
+    for table in Base.metadata.tables.values():
+        for index in table.indexes:
+            index.create(connection, checkfirst=True)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:

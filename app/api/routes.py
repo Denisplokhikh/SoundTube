@@ -233,6 +233,7 @@ async def save_library_export(session: AsyncSession = Depends(get_session)) -> d
         "path": str(target),
         "tracks": len(payload["tracks"]),
         "playlists": len(payload["playlists"]),
+        "withoutSource": payload.get("withoutSource", 0),
     }
 
 

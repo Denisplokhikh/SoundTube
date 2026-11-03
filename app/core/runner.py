@@ -10,6 +10,7 @@ from app.config import settings
 from app.core.downloader import download_track
 from app.core.library import invalidate_cache
 from app.core.platform_playlists import add_to_platform_playlist
+from app.core.sources import remember_source
 from app.db import SessionLocal
 from app.models import Job, Track
 from app.platforms.base import TrackSpec
@@ -113,6 +114,14 @@ class JobRunner:
                 track.file_path = duplicate.file_path
                 track.error = "Уже есть в библиотеке"
                 await add_to_platform_playlist(session, platform, duplicate.file_path)
+                await remember_source(
+                    session,
+                    file_path=duplicate.file_path,
+                    url=track.source_url,
+                    platform=platform,
+                    title=track.title,
+                    artist=track.artist or "",
+                )
                 await session.commit()
                 await self._refresh_counters(job_id)
                 return
@@ -156,6 +165,14 @@ class JobRunner:
                 track.duration = result.duration
                 track.error = None
                 await add_to_platform_playlist(session, platform, result.path)
+                await remember_source(
+                    session,
+                    file_path=result.path,
+                    url=track.source_url,
+                    platform=platform,
+                    title=track.title,
+                    artist=track.artist or "",
+                )
             await session.commit()
         await self._refresh_counters(job_id)
         invalidate_cache()

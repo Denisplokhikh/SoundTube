@@ -8,8 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
-from app.core.platform_playlists import PLATFORM_PLAYLISTS, relative_to_music_dir
-from app.models import Playlist, Track
+from app.core.library import scan_library
+from app.core.platform_playlists import PLATFORM_PLAYLISTS
+from app.core.sources import sources_by_relative, sync_sources_from_tracks
+from app.models import Playlist
 
 # Версия формата, который читает мобильное приложение (см. SyncPayload.kt).
 SYNC_VERSION = 1
@@ -18,53 +20,48 @@ SYNC_VERSION = 1
 async def build_export(session: AsyncSession) -> dict:
     """Снимок библиотеки для телефона: ссылки, названия и плейлисты.
 
-    Экспорт намеренно односторонний и «только добавление»: мобильное приложение
-    само решает, чего у него ещё нет. Поэтому здесь нет ни id, ни времени
-    изменения, ни надгробий — только источник скачивания.
+    Источник истины — файлы на диске, как и в самой библиотеке: трек, чья задача
+    удалена из «Загрузок», всё равно должен уехать на телефон. Ссылки берутся
+    из `library_sources`, которая переживает задачи; если её ещё нет (старая
+    база), сначала досыпаем её из живых задач.
 
-    Ссылки берутся из таблицы tracks, которую заполняет импорт. Файл, скачанный
-    иначе, в экспорт не попадёт: перекачать его на телефоне всё равно неоткуда.
+    Экспорт односторонний и «только добавление»: ни id, ни времени изменения,
+    ни надгробий — мобильное приложение само решает, чего у него ещё нет.
     """
-    result = await session.execute(
-        select(Track).where(Track.file_path.is_not(None)).options(selectinload(Track.job))
-    )
-    tracks = list(result.scalars().unique().all())
+    await sync_sources_from_tracks(session)
 
+    sources = await sources_by_relative(session)
     url_by_relative: dict[str, str] = {}
     exported_tracks: list[dict] = []
     seen_urls: set[str] = set()
+    without_source = 0
 
-    for track in tracks:
-        if not track.file_path:
+    for item in scan_library():
+        source = sources.get(item.relative_path)
+        if source is None or not source.source_url:
+            without_source += 1
+            continue
+        if source.source_url in seen_urls:
             continue
 
-        path = Path(track.file_path)
-        relative = relative_to_music_dir(path)
-        if relative is None or not path.is_file():
-            continue
-
-        url = (track.source_url or "").strip()
-        if not url or url in seen_urls:
-            continue
-
-        seen_urls.add(url)
-        url_by_relative[relative] = url
+        seen_urls.add(source.source_url)
+        url_by_relative[item.relative_path] = source.source_url
         exported_tracks.append(
             {
-                "url": url,
-                "title": track.title or "",
-                "artist": track.artist or "",
-                "platform": track.job.platform if track.job else "",
+                "url": source.source_url,
+                "title": item.title or source.title,
+                "artist": item.artist or source.artist,
+                "platform": source.platform,
             }
         )
-
-    exported_tracks.sort(key=lambda item: (item["artist"].lower(), item["title"].lower()))
 
     return {
         "version": SYNC_VERSION,
         "exportedAt": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "tracks": exported_tracks,
         "playlists": await _export_playlists(session, url_by_relative),
+        # Файлы, у которых не осталось ссылки: скачать их на телефоне неоткуда.
+        "withoutSource": without_source,
     }
 
 

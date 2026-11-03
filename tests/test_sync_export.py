@@ -6,6 +6,8 @@ import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.config import settings
+from app.core.library import invalidate_cache
+from app.core.sources import remember_source
 from app.core.sync_export import build_export, export_target
 from app.models import Base, Job, Playlist, PlaylistTrack, Track
 
@@ -13,6 +15,7 @@ from app.models import Base, Job, Playlist, PlaylistTrack, Track
 @pytest_asyncio.fixture
 async def session(tmp_path, monkeypatch):
     monkeypatch.setattr(settings, "music_dir", tmp_path)
+    invalidate_cache()
     engine = create_async_engine(f"sqlite+aiosqlite:///{(tmp_path / 'test.db').as_posix()}")
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
@@ -20,6 +23,7 @@ async def session(tmp_path, monkeypatch):
     async with factory() as db:
         yield db
     await engine.dispose()
+    invalidate_cache()
 
 
 def _file(root, relative: str) -> str:
@@ -138,3 +142,49 @@ async def test_export_ignores_vanished_files_and_duplicate_urls(session, tmp_pat
         "https://soundcloud.com/artist/song"
     ]
     assert payload["playlists"] == []
+
+
+async def test_export_survives_deleting_download_job(session, tmp_path):
+    """Удаление задачи в «Загрузках» не должно уносить ссылку из экспорта."""
+    path = _file(tmp_path, "Artist/Album/Artist - Song.mp3")
+
+    job = Job(url="https://example.com", platform="youtube", kind="track", status="completed")
+    job.tracks.append(
+        Track(
+            title="Song",
+            artist="Artist",
+            source_url="https://youtu.be/song",
+            status="done",
+            file_path=path,
+        )
+    )
+    session.add(job)
+    await session.commit()
+
+    await remember_source(
+        session,
+        file_path=path,
+        url="https://youtu.be/song",
+        platform="youtube",
+        title="Song",
+        artist="Artist",
+    )
+    await session.commit()
+
+    await session.delete(job)
+    await session.commit()
+
+    payload = await build_export(session)
+
+    assert [track["url"] for track in payload["tracks"]] == ["https://youtu.be/song"]
+    assert payload["tracks"][0]["platform"] == "youtube"
+    assert payload["withoutSource"] == 0
+
+
+async def test_export_counts_files_without_known_source(session, tmp_path):
+    _file(tmp_path, "Artist/Album/Artist - Unknown.mp3")
+
+    payload = await build_export(session)
+
+    assert payload["tracks"] == []
+    assert payload["withoutSource"] == 1
