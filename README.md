@@ -58,7 +58,7 @@ Paste a link — a single track, a 300-song playlist, a SoundCloud set — and i
 - 🎚️ **Formats on your terms** — Keep the original stream, or convert to MP3, M4A, Opus or FLAC.
 - 🔁 **No duplicates** — Every track is tracked by its source URL. Already downloaded? It gets skipped, not downloaded twice.
 - 🌈 **Living artwork** — A full-screen player whose waves borrow the palette from the cover and pulse with the beat.
-- 📡 **Library over LAN** — The desktop app serves its UI on your local network, so your phone can browse the library stored on your PC.
+- 🔄 **Library everywhere** — Export the whole library as one JSON file and import it on Android: same tracks and playlists, downloaded fresh on the phone. No PC needed afterwards.
 - 🌐 **Two languages** — The interface speaks Russian and English; flip it with the globe button in the top-right corner.
 - 🐳 **Docker, if that's your thing** — `docker compose up --build` and you have the same library on a home server.
 
@@ -66,16 +66,24 @@ Paste a link — a single track, a 300-song playlist, a SoundCloud set — and i
 
 ## 📸 Screenshots
 
-<!-- Add docs/screenshots/desktop.png and docs/screenshots/mobile.png to bring this to life -->
+<!-- Screenshots live in docs/screenshots/: desktop.png, fullscreen.png, mobile.jpg, fullscreen_mobile.jpg -->
 
 <table align="center">
   <tr>
-    <td width="68%"><img src="docs/screenshots/desktop.png" alt="SoundTube desktop player" /></td>
-    <td width="32%"><img src="docs/screenshots/mobile.png" alt="SoundTube on Android" /></td>
+    <td width="50%"><img src="docs/screenshots/desktop.png" alt="SoundTube desktop library" /></td>
+    <td width="50%"><img src="docs/screenshots/fullscreen.png" alt="SoundTube desktop full-screen player" /></td>
   </tr>
   <tr>
-    <td align="center"><sub><b>Desktop</b> — library, queue and playlists</sub></td>
-    <td align="center"><sub><b>Android</b> — native Compose player</sub></td>
+    <td align="center"><sub><b>Desktop</b> — library, playlists and player</sub></td>
+    <td align="center"><sub><b>Full-screen player</b> — palette borrowed from the cover</sub></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/screenshots/mobile.jpg" width="300" alt="SoundTube Android library" /></td>
+    <td align="center"><img src="docs/screenshots/fullscreen_mobile.jpg" width="300" alt="SoundTube Android now playing" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><b>Android</b> — library, downloads and playlists</sub></td>
+    <td align="center"><sub><b>Now playing</b> — cover, controls and the queue</sub></td>
   </tr>
 </table>
 
