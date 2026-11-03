@@ -23,13 +23,9 @@ No ads. No subscriptions. No limits.
 
 </div>
 
-<!-- 🎬 Hero preview: drop docs/screenshots/hero.gif and uncomment the block below -->
-
-<!--
 <p align="center">
-  <img src="docs/screenshots/hero.gif" alt="SoundTube in action" width="100%" />
+  <img src="docs/screenshots/hero.webp" alt="SoundTube in action: paste a link, the track lands in the library and plays" width="100%" />
 </p>
--->
 
 ---
 
