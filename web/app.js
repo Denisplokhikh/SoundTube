@@ -86,6 +86,25 @@ const MESSAGES = {
     "player.sound": "Звук",
     "player.mute": "Выключить звук",
     "player.unmute": "Включить звук",
+    "player.lyrics": "Текст песни",
+    "lyrics.loading": "Ищу текст песни…",
+    "lyrics.notFound": "Текста нет",
+    "lyrics.notFoundHint": "Искали в базах текстов и в описании загрузки — для этого трека ничего не нашлось.",
+    "lyrics.notFoundFile": "Свой файл можно положить рядом с треком:",
+    "lyrics.error": "Не удалось загрузить текст",
+    "lyrics.errorHint": "Сервер не ответил на запрос. Попробуйте ещё раз, а если не поможет — перезапустите проигрыватель.",
+    "lyrics.instrumental": "Инструментал",
+    "lyrics.instrumentalHint": "В этой записи нет вокала, поэтому текста не будет.",
+    "lyrics.noTrack": "Ничего не играет",
+    "lyrics.noTrackHint": "Включите трек — текст подтянется сам.",
+    "lyrics.unsynced": "Без таймкодов",
+    "lyrics.retry": "Искать снова",
+    "lyrics.seekHint": "Перемотать на {time}",
+    "lyrics.source.lrclib": "LRCLIB",
+    "lyrics.source.description": "из описания трека",
+    "lyrics.source.ovh": "lyrics.ovh",
+    "lyrics.source.lrc": "локальный .lrc",
+    "lyrics.source.embedded": "из тегов файла",
     "language.switch": "Сменить язык — English",
     "theme.label": "Тема",
     "theme.phosphor": "Фосфор",
@@ -214,6 +233,25 @@ const MESSAGES = {
     "player.sound": "Sound",
     "player.mute": "Mute",
     "player.unmute": "Unmute",
+    "player.lyrics": "Lyrics",
+    "lyrics.loading": "Looking up lyrics…",
+    "lyrics.notFound": "No lyrics",
+    "lyrics.notFoundHint": "We searched lyric databases and the upload description — nothing for this track.",
+    "lyrics.notFoundFile": "You can drop your own file next to the track:",
+    "lyrics.error": "Could not load lyrics",
+    "lyrics.errorHint": "The server did not answer. Try again, and restart the player if it keeps failing.",
+    "lyrics.instrumental": "Instrumental",
+    "lyrics.instrumentalHint": "There are no vocals in this recording, so there are no lyrics.",
+    "lyrics.noTrack": "Nothing is playing",
+    "lyrics.noTrackHint": "Start a track and the lyrics will follow.",
+    "lyrics.unsynced": "Unsynced",
+    "lyrics.retry": "Search again",
+    "lyrics.seekHint": "Jump to {time}",
+    "lyrics.source.lrclib": "LRCLIB",
+    "lyrics.source.description": "from the track description",
+    "lyrics.source.ovh": "lyrics.ovh",
+    "lyrics.source.lrc": "local .lrc",
+    "lyrics.source.embedded": "from file tags",
     "language.switch": "Switch language — Русский",
     "theme.label": "Theme",
     "theme.phosphor": "Phosphor",
@@ -322,6 +360,13 @@ const state = {
   fullscreen: false,
   zen: false,
   zenTimer: null,
+  lyricsOpen: localStorage.getItem("melodown.lyrics") === "1",
+  lyricsPath: null,
+  lyricsLoading: false,
+  lyricsData: null,
+  lyricsToken: 0,
+  lyricsActiveIndex: -1,
+  lyricsUserScrollUntil: 0,
 };
 
 function t(key, params = null) {
@@ -376,6 +421,7 @@ function applyLanguage() {
   toggle.setAttribute("aria-pressed", state.lang === "en" ? "true" : "false");
 
   updateRepeatUI();
+  updateLyricsUI();
   syncVolumeUI();
   applyHealth();
   if (state.updateInfo !== null) renderUpdateBadge(state.updateInfo);
@@ -394,6 +440,7 @@ function applyLanguage() {
   if (playing) updateNowPlaying(playing);
   else setNowPlaceholders();
 
+  renderLyrics();
   if (state.fullscreen) syncFullscreen();
 }
 
@@ -635,6 +682,12 @@ function resetNowPlaying() {
   $("#total-time").textContent = "0:00";
   $("#fs-total-time").textContent = "0:00";
 
+  state.lyricsPath = null;
+  state.lyricsLoading = false;
+  state.lyricsData = null;
+  state.lyricsActiveIndex = -1;
+  renderLyrics();
+
   setPlaying(false);
   updateTimeline();
   document.title = "SoundTube";
@@ -650,6 +703,7 @@ async function deleteTrack(trackId) {
 
   const isCurrent = trackId === state.currentId;
   if (isCurrent) resetNowPlaying();
+  LYRICS_CACHE.delete(track.relative_path);
 
   try {
     await api(`/api/library?path=${encodeURIComponent(track.relative_path)}`, { method: "DELETE" });
@@ -746,6 +800,304 @@ function updateNowPlaying(track) {
 
   // метаданные меняют высоту скрытых блоков — центрируем обложку заново
   updateZenShift();
+
+  if (state.lyricsOpen || state.lyricsPath === track.relative_path) {
+    ensureTrackLyrics(track);
+  }
+}
+
+/* ---------- текст песни (LRCLIB / .lrc) ---------- */
+
+const LYRICS_CACHE = new Map();
+const LYRICS_CACHE_LIMIT = 80;
+
+function rememberLyrics(path, data) {
+  LYRICS_CACHE.set(path, data);
+  if (LYRICS_CACHE.size > LYRICS_CACHE_LIMIT) {
+    LYRICS_CACHE.delete(LYRICS_CACHE.keys().next().value);
+  }
+}
+
+function updateLyricsUI() {
+  const fsPlayer = $("#fullscreen-player");
+  const panel = $("#fs-lyrics-panel");
+  const fsBtn = $("#fs-lyrics");
+  const barBtn = $("#lyrics-toggle");
+
+  if (fsPlayer) fsPlayer.classList.toggle("has-lyrics", state.lyricsOpen);
+  if (panel) panel.setAttribute("aria-hidden", state.lyricsOpen ? "false" : "true");
+
+  if (fsBtn) {
+    fsBtn.classList.toggle("active", state.lyricsOpen);
+    fsBtn.setAttribute("aria-pressed", state.lyricsOpen ? "true" : "false");
+  }
+  if (barBtn) {
+    const barActive = state.fullscreen && state.lyricsOpen;
+    barBtn.classList.toggle("active", barActive);
+    barBtn.setAttribute("aria-pressed", barActive ? "true" : "false");
+  }
+}
+
+function setLyricsOpen(open) {
+  state.lyricsOpen = Boolean(open);
+  localStorage.setItem("melodown.lyrics", state.lyricsOpen ? "1" : "0");
+  updateLyricsUI();
+
+  if (state.lyricsOpen) {
+    exitZen({ restart: false });
+    clearZenTimer();
+    const track = currentTrack();
+    if (track) ensureTrackLyrics(track);
+    else renderLyrics();
+    requestAnimationFrame(() => syncLyricsProgress(true));
+    setTimeout(() => {
+      if (state.lyricsOpen) syncLyricsProgress(true);
+    }, 260);
+  } else {
+    scheduleZen();
+  }
+}
+
+function toggleLyricsFromBar() {
+  if (!state.fullscreen) {
+    setLyricsOpen(true);
+    setFullscreen(true);
+    return;
+  }
+  setLyricsOpen(!state.lyricsOpen);
+}
+
+async function ensureTrackLyrics(track, { refresh = false } = {}) {
+  if (!track) {
+    state.lyricsPath = null;
+    state.lyricsLoading = false;
+    state.lyricsData = null;
+    state.lyricsActiveIndex = -1;
+    renderLyrics();
+    return;
+  }
+
+  const path = track.relative_path;
+  if (!refresh && state.lyricsPath === path && (state.lyricsLoading || state.lyricsData)) {
+    return;
+  }
+
+  if (!refresh && LYRICS_CACHE.has(path)) {
+    state.lyricsPath = path;
+    state.lyricsLoading = false;
+    state.lyricsData = LYRICS_CACHE.get(path);
+    state.lyricsActiveIndex = -1;
+    state.lyricsUserScrollUntil = 0;
+    renderLyrics();
+    return;
+  }
+
+  const token = ++state.lyricsToken;
+  state.lyricsPath = path;
+  state.lyricsLoading = true;
+  state.lyricsData = null;
+  state.lyricsActiveIndex = -1;
+  state.lyricsUserScrollUntil = 0;
+  renderLyrics();
+
+  try {
+    const query = `/api/lyrics?path=${encodeURIComponent(path)}${refresh ? "&refresh=true" : ""}`;
+    const data = await api(query);
+    if (token !== state.lyricsToken) return;
+    state.lyricsLoading = false;
+    state.lyricsData = data;
+    if (data && data.found) rememberLyrics(path, data);
+    renderLyrics();
+  } catch {
+    if (token !== state.lyricsToken) return;
+    state.lyricsLoading = false;
+    state.lyricsData = {
+      path,
+      found: false,
+      error: true,
+      synced: false,
+      instrumental: false,
+      lines: [],
+    };
+    renderLyrics();
+  }
+}
+
+const LYRICS_SOURCE_LABELS = {
+  lrclib: "lyrics.source.lrclib",
+  description: "lyrics.source.description",
+  "lyrics.ovh": "lyrics.source.ovh",
+  lrc: "lyrics.source.lrc",
+  embedded: "lyrics.source.embedded",
+};
+
+function lyricsSourceLabel(source) {
+  const key = LYRICS_SOURCE_LABELS[source];
+  return key ? t(key) : "";
+}
+
+function lyricsFileName(track) {
+  const source = String(track?.relative_path || track?.path || "");
+  const name = source.split(/[\\/]/).pop();
+  const base = name ? name.replace(/\.[^.]+$/, "") : "";
+  return `${base || "track"}.lrc`;
+}
+
+function renderLyrics() {
+  const content = $("#fs-lyrics-content");
+  const viewport = $("#fs-lyrics-viewport");
+  if (!content) return;
+
+  const track = currentTrack();
+  const showState = (html) => {
+    content.classList.add("is-state");
+    content.setAttribute("role", "status");
+    if (viewport) {
+      viewport.classList.add("is-state");
+      viewport.scrollTop = 0;
+    }
+    content.innerHTML = html;
+  };
+
+  if (!track) {
+    showState(`
+      <div class="lyrics-empty">
+        <p class="lyrics-empty-title">${esc(t("lyrics.noTrack"))}</p>
+        <p class="lyrics-empty-text">${esc(t("lyrics.noTrackHint"))}</p>
+      </div>
+    `);
+    return;
+  }
+
+  if (state.lyricsLoading) {
+    showState(`
+      <div class="lyrics-skeleton" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <p class="lyrics-skeleton-note">${esc(t("lyrics.loading"))}</p>
+    `);
+    return;
+  }
+
+  const data = state.lyricsData;
+
+  if (data && data.error) {
+    showState(`
+      <div class="lyrics-empty is-error">
+        <p class="lyrics-empty-title">${esc(t("lyrics.error"))}</p>
+        <p class="lyrics-empty-text">${esc(t("lyrics.errorHint"))}</p>
+        <button class="ghost lyrics-empty-action" type="button" data-lyrics-retry="1">${esc(t("lyrics.retry"))}</button>
+      </div>
+    `);
+    return;
+  }
+
+  if (!data || !data.found) {
+    showState(`
+      <div class="lyrics-empty">
+        <p class="lyrics-empty-title">${esc(t("lyrics.notFound"))}</p>
+        <p class="lyrics-empty-text">${esc(t("lyrics.notFoundHint"))}</p>
+        <div class="lyrics-empty-file">
+          <span class="lyrics-empty-file-label">${esc(t("lyrics.notFoundFile"))}</span>
+          <code>${esc(lyricsFileName(track))}</code>
+        </div>
+        <button class="ghost lyrics-empty-action" type="button" data-lyrics-retry="1">${esc(t("lyrics.retry"))}</button>
+      </div>
+    `);
+    return;
+  }
+
+  if (data.instrumental) {
+    showState(`
+      <div class="lyrics-empty">
+        <p class="lyrics-empty-title">${esc(t("lyrics.instrumental"))}</p>
+        <p class="lyrics-empty-text">${esc(t("lyrics.instrumentalHint"))}</p>
+      </div>
+    `);
+    return;
+  }
+
+  content.classList.remove("is-state");
+  content.removeAttribute("role");
+  if (viewport) viewport.classList.remove("is-state");
+
+  if (data.synced && Array.isArray(data.lines) && data.lines.length) {
+    content.innerHTML = data.lines
+      .map((line, index) => {
+        const stamp = formatTime(line.time);
+        const text = line.text ? esc(line.text) : "♪";
+        return `
+          <button
+            type="button"
+            class="lyric-line"
+            data-lyric-index="${index}"
+            data-lyric-time="${line.time}"
+            title="${esc(t("lyrics.seekHint", { time: stamp }))}"
+          >
+            <span class="lyric-text">${text}</span>
+            <span class="lyric-time">${stamp}</span>
+          </button>
+        `;
+      })
+      .join("");
+    state.lyricsActiveIndex = -1;
+    syncLyricsProgress(true);
+    return;
+  }
+
+  const source = lyricsSourceLabel(data.source);
+  const plainLines = String(data.plain || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim());
+  content.innerHTML = `
+    <div class="lyrics-meta">
+      <span class="lyrics-plain-badge">${esc(t("lyrics.unsynced"))}</span>
+      ${source ? `<span class="lyrics-source">${esc(source)}</span>` : ""}
+    </div>
+    ${plainLines
+      .map((line) => `<p class="lyric-plain-line">${line ? esc(line) : "&nbsp;"}</p>`)
+      .join("")}
+  `;
+}
+
+function syncLyricsProgress(forceScroll = false) {
+  const data = state.lyricsData;
+  if (!data || !data.synced || !Array.isArray(data.lines) || !data.lines.length) return;
+
+  const lines = data.lines;
+  const current = (audio.currentTime || 0) + 0.08;
+
+  let activeIndex = -1;
+  for (let i = 0; i < lines.length; i += 1) {
+    if (lines[i].time <= current) activeIndex = i;
+    else break;
+  }
+
+  if (activeIndex === state.lyricsActiveIndex && !forceScroll) return;
+  state.lyricsActiveIndex = activeIndex;
+
+  const content = $("#fs-lyrics-content");
+  if (!content) return;
+
+  const nodes = content.querySelectorAll(".lyric-line");
+  nodes.forEach((node, index) => {
+    node.classList.toggle("is-active", index === activeIndex);
+    node.classList.toggle("is-past", activeIndex >= 0 && index < activeIndex);
+  });
+
+  if (!state.fullscreen || !state.lyricsOpen || activeIndex < 0) return;
+  if (!forceScroll && performance.now() < state.lyricsUserScrollUntil) return;
+
+  const viewport = $("#fs-lyrics-viewport");
+  const activeNode = nodes[activeIndex];
+  if (!viewport || !activeNode) return;
+
+  const targetTop =
+    activeNode.offsetTop - viewport.clientHeight / 2 + activeNode.offsetHeight / 2;
+  viewport.scrollTo({
+    top: Math.max(0, targetTop),
+    behavior: "smooth",
+  });
 }
 
 /* ---------- визуализация полноэкранного плеера ---------- */
@@ -1206,6 +1558,7 @@ function visualTick(now) {
   if (now - vis.updatedAt >= 40) {
     vis.updatedAt = now;
     updateAudioLevels();
+    if (state.lyricsOpen) syncLyricsProgress();
   }
 
   ambientTick(now);
@@ -1267,6 +1620,11 @@ function syncFullscreen() {
   $("#fullscreen-player").classList.toggle("playing", state.playing);
   $("#fs-shuffle").classList.toggle("active", state.shuffle);
   updateRepeatUI();
+  updateLyricsUI();
+  if (state.lyricsOpen) {
+    if (track) ensureTrackLyrics(track);
+    else renderLyrics();
+  }
   $("#fs-total-time").textContent = formatTime(audio.duration);
   updateTimeline();
 }
@@ -1278,6 +1636,7 @@ function setFullscreen(open) {
   const node = $("#fullscreen-player");
   node.classList.toggle("is-open", open);
   node.setAttribute("aria-hidden", open ? "false" : "true");
+  updateLyricsUI();
 
   if (open) {
     node.removeAttribute("inert");
@@ -1306,13 +1665,13 @@ function clearZenTimer() {
 /** Перезапускает отсчёт до «Дзена». Тикает только в полноэкранном плеере и пока играет музыка. */
 function scheduleZen() {
   clearZenTimer();
-  if (!state.fullscreen || !state.playing || document.hidden) return;
+  if (!state.fullscreen || !state.playing || state.lyricsOpen || document.hidden) return;
   state.zenTimer = setTimeout(enterZen, ZEN_IDLE_MS);
 }
 
 function enterZen() {
   state.zenTimer = null;
-  if (state.zen || !state.fullscreen || !state.playing || document.hidden) return;
+  if (state.zen || !state.fullscreen || !state.playing || state.lyricsOpen || document.hidden) return;
   // не прячем интерфейс, пока открыто контекстное меню трека
   if (trackMenu) {
     scheduleZen();
@@ -1490,6 +1849,7 @@ function updateTimeline() {
   const ratio = duration ? current / duration : 0;
 
   renderTimeline(ratio, current);
+  if (state.fullscreen && state.lyricsOpen) syncLyricsProgress();
 }
 
 /** Общая громкость: синхронизирует ползунки и кнопки звука в обоих плеерах. */
@@ -2420,6 +2780,41 @@ function bindEvents() {
   $("#fs-prev").addEventListener("click", prevTrack);
   $("#fs-shuffle").addEventListener("click", toggleShuffle);
   $("#fs-repeat").addEventListener("click", cycleRepeat);
+  $("#fs-lyrics").addEventListener("click", () => setLyricsOpen(!state.lyricsOpen));
+  $("#lyrics-toggle").addEventListener("click", toggleLyricsFromBar);
+
+  $("#fs-lyrics-content").addEventListener("click", (event) => {
+    const retryBtn = event.target.closest("[data-lyrics-retry]");
+    if (retryBtn) {
+      const track = currentTrack();
+      if (track) ensureTrackLyrics(track, { refresh: true });
+      return;
+    }
+
+    const lineBtn = event.target.closest(".lyric-line[data-lyric-time]");
+    if (!lineBtn) return;
+
+    const time = Number(lineBtn.dataset.lyricTime);
+    if (!Number.isFinite(time)) return;
+
+    state.lyricsUserScrollUntil = 0;
+    audio.currentTime = time;
+    if (audio.paused && audio.src) {
+      audio.play().catch(() => {});
+    }
+    updateTimeline();
+    syncLyricsProgress(true);
+  });
+
+  for (const type of ["wheel", "touchmove"]) {
+    $("#fs-lyrics-viewport").addEventListener(
+      type,
+      () => {
+        state.lyricsUserScrollUntil = performance.now() + 3500;
+      },
+      { passive: true },
+    );
+  }
 
   bindSeek($("#seek"));
   bindSeek($("#fs-seek"));
@@ -2508,6 +2903,8 @@ function bindEvents() {
       nextTrack();
     } else if (event.code === "KeyP") {
       prevTrack();
+    } else if (event.code === "KeyL") {
+      toggleLyricsFromBar();
     }
   });
 }

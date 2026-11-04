@@ -402,6 +402,23 @@
 
       <div class="player-right">
         <button
+          id="lyrics-toggle"
+          class="icon-btn small"
+          type="button"
+          data-i18n-title="player.lyrics"
+          data-i18n-aria-label="player.lyrics"
+          title="Текст песни"
+          aria-label="Текст песни"
+          aria-pressed="false"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 6h16M4 12h10M4 18h7" />
+            <path d="M18 14v6" />
+            <circle cx="16" cy="20" r="2" />
+            <path d="m18 14 3-1v2l-3 1" />
+          </svg>
+        </button>
+        <button
           id="mute"
           class="icon-btn small"
           type="button"
@@ -463,126 +480,157 @@
       </header>
 
       <div class="fs-body">
-        <div class="cover fs-cover">
-          <span class="cover-note">♪</span>
-          <img id="fs-cover" alt="" />
-        </div>
-
-        <div class="fs-details">
-          <div class="fs-meta">
-            <h2 id="fs-title">Ничего не играет</h2>
-            <p id="fs-artist">Выберите трек в библиотеке</p>
-            <p id="fs-album" class="fs-album"></p>
+        <div class="fs-stage">
+          <div class="cover fs-cover">
+            <span class="cover-note">♪</span>
+            <img id="fs-cover" alt="" />
           </div>
 
-          <div class="fs-progress">
-          <input
-            id="fs-seek"
-            type="range"
-            min="0"
-            max="1000"
-            value="0"
-            step="1"
-            data-i18n-aria-label="player.position"
-            aria-label="Позиция"
-          />
-          <div class="fs-times">
-            <span id="fs-current-time">0:00</span>
-            <span id="fs-total-time">0:00</span>
+          <div class="fs-details">
+            <div class="fs-meta">
+              <h2 id="fs-title">Ничего не играет</h2>
+              <p id="fs-artist">Выберите трек в библиотеке</p>
+              <p id="fs-album" class="fs-album"></p>
+            </div>
+
+            <div class="fs-progress">
+              <input
+                id="fs-seek"
+                type="range"
+                min="0"
+                max="1000"
+                value="0"
+                step="1"
+                data-i18n-aria-label="player.position"
+                aria-label="Позиция"
+              />
+              <div class="fs-times">
+                <span id="fs-current-time">0:00</span>
+                <span id="fs-total-time">0:00</span>
+              </div>
+            </div>
+
+            <div class="fs-controls">
+              <button
+                id="fs-shuffle"
+                class="icon-btn small"
+                type="button"
+                data-i18n-title="player.shuffle"
+                title="Перемешать"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
+                </svg>
+              </button>
+              <button
+                id="fs-prev"
+                class="icon-btn"
+                type="button"
+                data-i18n-title="player.prev"
+                title="Предыдущий"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" class="filled">
+                  <path d="M19 20 9 12l10-8v16zM5 4v16h2V4z" />
+                </svg>
+              </button>
+              <button
+                id="fs-play"
+                class="play-btn fs-play-btn"
+                type="button"
+                data-i18n-title="player.play"
+                title="Играть"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-play filled">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-pause filled">
+                  <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" />
+                </svg>
+              </button>
+              <button
+                id="fs-next"
+                class="icon-btn"
+                type="button"
+                data-i18n-title="player.next"
+                title="Следующий"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" class="filled">
+                  <path d="M5 4l10 8-10 8V4zM17 4h2v16h-2z" />
+                </svg>
+              </button>
+              <button
+                id="fs-repeat"
+                class="icon-btn small"
+                type="button"
+                data-i18n-title="player.repeatOff"
+                title="Повтор выключен"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" />
+                </svg>
+                <span class="repeat-one">1</span>
+              </button>
+              <button
+                id="fs-lyrics"
+                class="icon-btn small"
+                type="button"
+                data-i18n-title="player.lyrics"
+                data-i18n-aria-label="player.lyrics"
+                title="Текст песни"
+                aria-label="Текст песни"
+                aria-pressed="false"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 6h16M4 12h10M4 18h7" />
+                  <path d="M18 14v6" />
+                  <circle cx="16" cy="20" r="2" />
+                  <path d="m18 14 3-1v2l-3 1" />
+                </svg>
+              </button>
+            </div>
+
+            <div class="fs-volume">
+              <button
+                id="fs-mute"
+                class="icon-btn small"
+                type="button"
+                data-i18n-title="player.sound"
+                title="Звук"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-volume">
+                  <path d="M11 5 6 9H2v6h4l5 4V5z" />
+                  <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+                </svg>
+                <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-muted">
+                  <path d="M11 5 6 9H2v6h4l5 4V5z" />
+                  <path d="m16 9 5 6M21 9l-5 6" />
+                </svg>
+              </button>
+              <input
+                id="fs-volume"
+                type="range"
+                min="0"
+                max="100"
+                value="80"
+                step="1"
+                data-i18n-aria-label="player.volume"
+                aria-label="Громкость"
+              />
+            </div>
           </div>
         </div>
 
-        <div class="fs-controls">
-          <button
-            id="fs-shuffle"
-            class="icon-btn small"
-            type="button"
-            data-i18n-title="player.shuffle"
-            title="Перемешать"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
-            </svg>
-          </button>
-          <button
-            id="fs-prev"
-            class="icon-btn"
-            type="button"
-            data-i18n-title="player.prev"
-            title="Предыдущий"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" class="filled">
-              <path d="M19 20 9 12l10-8v16zM5 4v16h2V4z" />
-            </svg>
-          </button>
-          <button
-            id="fs-play"
-            class="play-btn fs-play-btn"
-            type="button"
-            data-i18n-title="player.play"
-            title="Играть"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-play filled">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-pause filled">
-              <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" />
-            </svg>
-          </button>
-          <button
-            id="fs-next"
-            class="icon-btn"
-            type="button"
-            data-i18n-title="player.next"
-            title="Следующий"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" class="filled">
-              <path d="M5 4l10 8-10 8V4zM17 4h2v16h-2z" />
-            </svg>
-          </button>
-          <button
-            id="fs-repeat"
-            class="icon-btn small"
-            type="button"
-            data-i18n-title="player.repeatOff"
-            title="Повтор выключен"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M17 2l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 22l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" />
-            </svg>
-            <span class="repeat-one">1</span>
-          </button>
-        </div>
-
-        <div class="fs-volume">
-          <button
-            id="fs-mute"
-            class="icon-btn small"
-            type="button"
-            data-i18n-title="player.sound"
-            title="Звук"
-          >
-            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-volume">
-              <path d="M11 5 6 9H2v6h4l5 4V5z" />
-              <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
-            </svg>
-            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-muted">
-              <path d="M11 5 6 9H2v6h4l5 4V5z" />
-              <path d="m16 9 5 6M21 9l-5 6" />
-            </svg>
-          </button>
-          <input
-            id="fs-volume"
-            type="range"
-            min="0"
-            max="100"
-            value="80"
-            step="1"
-            data-i18n-aria-label="player.volume"
-            aria-label="Громкость"
-          />
+        <aside
+          id="fs-lyrics-panel"
+          class="fs-lyrics"
+          data-i18n-aria-label="player.lyrics"
+          aria-label="Текст песни"
+          aria-hidden="true"
+        >
+          <div class="fs-lyrics-viewport" id="fs-lyrics-viewport">
+            <div class="fs-lyrics-content" id="fs-lyrics-content"></div>
           </div>
-        </div>
+        </aside>
       </div>
     </div>
 

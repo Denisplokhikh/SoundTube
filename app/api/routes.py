@@ -19,7 +19,7 @@ from app.core.sync_export import build_export, export_target
 from app.core.tagging import guess_image_mime
 from app.core.updates import check_for_update
 from app.db import get_session
-from app.models import Job, Playlist, PlaylistTrack, Track
+from app.models import Job, LibrarySource, Playlist, PlaylistTrack, Track
 from app.platforms import ResolveError, UnsupportedURL, detect_platform, resolve
 from app.schemas import (
     ImportRequest,
@@ -41,13 +41,21 @@ router = APIRouter(prefix="/api")
 MAX_JOBS = 100
 MAX_LIBRARY_ENTRIES = 5000
 
+# Версия HTTP-API. Desktop-оболочка сверяет её с API_REVISION в
+# src-tauri/src/lib.rs и не переиспользует сервер с другим значением:
+# иначе новый интерфейс открывается поверх старого бэкенда без нужных роутов.
+# Меняйте вместе с константой в lib.rs.
+API_REVISION = 4
+
 
 @router.get("/health")
 async def health() -> dict:
     return {
         "status": "ok",
         "version": __version__,
+        "api": API_REVISION,
         "music_dir": str(settings.music_dir),
+        "data_dir": str(settings.data_dir),
         "queue_running": runner.running,
     }
 
@@ -266,13 +274,23 @@ async def artwork(path: str) -> Response:
 
 
 @router.get("/lyrics", response_model=LyricsResponse)
-async def lyrics(path: str, refresh: bool = False) -> LyricsResponse:
-    """Возвращает текст песни (синхронный `.lrc` или обычный) с диска либо из LRCLIB."""
+async def lyrics(
+    path: str,
+    refresh: bool = False,
+    session: AsyncSession = Depends(get_session),
+) -> LyricsResponse:
+    """Возвращает текст песни (синхронный `.lrc` или обычный) с диска либо из сети."""
     file = resolve_track_path(path)
     if file is None:
         raise HTTPException(status_code=404, detail="Файл не найден")
 
-    result = await get_track_lyrics(file, path, refresh=refresh)
+    source = await session.get(LibrarySource, path)
+    result = await get_track_lyrics(
+        file,
+        path,
+        refresh=refresh,
+        source_url=source.source_url if source is not None else None,
+    )
     return LyricsResponse.model_validate(result)
 
 

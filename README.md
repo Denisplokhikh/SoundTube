@@ -54,6 +54,7 @@ Paste a link — a single track, a 300-song playlist, a SoundCloud set — and i
 - 🎚️ **Formats on your terms** — Keep the original stream, or convert to MP3, M4A, Opus or FLAC.
 - 🔁 **No duplicates** — Every track is tracked by its source URL. Already downloaded? It gets skipped, not downloaded twice.
 - 🌈 **Living artwork** — A full-screen player whose waves borrow the palette from the cover and pulse with the beat.
+- 📝 **Lyrics that follow the song** — Synced lyrics come from LRCLIB and are cached as a `.lrc` next to the audio; if nothing is found, the app falls back to the track description on SoundCloud/YouTube (underground uploads often carry the full text there) and then to lyrics.ovh. Open the two-column full-screen view, click any line to jump to that moment (`L` toggles it).
 - 🔄 **Library everywhere** — Export the whole library as one JSON file and import it on Android: same tracks and playlists, downloaded fresh on the phone. No PC needed afterwards.
 - 🌐 **Two languages** — The interface speaks Russian and English; flip it with the globe button in the top-right corner.
 - 🐳 **Docker, if that's your thing** — `docker compose up --build` and you have the same library on a home server.
