@@ -24,6 +24,13 @@ use tauri_plugin_shell::{
 const HOST: &str = "127.0.0.1";
 const DEFAULT_PORT: u16 = 8765;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(90);
+/// Версия HTTP-API. Должна совпадать с API_REVISION в app/api/routes.py:
+/// иначе новый интерфейс может открыться поверх старого сервера на том же
+/// порту (например, забытого `uv run uvicorn` из репозитория), и запросы
+/// к новым ручкам будут отдавать 404.
+const API_REVISION: u32 = 4;
+/// Сколько портов после основного пробовать, если он занят чужим сервером.
+const PORT_PROBES: u16 = 20;
 
 enum ServerProcess {
     Sidecar(CommandChild),
@@ -33,6 +40,7 @@ enum ServerProcess {
 #[derive(Default)]
 struct ServerState {
     child: Mutex<Option<ServerProcess>>,
+    port: Mutex<Option<u16>>,
 }
 
 fn port() -> u16 {
@@ -42,30 +50,98 @@ fn port() -> u16 {
         .unwrap_or(DEFAULT_PORT)
 }
 
-fn health_ok(port: u16) -> bool {
-    let Ok(address) = format!("{HOST}:{port}").parse::<SocketAddr>() else {
-        return false;
-    };
-    let Ok(mut stream) = TcpStream::connect_timeout(&address, Duration::from_millis(400)) else {
-        return false;
-    };
+/// Запрашивает `/api/health` и возвращает тело ответа, если сервер ответил 200.
+fn health_body(port: u16) -> Option<String> {
+    let address = format!("{HOST}:{port}").parse::<SocketAddr>().ok()?;
+    let mut stream = TcpStream::connect_timeout(&address, Duration::from_millis(400)).ok()?;
     let _ = stream.set_read_timeout(Some(Duration::from_millis(900)));
     let _ = stream.set_write_timeout(Some(Duration::from_millis(900)));
 
     let request =
         format!("GET /api/health HTTP/1.1\r\nHost: {HOST}:{port}\r\nConnection: close\r\n\r\n");
-    if stream.write_all(request.as_bytes()).is_err() {
-        return false;
+    stream.write_all(request.as_bytes()).ok()?;
+
+    let mut response = Vec::new();
+    let mut chunk = [0u8; 512];
+    loop {
+        match stream.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(read) => {
+                response.extend_from_slice(&chunk[..read]);
+                if response.len() >= 4096 {
+                    break;
+                }
+            }
+            Err(_) => break,
+        }
     }
 
-    let mut buffer = [0u8; 32];
-    match stream.read(&mut buffer) {
-        Ok(read) if read > 0 => {
-            let head = String::from_utf8_lossy(&buffer[..read]);
-            head.starts_with("HTTP/1.1 200") || head.starts_with("HTTP/1.0 200")
-        }
-        _ => false,
+    let text = String::from_utf8_lossy(&response).into_owned();
+    (text.starts_with("HTTP/1.1 200") || text.starts_with("HTTP/1.0 200")).then_some(text)
+}
+
+fn health_ok(port: u16) -> bool {
+    health_body(port).is_some_and(|body| body.contains(&format!("\"api\":{API_REVISION}")))
+}
+
+fn expected_data_dir(app: &AppHandle) -> Option<String> {
+    app.path()
+        .app_local_data_dir()
+        .ok()
+        .map(|dir| dir.join("data").to_string_lossy().into_owned())
+}
+
+fn json_escape(value: &str) -> String {
+    value.replace('\\', "\\\\").replace('"', "\\\"")
+}
+
+/// Проверяет, что на порту крутится совместимый сервер этого же приложения.
+///
+/// В dev-сборке достаточно совпадения версии API — так `npm run desktop`
+/// подхватывает запущенный uvicorn с горячей перезагрузкой. В release
+/// дополнительно сверяем каталог данных, чтобы не открыть чужую копию
+/// (например, сервер из репозитория) поверх установленного приложения.
+fn server_is_compatible(app: &AppHandle, port: u16) -> bool {
+    let Some(body) = health_body(port) else {
+        return false;
+    };
+    if !body.contains(&format!("\"api\":{API_REVISION}")) {
+        return false;
     }
+    if cfg!(debug_assertions) {
+        return true;
+    }
+    expected_data_dir(app).is_some_and(|dir| body.contains(&json_escape(&dir)))
+}
+
+fn port_free(port: u16) -> bool {
+    format!("{HOST}:{port}")
+        .parse::<SocketAddr>()
+        .map(|address| TcpStream::connect_timeout(&address, Duration::from_millis(250)).is_err())
+        .unwrap_or(false)
+}
+
+/// Возвращает свободный порт: основной, если он пуст, иначе следующий по порядку.
+fn pick_port(preferred: u16) -> u16 {
+    if port_free(preferred) {
+        return preferred;
+    }
+    (1..=PORT_PROBES)
+        .map(|offset| preferred.saturating_add(offset))
+        .find(|candidate| port_free(*candidate))
+        .unwrap_or(preferred)
+}
+
+fn set_active_port(app: &AppHandle, port: u16) {
+    *app.state::<ServerState>().port.lock().unwrap() = Some(port);
+}
+
+fn active_port(app: &AppHandle) -> u16 {
+    app.state::<ServerState>()
+        .port
+        .lock()
+        .unwrap()
+        .unwrap_or_else(port)
 }
 
 fn log_path(app: &AppHandle) -> PathBuf {
@@ -285,7 +361,7 @@ fn show_main_window(app: &AppHandle) {
             let _ = window.unminimize();
             let _ = window.set_focus();
         }
-        None => open_window(app, port()),
+        None => open_window(app, active_port(app)),
     }
 }
 
@@ -364,14 +440,26 @@ fn fail(app: &AppHandle, message: &str) {
 }
 
 fn boot(app: AppHandle) {
-    let port = port();
+    let preferred = port();
 
-    if health_ok(port) {
-        open_window(&app, port);
+    // Переиспользуем только свой сервер: чужой (устаревший или из другой
+    // копии проекта) отдаст старый API и сломает новые экраны.
+    if server_is_compatible(&app, preferred) {
+        set_active_port(&app, preferred);
+        open_window(&app, preferred);
         return;
     }
 
-    if let Err(error) = start_server(&app, port) {
+    let chosen = pick_port(preferred);
+    if chosen != preferred {
+        append_log(
+            &log_path(&app),
+            &format!("[boot] порт {preferred} занят, использую {chosen}\n"),
+        );
+    }
+    set_active_port(&app, chosen);
+
+    if let Err(error) = start_server(&app, chosen) {
         fail(
             &app,
             &format!("Не удалось запустить локальный сервер.\n\n{error}"),
@@ -381,8 +469,8 @@ fn boot(app: AppHandle) {
 
     let deadline = Instant::now() + STARTUP_TIMEOUT;
     while Instant::now() < deadline {
-        if health_ok(port) {
-            open_window(&app, port);
+        if health_ok(chosen) {
+            open_window(&app, chosen);
             return;
         }
         sleep(Duration::from_millis(300));
