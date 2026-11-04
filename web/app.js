@@ -87,6 +87,12 @@ const MESSAGES = {
     "player.mute": "Выключить звук",
     "player.unmute": "Включить звук",
     "language.switch": "Сменить язык — English",
+    "theme.label": "Тема",
+    "theme.phosphor": "Фосфор",
+    "theme.midnight": "Полночь",
+    "theme.graphite": "Графит",
+    "theme.ultraviolet": "Ультрафиолет",
+    "theme.paper": "Бумага",
     "empty.notFound": "Ничего не найдено",
     "empty.tryAnother": "Попробуйте изменить запрос.",
     "empty.playlistEmpty": "Плейлист пуст",
@@ -209,6 +215,12 @@ const MESSAGES = {
     "player.mute": "Mute",
     "player.unmute": "Unmute",
     "language.switch": "Switch language — Русский",
+    "theme.label": "Theme",
+    "theme.phosphor": "Phosphor",
+    "theme.midnight": "Midnight",
+    "theme.graphite": "Graphite",
+    "theme.ultraviolet": "Ultraviolet",
+    "theme.paper": "Paper",
     "empty.notFound": "Nothing found",
     "empty.tryAnother": "Try a different search.",
     "empty.playlistEmpty": "Playlist is empty",
@@ -263,9 +275,20 @@ const SIZE_UNITS = {
   en: ["B", "KB", "MB", "GB", "TB"],
 };
 
+/** Порядок совпадает с точками в переключателе темы. */
+const THEMES = ["phosphor", "midnight", "graphite", "ultraviolet", "paper"];
+
+// ?theme=paper — посмотреть схему по ссылке, не меняя сохранённый выбор.
+const requestedTheme = new URLSearchParams(window.location.search).get("theme");
+const storedTheme = localStorage.getItem("melodown.theme");
 
 const state = {
   lang: localStorage.getItem("melodown.lang") === "en" ? "en" : "ru",
+  theme: THEMES.includes(requestedTheme)
+    ? requestedTheme
+    : THEMES.includes(storedTheme)
+      ? storedTheme
+      : "phosphor",
   health: null,
   updateInfo: null,
   view: "library",
@@ -346,6 +369,7 @@ function applyStaticTranslations() {
 function applyLanguage() {
   document.documentElement.lang = state.lang;
   applyStaticTranslations();
+  applyTheme();
 
   const toggle = $("#lang-toggle");
   $("#lang-code").textContent = state.lang.toUpperCase();
@@ -381,6 +405,24 @@ function setLanguage(lang) {
 
 function toggleLanguage() {
   setLanguage(state.lang === "ru" ? "en" : "ru");
+}
+
+/** Палитра живёт в themes.css, здесь только выбор и запоминание. */
+function applyTheme() {
+  document.documentElement.dataset.theme = state.theme;
+  for (const button of document.querySelectorAll("[data-theme-choice]")) {
+    button.setAttribute("aria-checked", button.dataset.themeChoice === state.theme ? "true" : "false");
+  }
+  const meta = document.querySelector('meta[name="theme-color"]');
+  const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+  if (meta && bg) meta.setAttribute("content", bg);
+}
+
+function setTheme(theme) {
+  if (!THEMES.includes(theme)) return;
+  state.theme = theme;
+  localStorage.setItem("melodown.theme", theme);
+  applyTheme();
 }
 
 function setNowPlaceholders() {
@@ -2267,6 +2309,23 @@ function bindEvents() {
     }
   });
   $("#lang-toggle").addEventListener("click", toggleLanguage);
+
+  const themePicker = $(".theme-picker");
+  themePicker.addEventListener("click", (event) => {
+    const choice = event.target.closest("[data-theme-choice]");
+    if (choice) setTheme(choice.dataset.themeChoice);
+  });
+  themePicker.addEventListener("keydown", (event) => {
+    if (event.code !== "ArrowLeft" && event.code !== "ArrowRight") return;
+    const buttons = [...themePicker.querySelectorAll("[data-theme-choice]")];
+    const index = buttons.indexOf(document.activeElement);
+    if (index === -1) return;
+    event.preventDefault();
+    const step = event.code === "ArrowRight" ? 1 : -1;
+    const next = buttons[(index + step + buttons.length) % buttons.length];
+    next.focus();
+    setTheme(next.dataset.themeChoice);
+  });
 
   $("#update-badge").addEventListener("click", () => {
     showToast(t("update.opening"));

@@ -5,6 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#0b0c0b" />
     <title>SoundTube</title>
+    <!-- Тема ставится до загрузки CSS, чтобы не было вспышки чужой палитры. -->
+    <script>
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const theme = params.get("theme") || localStorage.getItem("melodown.theme");
+        if (theme) document.documentElement.dataset.theme = theme;
+      } catch (error) {}
+    </script>
+    <link rel="stylesheet" href="/themes.css" />
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -20,9 +29,9 @@
                   <stop offset="1" stop-color="#070807" />
                 </linearGradient>
                 <linearGradient id="logo-ink" x1="300" y1="280" x2="720" y2="740" gradientUnits="userSpaceOnUse">
-                  <stop offset="0" stop-color="#cbe7ad" />
-                  <stop offset="0.45" stop-color="#9dbf7f" />
-                  <stop offset="1" stop-color="#6b9054" />
+                  <stop offset="0" style="stop-color: color-mix(in srgb, var(--accent) 70%, white)" />
+                  <stop offset="0.45" style="stop-color: var(--accent)" />
+                  <stop offset="1" style="stop-color: color-mix(in srgb, var(--accent) 62%, black)" />
                 </linearGradient>
               </defs>
               <rect width="1024" height="1024" rx="228" fill="url(#logo-plate)" />
@@ -83,6 +92,72 @@
             <div class="stat">
               <span id="stat-size">0 Б</span>
               <small data-i18n="stats.onDisk">на диске</small>
+            </div>
+          </div>
+
+          <div
+            class="theme-picker"
+            role="radiogroup"
+            aria-label="Тема оформления"
+            data-i18n-aria-label="theme.label"
+          >
+            <span class="theme-label" data-i18n="theme.label">Тема</span>
+            <div class="theme-swatches">
+              <button
+                class="theme-swatch"
+                type="button"
+                role="radio"
+                aria-checked="true"
+                data-theme-choice="phosphor"
+                title="Фосфор"
+                aria-label="Фосфор"
+                data-i18n-title="theme.phosphor"
+                data-i18n-aria-label="theme.phosphor"
+              ></button>
+              <button
+                class="theme-swatch"
+                type="button"
+                role="radio"
+                aria-checked="false"
+                data-theme-choice="midnight"
+                title="Полночь"
+                aria-label="Полночь"
+                data-i18n-title="theme.midnight"
+                data-i18n-aria-label="theme.midnight"
+              ></button>
+              <button
+                class="theme-swatch"
+                type="button"
+                role="radio"
+                aria-checked="false"
+                data-theme-choice="graphite"
+                title="Графит"
+                aria-label="Графит"
+                data-i18n-title="theme.graphite"
+                data-i18n-aria-label="theme.graphite"
+              ></button>
+              <button
+                class="theme-swatch"
+                type="button"
+                role="radio"
+                aria-checked="false"
+                data-theme-choice="ultraviolet"
+                title="Ультрафиолет"
+                aria-label="Ультрафиолет"
+                data-i18n-title="theme.ultraviolet"
+                data-i18n-aria-label="theme.ultraviolet"
+              ></button>
+              <button
+                class="theme-swatch"
+                type="button"
+                role="radio"
+                aria-checked="false"
+                data-theme-choice="paper"
+                title="Бумага"
+                aria-label="Бумага"
+                data-i18n-title="theme.paper"
+                data-i18n-aria-label="theme.paper"
+              ></button>
             </div>
           </div>
 

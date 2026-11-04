@@ -1,27 +1,11 @@
 /* =========================================================
    SoundTube — терминальная тема плеера
-   Токены в :root задают оформление целиком; компоненты
-   не знают о цветах.
+   Цветовые токены — в themes.css, форма и ритм — здесь.
+   Компоненты не знают о цветах, только о переменных.
    ========================================================= */
 
 :root {
-  color-scheme: dark;
-  --bg: #0b0c0b;
-  --bg-deep: #080908;
-  --panel: #121412;
-  --panel-2: #181b18;
-  --line: #242824;
-  --line-2: #313731;
-  --text: #d7ddd2;
-  --dim: #8d978a;
-  --faint: #646e63;
-  --accent: #9dbf7f;
-  --accent-ink: #0a1006;
-  --accent-soft: rgba(157, 191, 127, 0.14);
-  --ok: #8ec98a;
-  --warn: #cdb26a;
-  --bad: #cf766f;
-
+  /* Цветовые токены живут в themes.css: пять схем, data-theme на <html>. */
   --radius: 8px;
   --radius-sm: 6px;
   --player-height: 78px;
@@ -217,6 +201,56 @@ svg.filled {
 .stat small {
   color: var(--faint);
   font-size: 11px;
+}
+
+/* ---------- переключатель темы ---------- */
+
+.theme-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 8px 0;
+}
+
+.theme-label {
+  color: var(--faint);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.theme-swatches {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.theme-swatch {
+  width: 12px;
+  height: 12px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--swatch, var(--faint));
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.theme-swatch:hover {
+  transform: scale(1.18);
+}
+
+.theme-swatch[aria-checked="true"] {
+  box-shadow:
+    0 0 0 2px var(--bg-deep),
+    0 0 0 3px var(--text);
+}
+
+.theme-swatch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 /* ---------- плейлисты в сайдбаре ---------- */
@@ -841,7 +875,7 @@ svg.filled {
 }
 
 .row-action.danger:hover {
-  background: rgba(217, 111, 111, 0.16);
+  background: var(--bad-soft);
   color: var(--bad);
 }
 
@@ -864,7 +898,7 @@ svg.filled {
   border: 1px solid var(--line-2);
   border-radius: var(--radius);
   background: var(--panel-2);
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-menu);
   animation: menu-in 0.12s ease;
 }
 
@@ -916,7 +950,7 @@ svg.filled {
 }
 
 .menu-item.danger:hover {
-  background: rgba(217, 111, 111, 0.14);
+  background: var(--bad-soft);
 }
 
 .menu-sep {
@@ -1475,7 +1509,7 @@ input[type="range"]::-moz-range-thumb {
   margin: calc(var(--size, 64vmax) / -2) 0 0 calc(var(--size, 64vmax) / -2);
   border-radius: 50%;
   background: currentColor;
-  color: #5f7f4f;
+  color: var(--accent);
   opacity: 0.2;
   -webkit-mask-image: radial-gradient(
     closest-side,
@@ -1509,12 +1543,6 @@ input[type="range"]::-moz-range-thumb {
 
 .fs-blob[data-tone="4"] {
   --size: 50vmax;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .fullscreen .fs-cover {
-    scale: 1;
-  }
 }
 
 .fs-head {
@@ -1569,10 +1597,9 @@ input[type="range"]::-moz-range-thumb {
   border-radius: var(--radius);
   border-color: var(--line-2);
   box-shadow:
-    0 26px 64px rgba(0, 0, 0, 0.45),
-    0 0 calc(26px + var(--pulse, 0) * 78px) var(--glow, transparent),
+    var(--shadow-cover),
+    0 0 26px var(--glow, transparent),
     0 1px 0 rgba(255, 255, 255, 0.05) inset;
-  scale: calc(1 + var(--pulse, 0) * 0.016);
   transition:
     transform 0.7s cubic-bezier(0.22, 0.75, 0.24, 1),
     box-shadow 0.12s linear;
@@ -1671,7 +1698,7 @@ input[type="range"]::-moz-range-thumb {
   width: clamp(56px, 8.5vh, 72px);
   height: clamp(56px, 8.5vh, 72px);
   margin: 0 6px;
-  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.28);
+  box-shadow: var(--shadow-fs);
 }
 
 .fs-play-btn svg {
@@ -1754,8 +1781,8 @@ input[type="range"]::-moz-range-thumb {
 .fullscreen.is-zen .fs-cover {
   transform: scale(1.08);
   box-shadow:
-    0 34px 88px rgba(0, 0, 0, 0.55),
-    0 0 calc(30px + var(--pulse, 0) * 90px) var(--glow, transparent),
+    var(--shadow-cover-zen),
+    0 0 30px var(--glow, transparent),
     0 1px 0 rgba(255, 255, 255, 0.06) inset;
 }
 
@@ -1818,7 +1845,7 @@ input[type="range"]::-moz-range-thumb {
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(4, 6, 4, 0.62);
+  background: var(--backdrop);
   -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   opacity: 0;
@@ -1840,11 +1867,11 @@ input[type="range"]::-moz-range-thumb {
   border: 1px solid var(--line-2);
   border-radius: 14px;
   background:
-    radial-gradient(120% 90% at 0% 0%, rgba(157, 191, 127, 0.09), transparent 58%),
-    linear-gradient(180deg, #191d18 0%, var(--panel) 100%);
+    radial-gradient(120% 90% at 0% 0%, var(--accent-soft), transparent 58%),
+    linear-gradient(180deg, var(--panel-2) 0%, var(--panel) 100%);
   box-shadow:
-    0 28px 70px rgba(0, 0, 0, 0.58),
-    0 0 0 1px rgba(157, 191, 127, 0.04);
+    var(--shadow-dialog),
+    0 0 0 1px color-mix(in srgb, var(--accent) 4%, transparent);
   overflow: hidden;
   transform: translateY(10px) scale(0.985);
   transition: transform 0.2s cubic-bezier(0.22, 0.75, 0.24, 1);
@@ -1967,7 +1994,7 @@ input[type="range"]::-moz-range-thumb {
 
 .dialog-input-wrap.has-error {
   border-color: var(--bad);
-  box-shadow: 0 0 0 3px rgba(207, 118, 111, 0.16);
+  box-shadow: 0 0 0 3px var(--bad-soft);
 }
 
 .dialog-input-wrap svg {
@@ -2101,6 +2128,14 @@ input[type="range"]::-moz-range-thumb {
   .brand-sub,
   .sidebar-stats,
   .sidebar-foot {
+    display: none;
+  }
+
+  .theme-picker {
+    padding: 0;
+  }
+
+  .theme-label {
     display: none;
   }
 

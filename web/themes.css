@@ -1,0 +1,172 @@
+/* =========================================================
+   SoundTube — пять цветовых схем
+   Меняются только цветовые токены (<html data-theme="…">).
+   Форма, ритм и типографика остаются прежними.
+   ========================================================= */
+
+:root,
+:root[data-theme="phosphor"] {
+  color-scheme: dark;
+  --bg: #0b0c0b;
+  --bg-deep: #080908;
+  --panel: #121412;
+  --panel-2: #181b18;
+  --line: #242824;
+  --line-2: #313731;
+  --text: #d7ddd2;
+  --dim: #8d978a;
+  --faint: #646e63;
+  --accent: #9dbf7f;
+  --accent-ink: #0a1006;
+  --accent-soft: rgba(157, 191, 127, 0.14);
+  --ok: #8ec98a;
+  --warn: #cdb26a;
+  --bad: #cf766f;
+  --bad-soft: rgba(207, 118, 111, 0.16);
+  --backdrop: rgba(4, 6, 4, 0.62);
+  --shadow-menu: 0 18px 44px rgba(0, 0, 0, 0.45);
+  --shadow-fs: 0 10px 26px rgba(0, 0, 0, 0.28);
+  --shadow-cover: 0 26px 64px rgba(0, 0, 0, 0.45);
+  --shadow-cover-zen: 0 34px 88px rgba(0, 0, 0, 0.55);
+  --shadow-dialog: 0 28px 70px rgba(0, 0, 0, 0.58);
+}
+
+/* Тёплая лампа в тёмной комнате: синий графит + янтарь. */
+:root[data-theme="midnight"] {
+  color-scheme: dark;
+  --bg: #0a0c12;
+  --bg-deep: #06080d;
+  --panel: #10131c;
+  --panel-2: #171b26;
+  --line: #232837;
+  --line-2: #303748;
+  --text: #d9dfec;
+  --dim: #8d96ab;
+  --faint: #656e83;
+  --accent: #e8a35f;
+  --accent-ink: #1b1207;
+  --accent-soft: rgba(232, 163, 95, 0.14);
+  --ok: #7ec9a6;
+  --warn: #d9bd6a;
+  --bad: #e37d75;
+  --bad-soft: rgba(227, 125, 117, 0.16);
+  --backdrop: rgba(3, 5, 10, 0.64);
+  --shadow-menu: 0 18px 44px rgba(0, 0, 0, 0.45);
+  --shadow-fs: 0 10px 26px rgba(0, 0, 0, 0.28);
+  --shadow-cover: 0 26px 64px rgba(0, 0, 0, 0.45);
+  --shadow-cover-zen: 0 34px 88px rgba(0, 0, 0, 0.55);
+  --shadow-dialog: 0 28px 70px rgba(0, 0, 0, 0.58);
+}
+
+/* Ахроматика без акцента: графит и костяной белок. */
+:root[data-theme="graphite"] {
+  color-scheme: dark;
+  --bg: #0d0d0e;
+  --bg-deep: #090909;
+  --panel: #141415;
+  --panel-2: #1b1b1d;
+  --line: #28282b;
+  --line-2: #353539;
+  --text: #e4e3df;
+  --dim: #97968f;
+  --faint: #6c6b66;
+  --accent: #d9d2c3;
+  --accent-ink: #171613;
+  --accent-soft: rgba(217, 210, 195, 0.12);
+  --ok: #93bd93;
+  --warn: #cbb078;
+  --bad: #d0837d;
+  --bad-soft: rgba(208, 131, 125, 0.16);
+  --backdrop: rgba(6, 6, 7, 0.62);
+  --shadow-menu: 0 18px 44px rgba(0, 0, 0, 0.45);
+  --shadow-fs: 0 10px 26px rgba(0, 0, 0, 0.28);
+  --shadow-cover: 0 26px 64px rgba(0, 0, 0, 0.45);
+  --shadow-cover-zen: 0 34px 88px rgba(0, 0, 0, 0.55);
+  --shadow-dialog: 0 28px 70px rgba(0, 0, 0, 0.58);
+}
+
+/* Ночной клуб: сливовый чёрный и орхидея. */
+:root[data-theme="ultraviolet"] {
+  color-scheme: dark;
+  --bg: #0b0811;
+  --bg-deep: #07050c;
+  --panel: #130f1d;
+  --panel-2: #1a1526;
+  --line: #271f36;
+  --line-2: #342a47;
+  --text: #e0d9ea;
+  --dim: #9a90ad;
+  --faint: #6f6583;
+  --accent: #c08cff;
+  --accent-ink: #150726;
+  --accent-soft: rgba(192, 140, 255, 0.15);
+  --ok: #7fc9ab;
+  --warn: #d7b56c;
+  --bad: #e17a94;
+  --bad-soft: rgba(225, 122, 148, 0.16);
+  --backdrop: rgba(5, 3, 9, 0.64);
+  --shadow-menu: 0 18px 44px rgba(0, 0, 0, 0.45);
+  --shadow-fs: 0 10px 26px rgba(0, 0, 0, 0.28);
+  --shadow-cover: 0 26px 64px rgba(0, 0, 0, 0.45);
+  --shadow-cover-zen: 0 34px 88px rgba(0, 0, 0, 0.55);
+  --shadow-dialog: 0 28px 70px rgba(0, 0, 0, 0.58);
+}
+
+/* Светлая схема: тёплая бумага и терракота. */
+:root[data-theme="paper"] {
+  color-scheme: light;
+  --bg: #f4efe5;
+  --bg-deep: #ebe5d8;
+  --panel: #fbf7ef;
+  --panel-2: #f0e9dc;
+  --line: #ded5c3;
+  --line-2: #cabfaa;
+  --text: #26231c;
+  --dim: #5f584b;
+  --faint: #756c5c;
+  --accent: #a8542f;
+  --accent-ink: #fff6ee;
+  --accent-soft: rgba(168, 84, 47, 0.12);
+  --ok: #3f7a4e;
+  --warn: #8f6418;
+  --bad: #a83b33;
+  --bad-soft: rgba(168, 59, 51, 0.12);
+  --backdrop: rgba(58, 48, 34, 0.28);
+  --shadow-menu: 0 18px 44px rgba(74, 56, 34, 0.18);
+  --shadow-fs: 0 10px 26px rgba(74, 56, 34, 0.14);
+  --shadow-cover: 0 26px 64px rgba(74, 56, 34, 0.2);
+  --shadow-cover-zen: 0 34px 88px rgba(74, 56, 34, 0.24);
+  --shadow-dialog: 0 28px 70px rgba(58, 42, 24, 0.24);
+}
+
+/* На светлом фоне «screen» вымывает цвет — пятна работают как акварель. */
+:root[data-theme="paper"] .fs-aurora {
+  mix-blend-mode: multiply;
+  opacity: calc(0.3 + var(--energy, 0) * 0.4);
+}
+
+:root[data-theme="paper"] .fullscreen.is-zen .fs-aurora {
+  opacity: calc(0.4 + var(--energy, 0) * 0.35);
+}
+
+/* ---------- образцы в переключателе темы ---------- */
+
+.theme-swatch[data-theme-choice="phosphor"] {
+  --swatch: #9dbf7f;
+}
+
+.theme-swatch[data-theme-choice="midnight"] {
+  --swatch: #e8a35f;
+}
+
+.theme-swatch[data-theme-choice="graphite"] {
+  --swatch: #d9d2c3;
+}
+
+.theme-swatch[data-theme-choice="ultraviolet"] {
+  --swatch: #c08cff;
+}
+
+.theme-swatch[data-theme-choice="paper"] {
+  --swatch: #a8542f;
+}
