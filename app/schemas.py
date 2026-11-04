@@ -119,3 +119,23 @@ class PlaylistRename(PlaylistCreate):
 
 class PlaylistAddTracks(BaseModel):
     paths: list[str] = Field(min_length=1, max_length=2000)
+
+
+class LyricLineOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    time: float
+    text: str
+
+
+class LyricsResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    path: str
+    found: bool
+    synced: bool = False
+    instrumental: bool = False
+    source: str | None = None
+    plain: str | None = None
+    lrc: str | None = None
+    lines: list[LyricLineOut] = Field(default_factory=list)

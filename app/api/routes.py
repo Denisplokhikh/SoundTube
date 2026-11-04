@@ -13,6 +13,7 @@ from app import __version__
 from app.config import settings
 from app.core.artwork import extract_cover
 from app.core.library import invalidate_cache, resolve_track_path, scan_library
+from app.core.lyrics import get_track_lyrics, lrc_path_for
 from app.core.runner import runner
 from app.core.sync_export import build_export, export_target
 from app.core.tagging import guess_image_mime
@@ -26,6 +27,7 @@ from app.schemas import (
     JobSummary,
     LibraryEntry,
     LibraryResponse,
+    LyricsResponse,
     PlaylistAddTracks,
     PlaylistCreate,
     PlaylistDetail,
@@ -190,6 +192,7 @@ async def delete_track(path: str) -> Response:
 
     try:
         await asyncio.to_thread(file.unlink)
+        await asyncio.to_thread(lrc_path_for(file).unlink, True)
     except PermissionError as exc:
         raise HTTPException(
             status_code=409,
@@ -260,6 +263,17 @@ async def artwork(path: str) -> Response:
         media_type=guess_image_mime(cover),
         headers={"Cache-Control": "public, max-age=604800"},
     )
+
+
+@router.get("/lyrics", response_model=LyricsResponse)
+async def lyrics(path: str, refresh: bool = False) -> LyricsResponse:
+    """Возвращает текст песни (синхронный `.lrc` или обычный) с диска либо из LRCLIB."""
+    file = resolve_track_path(path)
+    if file is None:
+        raise HTTPException(status_code=404, detail="Файл не найден")
+
+    result = await get_track_lyrics(file, path, refresh=refresh)
+    return LyricsResponse.model_validate(result)
 
 
 # ---------- плейлисты ----------

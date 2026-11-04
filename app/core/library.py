@@ -68,16 +68,15 @@ def _scan() -> list[LibraryTrack]:
         except OSError:
             continue
 
-        artist_fallback, album_fallback = _folders(relative)
-        title, artist, album, duration = _read_tags(path)
+        title, artist, album, duration = read_track_meta(path, relative)
 
         tracks.append(
             LibraryTrack(
                 id=hashlib.sha1(relative.as_posix().encode("utf-8")).hexdigest()[:16],
                 relative_path=relative.as_posix(),
-                title=title or _title_from_filename(path, artist_fallback),
-                artist=artist or artist_fallback,
-                album=album or album_fallback,
+                title=title,
+                artist=artist,
+                album=album,
                 duration=duration,
                 size=stat.st_size,
                 modified=datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc),
@@ -87,6 +86,27 @@ def _scan() -> list[LibraryTrack]:
 
     tracks.sort(key=lambda item: (item.artist.lower(), (item.album or "").lower(), item.title.lower()))
     return tracks
+
+
+def read_track_meta(
+    path: Path,
+    relative: Path | None = None,
+) -> tuple[str, str, str | None, float | None]:
+    """Возвращает `(title, artist, album, duration)` из тегов с фоллбэком на имя файла/папки."""
+    if relative is None:
+        try:
+            relative = path.resolve().relative_to(settings.music_dir.resolve())
+        except (OSError, ValueError):
+            relative = Path(path.name)
+
+    artist_fallback, album_fallback = _folders(relative)
+    title, artist, album, duration = _read_tags(path)
+    return (
+        title or _title_from_filename(path, artist_fallback),
+        artist or artist_fallback,
+        album or album_fallback,
+        duration,
+    )
 
 
 def _folders(relative: Path) -> tuple[str, str | None]:

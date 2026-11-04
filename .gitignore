@@ -6,7 +6,7 @@ venv/
 *.egg-info/
 .pytest_cache/
 .ruff_cache/
-
+.agents/
 # Runtime data (только в корне проекта, иначе задевает android/.../data/)
 /data/
 /library/
