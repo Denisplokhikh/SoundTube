@@ -24,7 +24,7 @@ No ads. No subscriptions. No limits.
 </div>
 
 <p align="center">
-  <img src="docs/screenshots/hero.webp" alt="SoundTube in action: paste a link, the track lands in the library and plays" width="100%" />
+  <img src="docs/screenshots/record.webp" alt="SoundTube in action: paste a link, the track lands in the library and plays" width="100%" />
 </p>
 
 ---
