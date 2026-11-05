@@ -44,7 +44,8 @@ jobs:
         with:
           workspaces: src-tauri -> target
 
-      # Системные зависимости для Linux (Tauri v2)
+      # Системные зависимости для Linux (Tauri v2). Плагины GStreamer копируются
+      # в AppImage с машины сборки (bundleMediaFramework), без них нет звука.
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
         run: |
@@ -52,7 +53,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             build-essential curl wget file pkg-config \
             libssl-dev libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev librsvg2-dev patchelf
+            libayatana-appindicator3-dev librsvg2-dev patchelf \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+            gstreamer1.0-libav gstreamer1.0-pulseaudio
 
       - name: Setup uv (Python)
         uses: astral-sh/setup-uv@v5
