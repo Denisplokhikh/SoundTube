@@ -23,7 +23,11 @@ apt-get install -y --no-install-recommends \
     librsvg2-dev \
     patchelf \
     rsync \
-    xz-utils
+    xz-utils \
+    gstreamer1.0-plugins-base \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-libav \
+    gstreamer1.0-pulseaudio
 
 # libfuse2 нужен только для запуска AppImage на машине пользователя.
 apt-get install -y --no-install-recommends libfuse2 2>/dev/null ||

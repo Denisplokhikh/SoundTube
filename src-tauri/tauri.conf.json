@@ -27,6 +27,9 @@
       "icons/icon.ico"
     ],
     "linux": {
+      "appimage": {
+        "bundleMediaFramework": true
+      },
       "deb": {
         "depends": ["ffmpeg"]
       }
