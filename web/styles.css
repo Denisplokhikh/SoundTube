@@ -9,6 +9,7 @@
   --radius: 8px;
   --radius-sm: 6px;
   --player-height: 78px;
+  --titlebar-height: 46px;
   --fs-base: 13px;
 
   --font-ui: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, "SFMono-Regular", monospace;
@@ -78,6 +79,265 @@ svg.filled {
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
   overflow: hidden;
+}
+
+/* ---------- шапка окна ---------- */
+
+.titlebar {
+  position: relative;
+  z-index: 80;
+  flex-shrink: 0;
+  height: var(--titlebar-height);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.4fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 0 16px;
+  background: var(--bg);
+  backdrop-filter: blur(18px) saturate(115%);
+  -webkit-backdrop-filter: blur(18px) saturate(115%);
+  border-bottom: 1px solid var(--line);
+  user-select: none;
+  transition:
+    background 0.45s ease,
+    border-color 0.45s ease,
+    opacity 0.35s ease,
+    transform 0.45s cubic-bezier(0.22, 0.75, 0.24, 1);
+}
+
+.titlebar > * {
+  position: relative;
+  z-index: 2;
+  min-width: 0;
+}
+
+/* В полноэкранном плеере сквозь шапку проступают цвета обложки. */
+.titlebar::before,
+.titlebar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.titlebar::before {
+  z-index: 0;
+  background:
+    radial-gradient(46% 190% at 8% -75%, var(--tb-tone-1, transparent) 0%, transparent 72%),
+    radial-gradient(46% 210% at 36% -85%, var(--tb-tone-2, transparent) 0%, transparent 74%),
+    radial-gradient(46% 210% at 64% -85%, var(--tb-tone-3, transparent) 0%, transparent 74%),
+    radial-gradient(46% 190% at 92% -75%, var(--tb-tone-4, transparent) 0%, transparent 72%);
+  mix-blend-mode: screen;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+/* Затемнение поверх градиента — чтобы бренд и кнопки окна читались. */
+.titlebar::after {
+  z-index: 1;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg-deep) 78%, transparent),
+    color-mix(in srgb, var(--bg-deep) 18%, transparent) 64%,
+    transparent
+  );
+  opacity: 0;
+  transition: opacity 0.45s ease;
+}
+
+.titlebar.is-player-open {
+  background: color-mix(in srgb, var(--bg) 42%, transparent);
+  border-bottom-color: transparent;
+}
+
+.titlebar.is-player-open::before {
+  opacity: 0.62;
+}
+
+.titlebar.is-player-open::after {
+  opacity: 0.55;
+}
+
+:root[data-theme="paper"] .titlebar::before {
+  mix-blend-mode: multiply;
+  opacity: 0;
+}
+
+:root[data-theme="paper"] .titlebar.is-player-open::before {
+  opacity: 0.5;
+}
+
+.titlebar.is-zen {
+  opacity: 0;
+  transform: translateY(-100%);
+  pointer-events: none;
+}
+
+.titlebar-left {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.titlebar .brand {
+  padding: 0;
+  gap: 8px;
+}
+
+.titlebar .brand svg,
+.titlebar .brand-text {
+  pointer-events: none;
+}
+
+.titlebar .logo {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+}
+
+.titlebar .brand-name {
+  font-size: 13.5px;
+  letter-spacing: 0.01em;
+}
+
+.titlebar-collapse {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  color: var(--dim);
+}
+
+.titlebar-collapse:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.titlebar-collapse[hidden] {
+  display: none;
+}
+
+.titlebar-now {
+  justify-self: center;
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 5px 14px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--faint);
+  font-size: 11.5px;
+  line-height: 1.25;
+  white-space: nowrap;
+  cursor: default;
+  opacity: 0;
+  transition:
+    opacity 0.3s ease,
+    background 0.2s ease,
+    color 0.2s ease;
+}
+
+.titlebar-now:disabled {
+  pointer-events: none;
+}
+
+.titlebar-now.has-track {
+  opacity: 1;
+  cursor: pointer;
+}
+
+.titlebar-now.has-track:hover {
+  background: color-mix(in srgb, var(--panel-2) 72%, transparent);
+}
+
+.titlebar-now.is-paused {
+  opacity: 0.45;
+}
+
+.titlebar-now-artist,
+.titlebar-now-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.titlebar-now-title {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.titlebar-now.is-paused .titlebar-now-title {
+  color: var(--dim);
+}
+
+.titlebar-now-sep {
+  color: var(--faint);
+  opacity: 0.6;
+}
+
+.titlebar-now.solo .titlebar-now-sep {
+  display: none;
+}
+
+.titlebar-right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.window-controls[hidden] {
+  display: none;
+}
+
+.window-btn {
+  width: 38px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--dim);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.window-btn:hover {
+  background: color-mix(in srgb, var(--panel-2) 82%, transparent);
+  color: var(--text);
+}
+
+.window-btn.close:hover {
+  background: #b8392f;
+  color: #fff;
+}
+
+.window-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke-width: 1.6;
+}
+
+.window-btn .icon-restore {
+  display: none;
+}
+
+.titlebar.is-maximized .window-btn .icon-max {
+  display: none;
+}
+
+.titlebar.is-maximized .window-btn .icon-restore {
+  display: block;
 }
 
 .sidebar {
@@ -1473,11 +1733,14 @@ input[type="range"]::-moz-range-thumb {
   z-index: 70;
   display: flex;
   flex-direction: column;
-  padding: 14px clamp(16px, 4vw, 40px) clamp(20px, 4vh, 36px);
+  padding: calc(var(--titlebar-height) + 10px) clamp(16px, 4vw, 40px) clamp(20px, 4vh, 36px);
   background: var(--bg);
   transform: translateY(100%);
   visibility: hidden;
-  transition: transform 0.36s cubic-bezier(0.22, 0.75, 0.24, 1), visibility 0s linear 0.36s;
+  transition:
+    transform 0.36s cubic-bezier(0.22, 0.75, 0.24, 1),
+    visibility 0s linear 0.36s,
+    padding-top 0.45s cubic-bezier(0.22, 0.75, 0.24, 1);
   overflow: hidden;
 }
 
@@ -1543,27 +1806,6 @@ input[type="range"]::-moz-range-thumb {
 
 .fs-blob[data-tone="4"] {
   --size: 50vmax;
-}
-
-.fs-head {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  flex-shrink: 0;
-}
-
-.fs-label {
-  color: var(--faint);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.fs-head-spacer {
-  width: 30px;
 }
 
 .fs-body {
@@ -1764,7 +2006,6 @@ input[type="range"]::-moz-range-thumb {
 
 /* ---------- «Дзен»: только обложка и живой фон ---------- */
 
-.fs-head,
 .fs-details {
   transition:
     opacity 0.45s ease,
@@ -1781,15 +2022,14 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* интерфейс плавно гаснет и чуть отъезжает, обложка подрастает */
-.fullscreen.is-zen .fs-head,
 .fullscreen.is-zen .fs-details {
   opacity: 0;
   pointer-events: none;
   transform: translateY(12px) scale(0.98);
 }
 
-.fullscreen.is-zen .fs-head {
-  transform: translateY(-12px) scale(0.98);
+.fullscreen.is-zen {
+  padding-top: 0;
 }
 
 /* сдвиг, который возвращает обложку в центр (считается в app.js) */
@@ -2181,7 +2421,7 @@ input[type="range"]::-moz-range-thumb {
 
 @media (max-width: 720px) {
   .fullscreen {
-    padding: 10px 16px 22px;
+    padding: calc(var(--titlebar-height) + 8px) 16px 22px;
   }
 
   .fs-cover {
@@ -2467,6 +2707,21 @@ input[type="range"]::-moz-range-thumb {
 /* ---------- адаптив ---------- */
 
 @media (max-width: 860px) {
+  .titlebar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    gap: 6px;
+    padding: 0 6px 0 10px;
+  }
+
+  .titlebar .brand-name {
+    font-size: 12.5px;
+  }
+
+  .titlebar-now {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
   .shell {
     grid-template-columns: minmax(0, 1fr);
   }

@@ -1,7 +1,16 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Minimal capability for the main window. The UI talks to the local HTTP server, not to Tauri IPC.",
+  "description": "Window controls for the frameless SoundTube window. The UI is served by the local HTTP server, so that origin must be allowed explicitly: otherwise Tauri treats it as remote and rejects start_dragging/minimize/toggle_maximize/close.",
   "windows": ["main"],
-  "permissions": ["core:default"]
+  "remote": {
+    "urls": ["http://127.0.0.1:*", "http://localhost:*"]
+  },
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close"
+  ]
 }

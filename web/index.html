@@ -17,8 +17,22 @@
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
-    <div class="shell">
-      <aside class="sidebar">
+    <header class="titlebar" id="titlebar" data-tauri-drag-region="deep">
+      <div class="titlebar-left">
+        <button
+          id="titlebar-collapse"
+          class="icon-btn small titlebar-collapse"
+          type="button"
+          data-i18n-title="player.collapse"
+          data-i18n-aria-label="player.collapse"
+          title="Свернуть (Esc)"
+          aria-label="Свернуть (Esc)"
+          hidden
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="m6 9 6 6 6-6" />
+          </svg>
+        </button>
         <div class="brand">
           <div class="logo" aria-hidden="true">
             <svg viewBox="0 0 1024 1024" preserveAspectRatio="xMidYMid slice">
@@ -48,7 +62,74 @@
             <span class="brand-name">SoundTube</span>
           </div>
         </div>
+      </div>
 
+      <button
+        id="titlebar-now"
+        class="titlebar-now"
+        type="button"
+        data-i18n-title="player.fullscreen"
+        data-i18n-aria-label="player.fullscreen"
+        title="Полноэкранный режим"
+        aria-label="Полноэкранный режим"
+        disabled
+      >
+        <span id="titlebar-now-artist" class="titlebar-now-artist"></span>
+        <span class="titlebar-now-sep" aria-hidden="true">—</span>
+        <span id="titlebar-now-title" class="titlebar-now-title"></span>
+      </button>
+
+      <div class="titlebar-right">
+        <div id="window-controls" class="window-controls" hidden>
+          <button
+            id="win-min"
+            class="window-btn"
+            type="button"
+            data-i18n-title="window.minimize"
+            data-i18n-aria-label="window.minimize"
+            title="Свернуть окно"
+            aria-label="Свернуть окно"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14" />
+            </svg>
+          </button>
+          <button
+            id="win-max"
+            class="window-btn"
+            type="button"
+            data-i18n-title="window.maximize"
+            data-i18n-aria-label="window.maximize"
+            title="Развернуть окно"
+            aria-label="Развернуть окно"
+          >
+            <svg class="icon-max" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="6" y="6" width="12" height="12" rx="1.5" />
+            </svg>
+            <svg class="icon-restore" viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="5" y="8" width="11" height="11" rx="1.5" />
+              <path d="M8 8V5h11v11h-3" />
+            </svg>
+          </button>
+          <button
+            id="win-close"
+            class="window-btn close"
+            type="button"
+            data-i18n-title="window.close"
+            data-i18n-aria-label="window.close"
+            title="Закрыть окно"
+            aria-label="Закрыть окно"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <div class="shell">
+      <aside class="sidebar">
         <nav class="nav">
           <button class="nav-item active" data-view="library" type="button">
             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -462,22 +543,6 @@
         <span class="fs-blob" data-tone="3"></span>
         <span class="fs-blob" data-tone="4"></span>
       </div>
-
-      <header class="fs-head">
-        <button
-          id="fs-close"
-          class="icon-btn small"
-          type="button"
-          data-i18n-title="player.collapse"
-          title="Свернуть (Esc)"
-        >
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </button>
-        <span class="fs-label" data-i18n="player.nowPlaying">Сейчас играет</span>
-        <span class="fs-head-spacer" aria-hidden="true"></span>
-      </header>
 
       <div class="fs-body">
         <div class="fs-stage">

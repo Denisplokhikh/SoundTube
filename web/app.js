@@ -1,5 +1,7 @@
 const $ = (selector) => document.querySelector(selector);
 const audio = $("#audio");
+/** Окно Tauri; в браузере остаётся null, и кнопки окна не показываются. */
+let appWindow = null;
 
 // «Дзен»: столько миллисекунд без активности — и прячем весь интерфейс.
 const ZEN_IDLE_MS = 10_000;
@@ -70,10 +72,13 @@ const MESSAGES = {
     "downloads.submitting": "Разбираю…",
     "player.nothingPlaying": "Ничего не играет",
     "player.selectTrack": "Выберите трек в библиотеке",
-    "player.fullscreen": "Полноэкранный режим",
+    "player.fullscreen": "Открыть полноэкранный плеер",
+    "window.minimize": "Свернуть окно",
+    "window.maximize": "Развернуть окно",
+    "window.restore": "Восстановить окно",
+    "window.close": "Закрыть окно",
     "player.fullscreenPlayer": "Полноэкранный плеер",
     "player.collapse": "Свернуть (Esc)",
-    "player.nowPlaying": "Сейчас играет",
     "player.shuffle": "Перемешать",
     "player.prev": "Предыдущий",
     "player.play": "Играть",
@@ -217,10 +222,13 @@ const MESSAGES = {
     "downloads.submitting": "Parsing…",
     "player.nothingPlaying": "Nothing is playing",
     "player.selectTrack": "Pick a track in your library",
-    "player.fullscreen": "Fullscreen mode",
+    "player.fullscreen": "Open fullscreen player",
+    "window.minimize": "Minimize window",
+    "window.maximize": "Maximize window",
+    "window.restore": "Restore window",
+    "window.close": "Close window",
     "player.fullscreenPlayer": "Fullscreen player",
     "player.collapse": "Collapse (Esc)",
-    "player.nowPlaying": "Now playing",
     "player.shuffle": "Shuffle",
     "player.prev": "Previous",
     "player.play": "Play",
@@ -442,6 +450,7 @@ function applyLanguage() {
 
   renderLyrics();
   if (state.fullscreen) syncFullscreen();
+  syncWindowState();
 }
 
 function setLanguage(lang) {
@@ -477,6 +486,33 @@ function setNowPlaceholders() {
   $("#now-artist").textContent = t("player.selectTrack");
   $("#fs-title").textContent = t("player.nothingPlaying");
   $("#fs-artist").textContent = t("player.selectTrack");
+  updateTitlebarTrack(null);
+}
+
+/** Компактный статус в шапке: артист — название, без дублирования плеера. */
+function updateTitlebarTrack(track) {
+  const node = $("#titlebar-now");
+  const artist = $("#titlebar-now-artist");
+  const title = $("#titlebar-now-title");
+  if (!node) return;
+
+  if (!track) {
+    artist.textContent = "";
+    title.textContent = "";
+    node.classList.remove("has-track", "is-paused", "solo");
+    node.disabled = true;
+    return;
+  }
+
+  artist.textContent = track.artist || "";
+  title.textContent = track.title || "";
+  node.disabled = false;
+  node.classList.add("has-track");
+  node.classList.toggle("solo", !track.artist);
+  node.classList.toggle("is-paused", !state.playing);
+  const label = track.artist ? `${track.artist} — ${track.title}` : track.title;
+  node.title = `${label} · ${t("player.fullscreen")}`;
+  node.setAttribute("aria-label", node.title);
 }
 
 function esc(value) {
@@ -786,6 +822,8 @@ function updateNowPlaying(track) {
   $("#fs-artist").textContent = track.artist;
   $("#fs-album").textContent = track.album || "";
   $("#fs-title").title = track.title;
+
+  updateTitlebarTrack(track);
 
   if (state.fullscreen) refreshVisualPalette(track);
 
@@ -1327,6 +1365,15 @@ function paintPalette(palette) {
 
   node.style.setProperty("--glow", hslColor(tones[0], 0.32));
 
+  // Шапка продолжает палитру плеера: те же цвета, но еле заметные.
+  const titlebar = $("#titlebar");
+  if (titlebar) {
+    for (let index = 0; index < 4; index += 1) {
+      const tone = tones[index % tones.length];
+      titlebar.style.setProperty(`--tb-tone-${index + 1}`, hslColor(tone, 0.3));
+    }
+  }
+
   ambient.tones = tones;
   if (state.fullscreen) ambient.flash = 1;
 }
@@ -1636,6 +1683,10 @@ function setFullscreen(open) {
   const node = $("#fullscreen-player");
   node.classList.toggle("is-open", open);
   node.setAttribute("aria-hidden", open ? "false" : "true");
+
+  const titlebar = $("#titlebar");
+  titlebar.classList.toggle("is-player-open", open);
+  $("#titlebar-collapse").hidden = !open;
   updateLyricsUI();
 
   if (open) {
@@ -1644,7 +1695,7 @@ function setFullscreen(open) {
     // открытие — жест пользователя: самое время разблокировать звук для анализатора
     ensureAudioGraph();
     startVisuals();
-    $("#fs-close").focus({ preventScroll: true });
+    $("#titlebar-collapse").focus({ preventScroll: true });
     scheduleZen();
   } else {
     exitZen({ restart: false });
@@ -1680,6 +1731,7 @@ function enterZen() {
 
   state.zen = true;
   $("#fullscreen-player").classList.add("is-zen");
+  $("#titlebar").classList.add("is-zen");
   updateZenShift();
   startVisuals();
 }
@@ -1703,6 +1755,7 @@ function exitZen({ restart = true } = {}) {
   if (!state.zen) return;
   state.zen = false;
   $("#fullscreen-player").classList.remove("is-zen");
+  $("#titlebar").classList.remove("is-zen");
   if (restart) scheduleZen();
 }
 
@@ -1795,6 +1848,14 @@ function setPlaying(playing) {
   $("#player").classList.toggle("playing", playing);
   $("#fullscreen-player").classList.toggle("playing", playing);
   $("#track-list").classList.toggle("is-playing", playing);
+
+  const titlebarNow = $("#titlebar-now");
+  if (titlebarNow) {
+    titlebarNow.classList.toggle(
+      "is-paused",
+      !playing && titlebarNow.classList.contains("has-track"),
+    );
+  }
 
   if (state.fullscreen && playing) startVisuals();
 
@@ -2625,6 +2686,52 @@ function bindSeek(node) {
   });
 }
 
+/** Кнопки окна существуют только внутри Tauri; в браузере шапка остаётся без них. */
+function syncWindowState() {
+  if (!appWindow) return;
+  appWindow
+    .isMaximized()
+    .then((maximized) => {
+      $("#titlebar").classList.toggle("is-maximized", maximized);
+      const button = $("#win-max");
+      button.title = t(maximized ? "window.restore" : "window.maximize");
+      button.setAttribute("aria-label", button.title);
+    })
+    .catch(() => {});
+}
+
+function setupWindowControls() {
+  const api = window.__TAURI__?.window;
+  if (!api) return;
+
+  try {
+    appWindow = api.getCurrentWindow();
+  } catch {
+    appWindow = null;
+  }
+  if (!appWindow) return;
+
+  $("#window-controls").hidden = false;
+
+  const run = (action) => {
+    try {
+      Promise.resolve(action()).catch((error) => {
+        console.warn("Окно: команда отклонена", error);
+      });
+    } catch (error) {
+      // окно могло уже закрываться — не роняем интерфейс
+      console.warn("Окно: команда не выполнена", error);
+    }
+  };
+
+  $("#win-min").addEventListener("click", () => run(() => appWindow.minimize()));
+  $("#win-max").addEventListener("click", () => run(() => appWindow.toggleMaximize()));
+  $("#win-close").addEventListener("click", () => run(() => appWindow.close()));
+
+  window.addEventListener("resize", syncWindowState);
+  syncWindowState();
+}
+
 function bindEvents() {
   document.querySelectorAll(".nav-item[data-view]").forEach((button) => {
     button.addEventListener("click", () => switchView(button.dataset.view));
@@ -2820,7 +2927,11 @@ function bindEvents() {
   bindSeek($("#fs-seek"));
 
   $(".now").addEventListener("click", () => setFullscreen(true));
-  $("#fs-close").addEventListener("click", () => setFullscreen(false));
+  $("#titlebar-collapse").addEventListener("click", () => setFullscreen(false));
+  $("#titlebar-now").addEventListener("click", () => {
+    if (!currentTrack() || state.fullscreen) return;
+    setFullscreen(true);
+  });
 
   // «Дзен»: активность пользователя будит интерфейс и откладывает таймер
   for (const type of ["pointermove", "pointerdown", "wheel", "keydown"]) {
@@ -2919,6 +3030,7 @@ function init() {
   updateRepeatUI();
 
   bindEvents();
+  setupWindowControls();
   applyLanguage();
   setupMediaSession();
   checkHealth();

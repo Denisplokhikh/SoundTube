@@ -417,6 +417,7 @@ fn open_window(app: &AppHandle, port: u16) {
         .title("SoundTube")
         .inner_size(1180.0, 820.0)
         .min_inner_size(520.0, 560.0)
+        .decorations(false)
         .center()
         .on_navigation(move |url| {
             if url.host_str() == Some(HOST) {
