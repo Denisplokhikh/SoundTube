@@ -48,6 +48,9 @@ class Settings(BaseSettings):
     max_concurrent_tracks: int = 1
     retries: int = 3
     limit_tracks: int = 500
+    # Радио и миксы YouTube бесконечны: в интерфейсе видно ~50 позиций,
+    # поэтому берём столько же, а не весь поток рекомендаций.
+    radio_limit: int = 50
 
     youtube_cookies: Path | None = None
     soundcloud_cookies: Path | None = None

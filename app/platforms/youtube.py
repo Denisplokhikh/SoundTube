@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from urllib.parse import parse_qs, urlparse
 
+from app.config import settings
 from app.core import ytdlp
 from app.platforms.base import Collection, ResolveError, TrackSpec, clean_text
 
@@ -74,13 +75,13 @@ def _track_from_entry(entry: dict) -> TrackSpec | None:
 
 
 def resolve(url: str) -> Collection:
-    if is_radio_url(url):
-        video_url = single_video_url(url)
-        if video_url:
-            url = video_url
+    radio = is_radio_url(url)
+    # Радио и миксы не заканчиваются: берём столько треков, сколько показывает
+    # интерфейс YouTube, а не весь поток рекомендаций.
+    limit = settings.radio_limit if radio else None
 
     try:
-        info = ytdlp.extract_flat(url, NAME)
+        info = ytdlp.extract_flat(url, NAME, limit=limit)
     except Exception as exc:  # yt-dlp raises a wide range of errors
         raise ResolveError(f"YouTube: {exc}") from exc
 
@@ -100,7 +101,17 @@ def resolve(url: str) -> Collection:
             tracks=tracks,
         )
 
+    # Радио иногда отдаёт только сам трек — тогда импортируем его как трек.
     track = _track_from_entry(info)
+    if not track and radio:
+        video_url = single_video_url(url)
+        if video_url:
+            try:
+                info = ytdlp.extract_flat(video_url, NAME) or {}
+            except Exception as exc:
+                raise ResolveError(f"YouTube: {exc}") from exc
+            track = _track_from_entry(info)
+
     if not track:
         raise ResolveError("Не удалось разобрать трек YouTube")
     return Collection(

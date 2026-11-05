@@ -45,6 +45,7 @@ Paste a link — a single track, a 300-song playlist, a SoundCloud set — and i
 
 - 🎧 **Two giants, one window** — YouTube, YouTube Music and SoundCloud side by side. No tab juggling, no copy-pasting URLs between apps.
 - 📦 **Batch downloads & full playlists** — Grab a single track or pull an entire playlist in one click. SoundCloud sets are parsed and queued just as easily as YouTube playlists.
+- 🎲 **Mixes without the endless scroll** — A YouTube mix or jam link imports the first 50 tracks — the same queue you see in the app, not an infinite recommendation stream (`MELODOWN_RADIO_LIMIT`).
 - ⚡ **Ultra-light and fast** — Tauri 2 on desktop, native Kotlin on Android. Native webview and native UI mean no Chromium bundle and no RAM bonfire.
 - 🖥️📱 **Cross-platform by design** — The same library, the same workflow, on Windows, Linux and Android — each one built as a first-class native experience, not a wrapped website.
 

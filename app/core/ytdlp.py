@@ -7,7 +7,7 @@ import yt_dlp
 from app.config import settings
 
 
-def base_options(platform: str, *, flat: bool = False) -> dict[str, Any]:
+def base_options(platform: str, *, flat: bool = False, limit: int | None = None) -> dict[str, Any]:
     options: dict[str, Any] = {
         "quiet": True,
         "no_warnings": True,
@@ -20,7 +20,7 @@ def base_options(platform: str, *, flat: bool = False) -> dict[str, Any]:
         "skip_download": flat,
     }
     if flat:
-        options["playlistend"] = settings.limit_tracks
+        options["playlistend"] = limit or settings.limit_tracks
 
     cookies = settings.cookies_for(platform)
     if cookies:
@@ -30,8 +30,8 @@ def base_options(platform: str, *, flat: bool = False) -> dict[str, Any]:
     return options
 
 
-def extract_flat(url: str, platform: str) -> dict[str, Any] | None:
-    with yt_dlp.YoutubeDL(base_options(platform, flat=True)) as ydl:
+def extract_flat(url: str, platform: str, *, limit: int | None = None) -> dict[str, Any] | None:
+    with yt_dlp.YoutubeDL(base_options(platform, flat=True, limit=limit)) as ydl:
         return ydl.extract_info(url, download=False)
 
 

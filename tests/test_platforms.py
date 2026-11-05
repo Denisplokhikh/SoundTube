@@ -1,5 +1,6 @@
+from app.config import settings
 from app.core import ytdlp
-from app.platforms import detect_platform
+from app.platforms import detect_platform, youtube
 from app.platforms.soundcloud import _collect_tracks
 from app.platforms.soundcloud import _track_from_entry as soundcloud_track
 from app.platforms.soundcloud import _track_from_meta as soundcloud_meta
@@ -128,7 +129,7 @@ def test_regular_playlist_is_not_radio():
     assert not is_radio_url("https://www.youtube.com/playlist?list=PL123")
 
 
-def test_radio_link_collapses_to_single_video():
+def test_radio_link_has_single_video_fallback():
     assert (
         single_video_url(
             "https://www.youtube.com/watch?v=UTNP93A_FJI&list=RDUTNP93A_FJI&start_radio=1"
@@ -142,3 +143,65 @@ def test_short_link_collapses_to_single_video():
         single_video_url("https://youtu.be/abc123?list=RDabc123")
         == "https://www.youtube.com/watch?v=abc123"
     )
+
+
+def test_radio_mix_becomes_playlist_with_radio_limit(monkeypatch):
+    calls = []
+
+    def fake_extract(url, platform, *, limit=None):
+        calls.append((url, limit))
+        return {
+            "title": "Mix - Dj Satomi - Waves",
+            "entries": [
+                {"id": f"v{i}", "title": f"Track {i}", "duration": 200} for i in range(3)
+            ],
+        }
+
+    monkeypatch.setattr(ytdlp, "extract_flat", fake_extract)
+    collection = youtube.resolve(
+        "https://www.youtube.com/watch?v=EYSYLt14miM&list=RDEYSYLt14miM&start_radio=1"
+    )
+
+    assert collection.kind == "playlist"
+    assert len(collection.tracks) == 3
+    assert calls == [
+        (
+            "https://www.youtube.com/watch?v=EYSYLt14miM&list=RDEYSYLt14miM&start_radio=1",
+            settings.radio_limit,
+        )
+    ]
+
+
+def test_regular_playlist_is_not_capped_by_radio_limit(monkeypatch):
+    calls = []
+
+    def fake_extract(url, platform, *, limit=None):
+        calls.append(limit)
+        return {"title": "Playlist", "entries": [{"id": "v1", "title": "One"}]}
+
+    monkeypatch.setattr(ytdlp, "extract_flat", fake_extract)
+    youtube.resolve("https://www.youtube.com/playlist?list=PL123")
+
+    assert calls == [None]
+
+
+def test_radio_without_entries_falls_back_to_single_video(monkeypatch):
+    calls = []
+
+    def fake_extract(url, platform, *, limit=None):
+        calls.append(url)
+        if "list=" in url:
+            return {"title": "Mix", "entries": []}
+        return {"id": "EYSYLt14miM", "title": "Dj Satomi - Waves", "uploader": "Dj Satomi"}
+
+    monkeypatch.setattr(ytdlp, "extract_flat", fake_extract)
+    collection = youtube.resolve(
+        "https://www.youtube.com/watch?v=EYSYLt14miM&list=RDEYSYLt14miM&start_radio=1"
+    )
+
+    assert collection.kind == "track"
+    assert collection.tracks[0].title == "Dj Satomi - Waves"
+    assert calls == [
+        "https://www.youtube.com/watch?v=EYSYLt14miM&list=RDEYSYLt14miM&start_radio=1",
+        "https://www.youtube.com/watch?v=EYSYLt14miM",
+    ]
