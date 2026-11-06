@@ -13,6 +13,7 @@ from app import __version__
 from app.api.routes import router as api_router
 from app.core.runner import recover_stale_jobs, runner
 from app.core.sources import sync_sources_from_tracks
+from app.core.user_settings import apply_saved_settings
 from app.db import SessionLocal, engine, init_db
 
 logging.basicConfig(
@@ -57,6 +58,7 @@ WEB_DIR = resolve_web_dir()
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    apply_saved_settings()
     await init_db()
     async with SessionLocal() as session:
         # Старые базы ещё не знают про library_sources — переносим ссылки из задач.

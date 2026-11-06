@@ -143,6 +143,15 @@
             </svg>
             <span data-i18n="nav.downloads">Загрузки</span>
           </button>
+          <button class="nav-item" data-view="settings" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path
+                d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"
+              />
+            </svg>
+            <span data-i18n="nav.settings">Настройки</span>
+          </button>
         </nav>
 
         <div class="side-section">
@@ -176,76 +185,6 @@
             </div>
           </div>
 
-          <div
-            class="theme-picker"
-            role="radiogroup"
-            aria-label="Тема оформления"
-            data-i18n-aria-label="theme.label"
-          >
-            <span class="theme-label" data-i18n="theme.label">Тема</span>
-            <div class="theme-swatches">
-              <button
-                class="theme-swatch"
-                type="button"
-                role="radio"
-                aria-checked="true"
-                data-theme-choice="phosphor"
-                title="Фосфор"
-                aria-label="Фосфор"
-                data-i18n-title="theme.phosphor"
-                data-i18n-aria-label="theme.phosphor"
-              ></button>
-              <button
-                class="theme-swatch"
-                type="button"
-                role="radio"
-                aria-checked="false"
-                data-theme-choice="midnight"
-                title="Полночь"
-                aria-label="Полночь"
-                data-i18n-title="theme.midnight"
-                data-i18n-aria-label="theme.midnight"
-              ></button>
-              <button
-                class="theme-swatch"
-                type="button"
-                role="radio"
-                aria-checked="false"
-                data-theme-choice="graphite"
-                title="Графит"
-                aria-label="Графит"
-                data-i18n-title="theme.graphite"
-                data-i18n-aria-label="theme.graphite"
-              ></button>
-              <button
-                class="theme-swatch"
-                type="button"
-                role="radio"
-                aria-checked="false"
-                data-theme-choice="ultraviolet"
-                title="Ультрафиолет"
-                aria-label="Ультрафиолет"
-                data-i18n-title="theme.ultraviolet"
-                data-i18n-aria-label="theme.ultraviolet"
-              ></button>
-              <button
-                class="theme-swatch"
-                type="button"
-                role="radio"
-                aria-checked="false"
-                data-theme-choice="paper"
-                title="Бумага"
-                aria-label="Бумага"
-                data-i18n-title="theme.paper"
-                data-i18n-aria-label="theme.paper"
-              ></button>
-            </div>
-          </div>
-
-          <div class="sidebar-foot">
-            <span class="dot" id="status-dot"></span>
-            <span id="server-status" data-i18n="status.connecting">подключаюсь…</span>
-          </div>
         </div>
       </aside>
 
@@ -267,22 +206,6 @@
           </label>
           <div class="top-actions">
             <button
-              id="lang-toggle"
-              class="icon-btn lang-btn"
-              type="button"
-              data-i18n-title="language.switch"
-              data-i18n-aria-label="language.switch"
-              title="Сменить язык — English"
-              aria-label="Сменить язык"
-              aria-pressed="false"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="9" />
-                <path d="M3 12h18M12 3c2.6 2.7 4 5.7 4 9s-1.4 6.3-4 9c-2.6-2.7-4-5.7-4-9s1.4-6.3 4-9z" />
-              </svg>
-              <span id="lang-code" class="lang-code">RU</span>
-            </button>
-            <button
               id="library-refresh"
               class="icon-btn"
               type="button"
@@ -293,20 +216,6 @@
                 <path d="M21 12a9 9 0 1 1-3-6.7M21 3v6h-6" />
               </svg>
             </button>
-            <a
-              id="library-export"
-              class="icon-btn"
-              href="/api/sync/export"
-              download="soundtube-library.json"
-              data-i18n-title="library.export"
-              data-i18n-aria-label="library.export"
-              title="Экспорт библиотеки для телефона"
-              aria-label="Экспорт библиотеки для телефона"
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 15V3m0 0-4 4m4-4 4 4M4 13v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
-              </svg>
-            </a>
             <a
               id="update-badge"
               class="update-badge"
@@ -393,6 +302,152 @@
 
           <p id="error" class="error" hidden></p>
           <div id="jobs" class="jobs"></div>
+        </section>
+
+        <section id="view-settings" class="view" hidden>
+          <header class="view-head">
+            <div class="view-title">
+              <h1 data-i18n="settings.title">Настройки</h1>
+              <p class="sub" data-i18n="settings.subtitle">Язык, тема, папка и перенос библиотеки</p>
+            </div>
+          </header>
+
+          <div class="settings">
+            <div class="settings-card">
+              <h2 data-i18n="settings.language">Язык</h2>
+              <div class="seg" role="group" data-i18n-aria-label="settings.language" aria-label="Язык">
+                <button type="button" data-lang-choice="ru">RU</button>
+                <button type="button" data-lang-choice="en">EN</button>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <h2 data-i18n="settings.theme">Цветовая тема</h2>
+              <div
+                class="theme-picker"
+                role="radiogroup"
+                data-i18n-aria-label="theme.label"
+                aria-label="Тема оформления"
+              >
+                <div class="theme-swatches">
+                  <button
+                    class="theme-swatch"
+                    type="button"
+                    role="radio"
+                    aria-checked="true"
+                    data-theme-choice="phosphor"
+                    data-i18n-title="theme.phosphor"
+                    data-i18n-aria-label="theme.phosphor"
+                    title="Фосфор"
+                    aria-label="Фосфор"
+                  ></button>
+                  <button
+                    class="theme-swatch"
+                    type="button"
+                    role="radio"
+                    aria-checked="false"
+                    data-theme-choice="midnight"
+                    data-i18n-title="theme.midnight"
+                    data-i18n-aria-label="theme.midnight"
+                    title="Полночь"
+                    aria-label="Полночь"
+                  ></button>
+                  <button
+                    class="theme-swatch"
+                    type="button"
+                    role="radio"
+                    aria-checked="false"
+                    data-theme-choice="graphite"
+                    data-i18n-title="theme.graphite"
+                    data-i18n-aria-label="theme.graphite"
+                    title="Графит"
+                    aria-label="Графит"
+                  ></button>
+                  <button
+                    class="theme-swatch"
+                    type="button"
+                    role="radio"
+                    aria-checked="false"
+                    data-theme-choice="ultraviolet"
+                    data-i18n-title="theme.ultraviolet"
+                    data-i18n-aria-label="theme.ultraviolet"
+                    title="Ультрафиолет"
+                    aria-label="Ультрафиолет"
+                  ></button>
+                  <button
+                    class="theme-swatch"
+                    type="button"
+                    role="radio"
+                    aria-checked="false"
+                    data-theme-choice="paper"
+                    data-i18n-title="theme.paper"
+                    data-i18n-aria-label="theme.paper"
+                    title="Бумага"
+                    aria-label="Бумага"
+                  ></button>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <h2 data-i18n="settings.folder">Папка для скачивания</h2>
+              <p class="settings-hint" data-i18n="settings.folderHint">
+                Новые треки сохраняются сюда: Артист/Альбом/…
+              </p>
+              <p class="settings-current">
+                <span data-i18n="settings.folderCurrent">Сейчас:</span>
+                <code id="settings-music-current">…</code>
+              </p>
+              <div class="folder-row">
+                <input
+                  id="settings-music-dir"
+                  type="text"
+                  data-i18n-placeholder="settings.folderPlaceholder"
+                  placeholder="Например: D:\Music\Melodown"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+                <button id="settings-music-save" class="primary" type="button" data-i18n="settings.save">
+                  Сохранить
+                </button>
+                <button id="settings-music-reset" class="ghost" type="button" data-i18n="settings.reset">
+                  Сбросить
+                </button>
+              </div>
+              <p id="settings-music-status" class="settings-status" hidden></p>
+            </div>
+
+            <div class="settings-card">
+              <h2 data-i18n="settings.export">Экспорт треков</h2>
+              <p class="settings-hint" data-i18n="settings.exportHint">
+                Экспорт треков в JSON файл.
+              </p>
+              <div class="settings-actions">
+                <button id="settings-export-save" class="primary" type="button" data-i18n="settings.exportSave">
+                  Сохранить файл
+                </button>
+              </div>
+              <p id="settings-export-status" class="settings-status" hidden></p>
+            </div>
+
+            <div class="settings-card">
+              <h2 data-i18n="settings.import">Импорт из JSON</h2>
+              <p class="settings-hint" data-i18n="settings.importHint">
+                Импортируйте треки из JSON файла.
+              </p>
+              <div class="settings-actions">
+                <label class="ghost btn-link file-btn">
+                  <input id="settings-import-file" type="file" accept="application/json,.json" hidden />
+                  <span data-i18n="settings.importPick">Выбрать файл</span>
+                </label>
+                <button id="settings-import-run" class="primary" type="button" data-i18n="settings.importRun">
+                  Импортировать
+                </button>
+              </div>
+              <p id="settings-import-name" class="settings-file" hidden></p>
+              <p id="settings-import-status" class="settings-status" hidden></p>
+            </div>
+          </div>
         </section>
       </main>
     </div>

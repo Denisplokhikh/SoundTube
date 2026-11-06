@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
@@ -18,6 +19,8 @@ from app.core.runner import runner
 from app.core.sync_export import build_export, export_target
 from app.core.tagging import guess_image_mime
 from app.core.updates import check_for_update
+from app.core import user_settings
+from app.core.sources import remember_source, sources_by_relative, sync_sources_from_tracks
 from app.db import get_session
 from app.models import Job, LibrarySource, Playlist, PlaylistTrack, Track
 from app.platforms import ResolveError, UnsupportedURL, detect_platform, resolve
@@ -33,6 +36,10 @@ from app.schemas import (
     PlaylistDetail,
     PlaylistRename,
     PlaylistSummary,
+    SettingsOut,
+    SettingsUpdate,
+    SyncImportRequest,
+    SyncImportResponse,
     TrackOut,
 )
 
@@ -45,7 +52,7 @@ MAX_LIBRARY_ENTRIES = 5000
 # src-tauri/src/lib.rs и не переиспользует сервер с другим значением:
 # иначе новый интерфейс открывается поверх старого бэкенда без нужных роутов.
 # Меняйте вместе с константой в lib.rs.
-API_REVISION = 4
+API_REVISION = 5
 
 
 @router.get("/health")
@@ -248,6 +255,225 @@ async def save_library_export(session: AsyncSession = Depends(get_session)) -> d
     }
 
 
+@router.post("/sync/import", response_model=SyncImportResponse)
+async def import_library(
+    payload: SyncImportRequest, session: AsyncSession = Depends(get_session)
+) -> SyncImportResponse:
+    """Восстанавливает библиотеку из файла экспорта (см. GET /sync/export).
+
+    - Треки, уже присутствующие на диске, обновляют `library_sources`.
+    - Отсутствующие треки ставятся в очередь на скачивание.
+    - Плейлисты восстанавливаются для треков, уже имеющихся на диске.
+      После завершения загрузки недостающих треков повторный импорт того же
+      файла добавит их в плейлисты.
+    """
+    await sync_sources_from_tracks(session)
+
+    sources = await sources_by_relative(session)
+    url_to_relative: dict[str, str] = {}
+    for relative, source in sources.items():
+        if source.source_url and source.source_url not in url_to_relative:
+            url_to_relative[source.source_url] = relative
+
+    sources_updated = 0
+    download_jobs_created = 0
+    pending_jobs: list[Job] = []
+
+    for track in payload.tracks:
+        url = track.url.strip()
+        if not url:
+            continue
+        relative = track.relative_path.strip() if track.relative_path else None
+
+        # Явный relative_path из экспорта — самый надёжный способ привязки.
+        if relative:
+            path = resolve_track_path(relative)
+            if path is not None:
+                await remember_source(
+                    session,
+                    file_path=path,
+                    url=url,
+                    platform=track.platform or "",
+                    title=track.title or "",
+                    artist=track.artist or "",
+                )
+                url_to_relative[url] = relative
+                sources_updated += 1
+                continue
+
+        # Если relative_path не указан или файл не найден, ищем по URL
+        # среди уже известных источников.
+        existing_relative = url_to_relative.get(url)
+        if existing_relative and resolve_track_path(existing_relative):
+            await remember_source(
+                session,
+                file_path=existing_relative,
+                url=url,
+                platform=track.platform or "",
+                title=track.title or "",
+                artist=track.artist or "",
+            )
+            url_to_relative[url] = existing_relative
+            sources_updated += 1
+            continue
+
+        # Уже стоит в очереди на скачивание — не дублируем.
+        active = await session.scalar(
+            select(Track)
+            .where(Track.source_url == url)
+            .where(Track.status.notin_(["done", "failed", "skipped"]))
+            .limit(1)
+        )
+        if active is not None:
+            continue
+
+        # Уже скачан ранее — обновим источник, если файл на месте.
+        done = await session.scalar(
+            select(Track)
+            .where(Track.source_url == url)
+            .where(Track.status == "done")
+            .where(Track.file_path.is_not(None))
+            .limit(1)
+        )
+        if done is not None and done.file_path:
+            if resolve_track_path(done.file_path):
+                await remember_source(
+                    session,
+                    file_path=done.file_path,
+                    url=url,
+                    platform=track.platform or "",
+                    title=track.title or "",
+                    artist=track.artist or "",
+                )
+                url_to_relative[url] = done.file_path
+                sources_updated += 1
+            continue
+
+        # Ставим отсутствующий трек в очередь на скачивание.
+        platform = detect_platform(url) or (track.platform or "")
+        if not platform:
+            continue
+
+        job = Job(
+            url=url,
+            platform=platform,
+            kind="track",
+            title=track.title or url,
+            audio_format=settings.audio_format,
+            total=1,
+            status="pending",
+        )
+        job.tracks.append(
+            Track(
+                position=0,
+                title=track.title or "",
+                artist=track.artist,
+                source_url=url,
+                status="pending",
+            )
+        )
+        session.add(job)
+        pending_jobs.append(job)
+        download_jobs_created += 1
+
+    await session.commit()
+
+    for job in pending_jobs:
+        await session.refresh(job)
+        await runner.enqueue(job.id)
+
+    # Перечитываем sources после обновлений, чтобы плейлисты использовали
+    # актуальный маппинг URL → файл.
+    sources = await sources_by_relative(session)
+    url_to_relative.clear()
+    for relative, source in sources.items():
+        if source.source_url and source.source_url not in url_to_relative:
+            url_to_relative[source.source_url] = relative
+
+    result = await session.execute(select(Playlist).options(selectinload(Playlist.items)))
+    by_name = {item.name.strip().lower(): item for item in result.scalars().unique().all()}
+
+    created = updated = added = skipped = 0
+    for entry in payload.playlists:
+        name = " ".join(entry.name.split())
+        if not name:
+            continue
+        playlist = by_name.get(name.lower())
+        if playlist is None:
+            playlist = Playlist(name=name)
+            session.add(playlist)
+            await session.flush()
+            by_name[name.lower()] = playlist
+            created += 1
+            # У нового объекта коллекция items ещё не загружена — чтение
+            # спровоцировало бы ленивый SQL, потому считаем с нуля.
+            existing: set[str] = set()
+            position = 0
+            is_new = True
+        else:
+            is_new = False
+            existing = {item.relative_path for item in playlist.items}
+            position = max((item.position for item in playlist.items), default=-1) + 1
+        touched = False
+        new_rows: list[PlaylistTrack] = []
+        for url in dict.fromkeys(url.strip() for url in entry.tracks):
+            relative = url_to_relative.get(url)
+            if relative is None or relative in existing or resolve_track_path(relative) is None:
+                skipped += 1
+                continue
+            # Строки добавляем напрямую, а не через playlist.items.append:
+            # у нового плейлиста коллекция ещё не загружена, и append
+            # спровоцировал бы ленивый SQL в асинхронном контексте.
+            new_rows.append(
+                PlaylistTrack(
+                    playlist_id=playlist.id, relative_path=relative, position=position
+                )
+            )
+            existing.add(relative)
+            position += 1
+            added += 1
+            touched = True
+        session.add_all(new_rows)
+        if touched and not is_new:
+            updated += 1
+
+    await session.commit()
+    return SyncImportResponse(
+        playlists_created=created,
+        playlists_updated=updated,
+        tracks_added=added,
+        tracks_skipped=skipped,
+        sources_updated=sources_updated,
+        download_jobs_created=download_jobs_created,
+    )
+
+
+# ---------- настройки ----------
+
+
+@router.get("/settings", response_model=SettingsOut)
+async def read_settings() -> SettingsOut:
+    return SettingsOut(
+        music_dir=str(settings.music_dir),
+        data_dir=str(settings.data_dir),
+        audio_format=settings.audio_format,
+        is_default_music_dir=user_settings.is_default_music_dir(),
+    )
+
+
+@router.patch("/settings", response_model=SettingsOut)
+async def update_settings(payload: SettingsUpdate) -> SettingsOut:
+    """Меняет папку музыки. `music_dir: null` — сброс на значение по умолчанию."""
+    try:
+        if payload.music_dir is None:
+            user_settings.reset_music_dir()
+        else:
+            user_settings.set_music_dir(payload.music_dir)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return await read_settings()
+
+
 @router.get("/stream")
 async def stream(path: str) -> FileResponse:
     file = resolve_track_path(path)
@@ -257,7 +483,7 @@ async def stream(path: str) -> FileResponse:
 
 
 @router.get("/artwork")
-async def artwork(path: str) -> Response:
+async def artwork(path: str, request: Request) -> Response:
     file = resolve_track_path(path)
     if file is None:
         raise HTTPException(status_code=404, detail="Файл не найден")
@@ -266,10 +492,17 @@ async def artwork(path: str) -> Response:
     if not cover:
         raise HTTPException(status_code=404, detail="Обложка не найдена")
 
+    etag = f'"{hashlib.md5(cover).hexdigest()}"'
+    if request.headers.get("if-none-match") == etag:
+        return Response(
+            status_code=304,
+            headers={"Cache-Control": "public, max-age=604800", "ETag": etag},
+        )
+
     return Response(
         content=cover,
         media_type=guess_image_mime(cover),
-        headers={"Cache-Control": "public, max-age=604800"},
+        headers={"Cache-Control": "public, max-age=604800", "ETag": etag},
     )
 
 

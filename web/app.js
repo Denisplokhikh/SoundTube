@@ -10,6 +10,11 @@ const ZEN_IDLE_MS = 10_000;
 const UPDATE_CHECK_MS = 30 * 60 * 1000;
 const RELEASES_URL = "https://github.com/Denisplokhikh/SoundTube/releases";
 
+// Виртуализация длинных списков треков.
+const ROW_HEIGHT = 50;
+const VIRTUAL_BUFFER = 8;
+let LIST_PADDING_TOP = 6;
+
 /* ---------- локализация ---------- */
 
 /** Все подписи интерфейса. Русский и английский живут рядом: ключи общие. */
@@ -17,13 +22,11 @@ const MESSAGES = {
   ru: {
     "nav.library": "Библиотека",
     "nav.downloads": "Загрузки",
+    "nav.settings": "Настройки",
     "playlists.title": "Плейлисты",
     "playlists.create": "Создать плейлист",
     "stats.tracks": "треков",
     "stats.onDisk": "на диске",
-    "status.connecting": "подключаюсь…",
-    "status.ok": "сервер работает",
-    "status.unavailable": "сервер недоступен",
     "search.placeholder": "Трек, артист, альбом",
     "library.rescan": "Пересканировать папку",
     "library.export": "Экспорт библиотеки для телефона",
@@ -92,10 +95,7 @@ const MESSAGES = {
     "player.mute": "Выключить звук",
     "player.unmute": "Включить звук",
     "player.lyrics": "Текст песни",
-    "lyrics.loading": "Ищу текст песни…",
-    "lyrics.notFound": "Текста нет",
-    "lyrics.notFoundHint": "Искали в базах текстов и в описании загрузки — для этого трека ничего не нашлось.",
-    "lyrics.notFoundFile": "Свой файл можно положить рядом с треком:",
+    "lyrics.notFound": "Текст песни не найден",
     "lyrics.error": "Не удалось загрузить текст",
     "lyrics.errorHint": "Сервер не ответил на запрос. Попробуйте ещё раз, а если не поможет — перезапустите проигрыватель.",
     "lyrics.instrumental": "Инструментал",
@@ -117,6 +117,30 @@ const MESSAGES = {
     "theme.graphite": "Графит",
     "theme.ultraviolet": "Ультрафиолет",
     "theme.paper": "Бумага",
+    "settings.title": "Настройки",
+    "settings.subtitle": "Язык, тема, папка и перенос библиотеки",
+    "settings.language": "Язык",
+    "settings.theme": "Цветовая тема",
+    "settings.folder": "Папка для скачивания",
+    "settings.folderHint": "Новые треки сохраняются сюда: Артист/Альбом/…",
+    "settings.folderCurrent": "Сейчас:",
+    "settings.folderPlaceholder": "Например: D:\\Music\\Melodown",
+    "settings.save": "Сохранить",
+    "settings.saved": "Папка сохранена: {path}",
+    "settings.reset": "Сбросить",
+    "settings.resetDone": "Вернута папка по умолчанию: {path}",
+    "settings.failed": "Не удалось сохранить: {message}",
+    "settings.export": "Экспорт треков",
+    "settings.exportHint": "Экспорт треков в JSON файл.",
+    "settings.exportSave": "Сохранить файл",
+    "settings.import": "Импорт из JSON",
+    "settings.importHint": "Импортируйте треки из JSON файла.",
+    "settings.importPick": "Выбрать файл",
+    "settings.importRun": "Импортировать",
+    "settings.noFile": "Сначала выберите файл",
+    "settings.importBadFile": "Это не похоже на файл экспорта SoundTube",
+    "settings.imported":
+      "Плейлистов: {created} новых, {updated} обновлено. Треков добавлено: {added}, пропущено: {skipped}. Источников обновлено: {sources}. В очередь на скачивание: {jobs}.",
     "empty.notFound": "Ничего не найдено",
     "empty.tryAnother": "Попробуйте изменить запрос.",
     "empty.playlistEmpty": "Плейлист пуст",
@@ -167,13 +191,11 @@ const MESSAGES = {
   en: {
     "nav.library": "Library",
     "nav.downloads": "Downloads",
+    "nav.settings": "Settings",
     "playlists.title": "Playlists",
     "playlists.create": "Create playlist",
     "stats.tracks": "tracks",
     "stats.onDisk": "on disk",
-    "status.connecting": "connecting…",
-    "status.ok": "server is running",
-    "status.unavailable": "server unavailable",
     "search.placeholder": "Track, artist, album",
     "library.rescan": "Rescan folder",
     "library.export": "Export library for phone",
@@ -242,10 +264,7 @@ const MESSAGES = {
     "player.mute": "Mute",
     "player.unmute": "Unmute",
     "player.lyrics": "Lyrics",
-    "lyrics.loading": "Looking up lyrics…",
-    "lyrics.notFound": "No lyrics",
-    "lyrics.notFoundHint": "We searched lyric databases and the upload description — nothing for this track.",
-    "lyrics.notFoundFile": "You can drop your own file next to the track:",
+    "lyrics.notFound": "Lyrics not found",
     "lyrics.error": "Could not load lyrics",
     "lyrics.errorHint": "The server did not answer. Try again, and restart the player if it keeps failing.",
     "lyrics.instrumental": "Instrumental",
@@ -267,6 +286,30 @@ const MESSAGES = {
     "theme.graphite": "Graphite",
     "theme.ultraviolet": "Ultraviolet",
     "theme.paper": "Paper",
+    "settings.title": "Settings",
+    "settings.subtitle": "Language, theme, folder and library transfer",
+    "settings.language": "Language",
+    "settings.theme": "Color theme",
+    "settings.folder": "Download folder",
+    "settings.folderHint": "New tracks are saved here: Artist/Album/…",
+    "settings.folderCurrent": "Current:",
+    "settings.folderPlaceholder": "e.g. D:\\Music\\Melodown",
+    "settings.save": "Save",
+    "settings.saved": "Folder saved: {path}",
+    "settings.reset": "Reset",
+    "settings.resetDone": "Default folder restored: {path}",
+    "settings.failed": "Couldn't save: {message}",
+    "settings.export": "Track export",
+    "settings.exportHint": "Export tracks to a JSON file.",
+    "settings.exportSave": "Save file",
+    "settings.import": "Import from JSON",
+    "settings.importHint": "Import tracks from a JSON file.",
+    "settings.importPick": "Choose file",
+    "settings.importRun": "Import",
+    "settings.noFile": "Choose a file first",
+    "settings.importBadFile": "This doesn't look like a SoundTube export file",
+    "settings.imported":
+      "Playlists: {created} new, {updated} updated. Tracks added: {added}, skipped: {skipped}. Sources updated: {sources}. Queued for download: {jobs}.",
     "empty.notFound": "Nothing found",
     "empty.tryAnother": "Try a different search.",
     "empty.playlistEmpty": "Playlist is empty",
@@ -335,7 +378,6 @@ const state = {
     : THEMES.includes(storedTheme)
       ? storedTheme
       : "phosphor",
-  health: null,
   updateInfo: null,
   view: "library",
   tracks: [],
@@ -360,6 +402,8 @@ const state = {
   playlists: [],
   playlistsLoaded: false,
   jobsLoaded: false,
+  settings: null,
+  settingsLoaded: false,
   playlistId: null,
   playlistName: "",
   playlistTracks: [],
@@ -424,14 +468,13 @@ function applyLanguage() {
   applyStaticTranslations();
   applyTheme();
 
-  const toggle = $("#lang-toggle");
-  $("#lang-code").textContent = state.lang.toUpperCase();
-  toggle.setAttribute("aria-pressed", state.lang === "en" ? "true" : "false");
+  for (const button of document.querySelectorAll("[data-lang-choice]")) {
+    button.classList.toggle("active", button.dataset.langChoice === state.lang);
+  }
 
   updateRepeatUI();
   updateLyricsUI();
   syncVolumeUI();
-  applyHealth();
   if (state.updateInfo !== null) renderUpdateBadge(state.updateInfo);
 
   $("#tracks-title").textContent = state.view === "playlist" ? state.playlistName : t("views.library");
@@ -441,6 +484,7 @@ function applyLanguage() {
   if (state.libraryLoaded || state.view === "playlist") renderTracks();
   if (state.jobsLoaded) renderJobs();
   if (state.playlistsLoaded) renderPlaylists();
+  if (state.settingsLoaded) renderSettings();
   closeTrackMenu();
   if (nameDialogResolve) fillNameDialogLabels();
 
@@ -457,10 +501,6 @@ function setLanguage(lang) {
   state.lang = lang === "en" ? "en" : "ru";
   localStorage.setItem("melodown.lang", state.lang);
   applyLanguage();
-}
-
-function toggleLanguage() {
-  setLanguage(state.lang === "ru" ? "en" : "ru");
 }
 
 /** Палитра живёт в themes.css, здесь только выбор и запоминание. */
@@ -549,7 +589,7 @@ function streamUrl(track) {
 }
 
 function artworkUrl(track) {
-  return `/api/artwork?path=${encodeURIComponent(track.relative_path)}`;
+  return `/api/artwork?path=${encodeURIComponent(track.relative_path)}&v=2`;
 }
 
 async function api(path, options = {}) {
@@ -626,13 +666,18 @@ function emptyState(title, hint = "") {
   return `<div class="empty"><strong>${esc(title)}</strong>${esc(hint)}</div>`;
 }
 
+let virtualRange = { start: -1, end: -1 };
+let pendingScrollUpdate = false;
+
 function renderTracks() {
   const list = filteredTracks();
   state.visible = list;
   const container = $("#track-list");
   container.classList.toggle("is-playing", state.playing);
+  virtualRange = { start: -1, end: -1 };
 
   if (!list.length) {
+    container.style.height = "0px";
     if (state.view === "playlist") {
       container.innerHTML = state.playlistTracks.length
         ? emptyState(t("empty.notFound"), t("empty.tryAnother"))
@@ -645,10 +690,49 @@ function renderTracks() {
     return;
   }
 
-  container.innerHTML = list.map(trackRow).join("");
+  container.style.height = `${list.length * ROW_HEIGHT + LIST_PADDING_TOP}px`;
+  updateVisibleRows(true);
 }
 
-function trackRow(track, index) {
+function updateVisibleRows(force = false) {
+  const container = $("#track-list");
+  const list = state.visible;
+  if (!list.length) {
+    container.innerHTML = "";
+    virtualRange = { start: -1, end: -1 };
+    return;
+  }
+
+  const main = $(".main");
+  const mainRect = main.getBoundingClientRect();
+  const listRect = container.getBoundingClientRect();
+  const listOffsetTop = listRect.top - mainRect.top + main.scrollTop;
+
+  const viewportTop = main.scrollTop;
+  const viewportBottom = viewportTop + main.clientHeight;
+
+  const start = Math.max(
+    0,
+    Math.floor((viewportTop - listOffsetTop) / ROW_HEIGHT) - VIRTUAL_BUFFER,
+  );
+  const end = Math.min(
+    list.length,
+    Math.ceil((viewportBottom - listOffsetTop) / ROW_HEIGHT) + VIRTUAL_BUFFER,
+  );
+
+  if (!force && start === virtualRange.start && end === virtualRange.end) return;
+  virtualRange = { start, end };
+
+  const rowsHtml = [];
+  for (let i = start; i < end; i++) {
+    const offset = i * ROW_HEIGHT + LIST_PADDING_TOP;
+    const style = `position:absolute;top:0;left:0;right:0;transform:translateY(${offset}px);will-change:transform`;
+    rowsHtml.push(trackRow(list[i], i, style));
+  }
+  container.innerHTML = rowsHtml.join("");
+}
+
+function trackRow(track, index, style = "") {
   const current = track.id === state.currentId;
   const action =
     state.view === "playlist"
@@ -679,7 +763,8 @@ function trackRow(track, index) {
 
   return `
     <div class="track-row${current ? " current" : ""}" data-id="${esc(track.id)}" data-index="${index}"
-         role="button" tabindex="0" aria-label="${esc(track.title)} — ${esc(track.artist)}">
+         role="button" tabindex="0" aria-label="${esc(track.title)} — ${esc(track.artist)}"
+         style="${esc(style)}">
       <div class="t-index">
         <span class="num">${index + 1}</span>
         <span class="bars"><i></i><i></i><i></i></span>
@@ -974,13 +1059,6 @@ function lyricsSourceLabel(source) {
   return key ? t(key) : "";
 }
 
-function lyricsFileName(track) {
-  const source = String(track?.relative_path || track?.path || "");
-  const name = source.split(/[\\/]/).pop();
-  const base = name ? name.replace(/\.[^.]+$/, "") : "";
-  return `${base || "track"}.lrc`;
-}
-
 function renderLyrics() {
   const content = $("#fs-lyrics-content");
   const viewport = $("#fs-lyrics-viewport");
@@ -1012,7 +1090,6 @@ function renderLyrics() {
       <div class="lyrics-skeleton" aria-hidden="true">
         <span></span><span></span><span></span><span></span><span></span><span></span>
       </div>
-      <p class="lyrics-skeleton-note">${esc(t("lyrics.loading"))}</p>
     `);
     return;
   }
@@ -1034,11 +1111,6 @@ function renderLyrics() {
     showState(`
       <div class="lyrics-empty">
         <p class="lyrics-empty-title">${esc(t("lyrics.notFound"))}</p>
-        <p class="lyrics-empty-text">${esc(t("lyrics.notFoundHint"))}</p>
-        <div class="lyrics-empty-file">
-          <span class="lyrics-empty-file-label">${esc(t("lyrics.notFoundFile"))}</span>
-          <code>${esc(lyricsFileName(track))}</code>
-        </div>
         <button class="ghost lyrics-empty-action" type="button" data-lyrics-retry="1">${esc(t("lyrics.retry"))}</button>
       </div>
     `);
@@ -1235,17 +1307,23 @@ function loadCover(url) {
  * (sin/cos): при обычном усреднении красный на стыке 0°/360° даёт ~180°
  * и превращается в противоположный цвет — отсюда часть «странных» оттенков.
  */
+let paletteCanvas = null;
+let paletteContext = null;
+
 async function extractPalette(url) {
   const image = await loadCover(url);
   const size = 48;
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) return null;
+  if (!paletteCanvas) {
+    paletteCanvas = document.createElement("canvas");
+    paletteCanvas.width = size;
+    paletteCanvas.height = size;
+    paletteContext = paletteCanvas.getContext("2d", { willReadFrequently: true });
+  }
+  if (!paletteContext) return null;
 
-  context.drawImage(image, 0, 0, size, size);
-  const { data } = context.getImageData(0, 0, size, size);
+  paletteContext.clearRect(0, 0, size, size);
+  paletteContext.drawImage(image, 0, 0, size, size);
+  const { data } = paletteContext.getImageData(0, 0, size, size);
 
   const buckets = new Map();
   for (let i = 0; i < data.length; i += 4) {
@@ -1359,6 +1437,19 @@ function buildTones(palette) {
   return tones;
 }
 
+function applyBlobColors(tones) {
+  if (!ambient.items.length) return;
+  ambient.items.forEach((blob, index) => {
+    const tone = tones[index % tones.length];
+    blob.tone = { ...tone };
+    blob.node.style.color = hslColor({
+      h: tone.h,
+      s: clamp(tone.s * 1.15, 0.45, 0.95),
+      l: clamp(tone.l + 0.06, 0.46, 0.72),
+    });
+  });
+}
+
 function paintPalette(palette) {
   const tones = palette && palette.length ? palette : buildTones(accentPalette());
   const node = $("#fullscreen-player");
@@ -1376,6 +1467,7 @@ function paintPalette(palette) {
 
   ambient.tones = tones;
   if (state.fullscreen) ambient.flash = 1;
+  applyBlobColors(tones);
 }
 
 function rememberPalette(url, palette) {
@@ -1427,7 +1519,7 @@ function ensureAudioGraph() {
     const ctx = new AudioCtor();
     const source = ctx.createMediaElementSource(audio);
     const analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
+    analyser.fftSize = 1024;
     analyser.smoothingTimeConstant = 0.5;
     source.connect(analyser);
     analyser.connect(ctx.destination);
@@ -1460,12 +1552,6 @@ function bandLevel(bins, from, to) {
   return count ? sum / count / 255 : 0;
 }
 
-/** Кратчайший путь по цветовому кругу. */
-function lerpHue(from, to, ratio) {
-  const delta = ((to - from + 540) % 360) - 180;
-  return from + delta * ratio;
-}
-
 /** Пятна живут в DOM постоянно, состояние — здесь. */
 function ensureBlobs() {
   const nodes = document.querySelectorAll(".fs-aurora .fs-blob");
@@ -1478,7 +1564,6 @@ function ensureBlobs() {
     y: (Math.random() - 0.5) * window.innerHeight * 0.3,
     tone: null,
     glow: 0.2,
-    colorAt: -1,
   }));
 }
 
@@ -1542,7 +1627,6 @@ function ambientTick(now) {
   const energy = clamp(vis.energy, 0, 1);
   ambient.flash = Math.max(0, ambient.flash - dt * 1.4);
   const flash = ambient.flash;
-  const palette = ambient.tones;
   const still = ambient.reduced;
 
   items.forEach((blob, index) => {
@@ -1571,31 +1655,6 @@ function ambientTick(now) {
     }
     blob.node.style.opacity = glow.toFixed(3);
 
-    if (!palette.length) return;
-
-    // цвет: плавно перетекаем к палитре нового трека и медленно уводим оттенок
-    const target = palette[index % palette.length];
-    if (!blob.tone) {
-      blob.tone = { ...target };
-    } else {
-      const rate = 1 - Math.exp(-dt * 1.7);
-      blob.tone.h = lerpHue(blob.tone.h, target.h, rate);
-      blob.tone.s += (target.s - blob.tone.s) * rate;
-      blob.tone.l += (target.l - blob.tone.l) * rate;
-    }
-
-    // перекраска — дорогая операция (перерисовка большого пятна), поэтому реже кадров
-    if (time - blob.colorAt < 0.1) return;
-    blob.colorAt = time;
-
-    // оттенок гуляет совсем чуть-чуть: при ±14° пятна заметно уезжали
-    // от цвета обложки, и палитра «плыла» сама по себе
-    const shift = Math.sin(time * (0.14 + index * 0.02) + blob.phase) * 6;
-    blob.node.style.color = hslColor({
-      h: blob.tone.h + shift,
-      s: clamp(blob.tone.s * 1.15, 0.45, 0.95),
-      l: clamp(blob.tone.l + 0.06, 0.46, 0.72),
-    });
   });
 }
 
@@ -1614,6 +1673,7 @@ function visualTick(now) {
 function startVisuals() {
   if (!state.fullscreen) return;
   ensureBlobs();
+  applyBlobColors(ambient.tones.length ? ambient.tones : buildTones(accentPalette()));
   ambient.reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   resumeAudioGraph();
   if (!vis.raf) {
@@ -1631,12 +1691,6 @@ function stopVisuals() {
   vis.fluxPeak = 0;
   ambient.last = 0;
   ambient.flash = 0;
-
-  for (const blob of ambient.items) {
-    blob.glow = 0.16;
-    blob.node.style.opacity = "0.16";
-    blob.node.style.scale = "1";
-  }
 
   const node = $("#fullscreen-player");
   node.style.setProperty("--pulse", "0");
@@ -1694,7 +1748,7 @@ function setFullscreen(open) {
     syncFullscreen();
     // открытие — жест пользователя: самое время разблокировать звук для анализатора
     ensureAudioGraph();
-    startVisuals();
+    if (state.playing) startVisuals();
     $("#titlebar-collapse").focus({ preventScroll: true });
     scheduleZen();
   } else {
@@ -1858,6 +1912,7 @@ function setPlaying(playing) {
   }
 
   if (state.fullscreen && playing) startVisuals();
+  if (state.fullscreen && !playing) stopVisuals();
 
   if (playing) {
     scheduleZen();
@@ -2188,7 +2243,7 @@ function renderPlaylists() {
       const active = state.view === "playlist" && playlist.id === state.playlistId;
       const letter = esc((playlist.name || "?").trim().slice(0, 1).toUpperCase());
       const thumb = playlist.cover_path
-        ? `<img src="/api/artwork?path=${encodeURIComponent(playlist.cover_path)}" alt="" loading="lazy" onerror="this.remove()" />`
+        ? `<img src="/api/artwork?path=${encodeURIComponent(playlist.cover_path)}&v=2" alt="" loading="lazy" onerror="this.remove()" />`
         : "";
 
       return `
@@ -2557,6 +2612,157 @@ function openTrackMenu(button, trackId) {
   menu.querySelector(".menu-item")?.focus({ preventScroll: true });
 }
 
+/* ---------- настройки ---------- */
+
+async function loadSettings() {
+  try {
+    const data = await api("/api/settings");
+    state.settings = data;
+    state.settingsLoaded = true;
+    renderSettings();
+  } catch (error) {
+    const current = $("#settings-music-current");
+    if (current) current.textContent = error.message;
+  }
+}
+
+function renderSettings() {
+  const data = state.settings;
+  if (!data) return;
+  $("#settings-music-current").textContent = data.music_dir;
+  const input = $("#settings-music-dir");
+  if (document.activeElement !== input) input.value = data.music_dir;
+  for (const button of document.querySelectorAll("[data-lang-choice]")) {
+    button.classList.toggle("active", button.dataset.langChoice === state.lang);
+  }
+}
+
+function setSettingsStatus(selector, message, isError = false) {
+  const node = $(selector);
+  if (!node) return;
+  if (!message) {
+    node.hidden = true;
+    node.textContent = "";
+    return;
+  }
+  node.textContent = message;
+  node.classList.toggle("is-error", isError);
+  node.hidden = false;
+}
+
+async function saveMusicDir() {
+  setSettingsStatus("#settings-music-status", "");
+  try {
+    const data = await api("/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ music_dir: $("#settings-music-dir").value }),
+    });
+    state.settings = data;
+    renderSettings();
+    const message = t("settings.saved", { path: data.music_dir });
+    setSettingsStatus("#settings-music-status", message);
+    showToast(message);
+    await loadLibrary(true);
+  } catch (error) {
+    setSettingsStatus(
+      "#settings-music-status",
+      t("settings.failed", { message: error.message }),
+      true,
+    );
+  }
+}
+
+async function resetMusicDir() {
+  setSettingsStatus("#settings-music-status", "");
+  try {
+    const data = await api("/api/settings", {
+      method: "PATCH",
+      body: JSON.stringify({ music_dir: null }),
+    });
+    state.settings = data;
+    renderSettings();
+    const message = t("settings.resetDone", { path: data.music_dir });
+    setSettingsStatus("#settings-music-status", message);
+    showToast(message);
+    await loadLibrary(true);
+  } catch (error) {
+    setSettingsStatus(
+      "#settings-music-status",
+      t("settings.failed", { message: error.message }),
+      true,
+    );
+  }
+}
+
+/** Экспорт «в один клик»: сервер сам кладёт JSON в «Загрузки». */
+async function exportLibraryToFile(statusSelector) {
+  if (statusSelector) setSettingsStatus(statusSelector, "");
+  try {
+    const result = await api("/api/sync/export", { method: "POST" });
+    const message = result.withoutSource
+      ? t("sync.exportedPartial", {
+          count: result.tracks,
+          skipped: result.withoutSource,
+          path: result.path,
+        })
+      : t("sync.exported", { count: result.tracks, path: result.path });
+    if (statusSelector) setSettingsStatus(statusSelector, message);
+    showToast(message);
+  } catch (error) {
+    const message = t("sync.failed", { message: error.message });
+    if (statusSelector) setSettingsStatus(statusSelector, message, true);
+    showToast(message);
+  }
+}
+
+async function runSettingsImport() {
+  const picker = $("#settings-import-file");
+  const file = picker.files[0];
+  if (!file) {
+    setSettingsStatus("#settings-import-status", t("settings.noFile"), true);
+    return;
+  }
+
+  let parsed = null;
+  try {
+    parsed = JSON.parse(await file.text());
+  } catch {
+    parsed = null;
+  }
+  const hasTracks = parsed && Array.isArray(parsed.tracks);
+  const hasPlaylists = parsed && Array.isArray(parsed.playlists);
+  if (!hasTracks && !hasPlaylists) {
+    setSettingsStatus("#settings-import-status", t("settings.importBadFile"), true);
+    return;
+  }
+
+  setSettingsStatus("#settings-import-status", "");
+  try {
+    const result = await api("/api/sync/import", {
+      method: "POST",
+      body: JSON.stringify(parsed),
+    });
+    const message = t("settings.imported", {
+      created: result.playlists_created,
+      updated: result.playlists_updated,
+      added: result.tracks_added,
+      skipped: result.tracks_skipped,
+      sources: result.sources_updated || 0,
+      jobs: result.download_jobs_created || 0,
+    });
+    setSettingsStatus("#settings-import-status", message);
+    showToast(message);
+    await loadPlaylists();
+    await loadJobs();
+  } catch (error) {
+    setSettingsStatus(
+      "#settings-import-status",
+      t("sync.failed", { message: error.message }),
+      true,
+    );
+  }
+}
+
 /* ---------- навигация и события ---------- */
 
 function switchView(view) {
@@ -2566,8 +2772,10 @@ function switchView(view) {
     button.classList.toggle("active", button.dataset.view === view);
   });
 
-  $("#view-tracks").hidden = view === "downloads";
+  $("#view-tracks").hidden = view !== "library" && view !== "playlist";
   $("#view-downloads").hidden = view !== "downloads";
+  $("#view-settings").hidden = view !== "settings";
+  $("#topbar").hidden = view === "downloads" || view === "settings";
 
   const inPlaylist = view === "playlist";
   $("#tracks-title").textContent = inPlaylist ? state.playlistName : t("views.library");
@@ -2586,24 +2794,9 @@ function switchView(view) {
     else if (state.libraryDirty) loadLibrary(true);
   }
 
+  if (view === "settings") loadSettings();
+
   renderTracks();
-}
-
-function applyHealth() {
-  if (state.health === null) return;
-  const ok = state.health === "ok";
-  $("#status-dot").classList.toggle("ok", ok);
-  $("#server-status").textContent = ok ? t("status.ok") : t("status.unavailable");
-}
-
-async function checkHealth() {
-  try {
-    await api("/api/health");
-    state.health = "ok";
-  } catch {
-    state.health = "failed";
-  }
-  applyHealth();
 }
 
 async function checkForUpdates() {
@@ -2757,41 +2950,30 @@ function bindEvents() {
   $("#search").addEventListener("input", renderTracks);
   $("#play-all").addEventListener("click", playAll);
   $("#library-refresh").addEventListener("click", () => loadLibrary(true));
-  $("#library-export").addEventListener("click", async (event) => {
-    // Сервер кладёт файл сам: в десктопной оболочке браузерная загрузка
-    // по ссылке может быть недоступна, а путь к файлу всё равно нужен.
-    event.preventDefault();
-    try {
-      const result = await api("/api/sync/export", { method: "POST" });
-      const message = result.withoutSource
-        ? t("sync.exportedPartial", {
-            count: result.tracks,
-            skipped: result.withoutSource,
-            path: result.path,
-          })
-        : t("sync.exported", { count: result.tracks, path: result.path });
-      showToast(message);
-    } catch (error) {
-      showToast(t("sync.failed", { message: error.message }));
-    }
-  });
-  $("#lang-toggle").addEventListener("click", toggleLanguage);
 
-  const themePicker = $(".theme-picker");
-  themePicker.addEventListener("click", (event) => {
+  // Язык и тема переключаются со страницы настроек.
+  document.addEventListener("click", (event) => {
+    const lang = event.target.closest("[data-lang-choice]");
+    if (lang) {
+      setLanguage(lang.dataset.langChoice);
+      return;
+    }
     const choice = event.target.closest("[data-theme-choice]");
     if (choice) setTheme(choice.dataset.themeChoice);
   });
-  themePicker.addEventListener("keydown", (event) => {
-    if (event.code !== "ArrowLeft" && event.code !== "ArrowRight") return;
-    const buttons = [...themePicker.querySelectorAll("[data-theme-choice]")];
-    const index = buttons.indexOf(document.activeElement);
-    if (index === -1) return;
-    event.preventDefault();
-    const step = event.code === "ArrowRight" ? 1 : -1;
-    const next = buttons[(index + step + buttons.length) % buttons.length];
-    next.focus();
-    setTheme(next.dataset.themeChoice);
+
+  document.querySelectorAll(".theme-picker").forEach((themePicker) => {
+    themePicker.addEventListener("keydown", (event) => {
+      if (event.code !== "ArrowLeft" && event.code !== "ArrowRight") return;
+      const buttons = [...themePicker.querySelectorAll("[data-theme-choice]")];
+      const index = buttons.indexOf(document.activeElement);
+      if (index === -1) return;
+      event.preventDefault();
+      const step = event.code === "ArrowRight" ? 1 : -1;
+      const next = buttons[(index + step + buttons.length) % buttons.length];
+      next.focus();
+      setTheme(next.dataset.themeChoice);
+    });
   });
 
   $("#update-badge").addEventListener("click", () => {
@@ -2799,6 +2981,22 @@ function bindEvents() {
   });
 
   $("#playlist-new").addEventListener("click", () => promptNewPlaylist());
+  $("#settings-music-save").addEventListener("click", saveMusicDir);
+  $("#settings-music-reset").addEventListener("click", resetMusicDir);
+  $("#settings-export-save").addEventListener("click", () =>
+    exportLibraryToFile("#settings-export-status"),
+  );
+  $("#settings-import-file").addEventListener("change", () => {
+    const file = $("#settings-import-file").files[0];
+    const name = $("#settings-import-name");
+    if (file) {
+      name.textContent = file.name;
+      name.hidden = false;
+    } else {
+      name.hidden = true;
+    }
+  });
+  $("#settings-import-run").addEventListener("click", runSettingsImport);
   $("#playlist-rename").addEventListener("click", renameCurrentPlaylist);
   $("#playlist-remove").addEventListener("click", deleteCurrentPlaylist);
 
@@ -2873,7 +3071,18 @@ function bindEvents() {
 
   $(".main").addEventListener("scroll", () => {
     $("#topbar").classList.toggle("is-stuck", $(".main").scrollTop > 4);
+    if (pendingScrollUpdate) return;
+    pendingScrollUpdate = true;
+    requestAnimationFrame(() => {
+      pendingScrollUpdate = false;
+      updateVisibleRows();
+    });
   });
+
+  const mainResizeObserver = new ResizeObserver(() => {
+    updateVisibleRows(true);
+  });
+  mainResizeObserver.observe($(".main"));
 
   $("#play").addEventListener("click", togglePlay);
   $("#fs-play").addEventListener("click", togglePlay);
@@ -3021,6 +3230,8 @@ function bindEvents() {
 }
 
 function init() {
+  LIST_PADDING_TOP = parseFloat(getComputedStyle($("#track-list")).paddingTop) || 6;
+
   const stored = localStorage.getItem("melodown.volume");
   const volume = stored === null ? 0.8 : Number(stored);
   setVolume(Number.isFinite(volume) ? volume : 0.8);
@@ -3033,13 +3244,11 @@ function init() {
   setupWindowControls();
   applyLanguage();
   setupMediaSession();
-  checkHealth();
   checkForUpdates();
   loadPlaylists();
   loadJobs();
   loadLibrary();
 
-  setInterval(checkHealth, 30000);
   setInterval(checkForUpdates, UPDATE_CHECK_MS);
 }
 

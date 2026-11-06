@@ -52,6 +52,7 @@ async def build_export(session: AsyncSession) -> dict:
                 "title": item.title or source.title,
                 "artist": item.artist or source.artist,
                 "platform": source.platform,
+                "relative_path": item.relative_path,
             }
         )
 

@@ -145,6 +145,7 @@ Two codebases, one product. No shared runtime, no compromise.
 - **yt-dlp** — link resolution and stream extraction
 - **ffmpeg** — remuxing and format conversion
 - **mutagen** — tags and embedded artwork
+- **Pillow** — cover downscaling and WebP compression for the UI
 - **SQLite + SQLAlchemy** — job queue that survives restarts
 
 **UI**

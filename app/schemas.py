@@ -121,6 +121,47 @@ class PlaylistAddTracks(BaseModel):
     paths: list[str] = Field(min_length=1, max_length=2000)
 
 
+class SettingsOut(BaseModel):
+    music_dir: str
+    data_dir: str
+    audio_format: str
+    is_default_music_dir: bool
+
+
+class SettingsUpdate(BaseModel):
+    # None — сбросить папку на значение из окружения/умолчания.
+    music_dir: str | None = Field(default=None, max_length=1024)
+
+
+class SyncTrack(BaseModel):
+    url: str = Field(min_length=1, max_length=2048)
+    title: str | None = Field(default=None, max_length=1024)
+    artist: str | None = Field(default=None, max_length=1024)
+    platform: str | None = Field(default=None, max_length=32)
+    relative_path: str | None = Field(default=None, max_length=2048)
+
+
+class SyncImportPlaylist(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    tracks: list[str] = Field(default_factory=list, max_length=5000)
+
+
+class SyncImportRequest(BaseModel):
+    version: int | None = None
+    exportedAt: str | None = Field(default=None, max_length=64)
+    tracks: list[SyncTrack] = Field(default_factory=list, max_length=10000)
+    playlists: list[SyncImportPlaylist] = Field(default_factory=list, max_length=500)
+
+
+class SyncImportResponse(BaseModel):
+    playlists_created: int = 0
+    playlists_updated: int = 0
+    tracks_added: int = 0
+    tracks_skipped: int = 0
+    sources_updated: int = 0
+    download_jobs_created: int = 0
+
+
 class LyricLineOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
