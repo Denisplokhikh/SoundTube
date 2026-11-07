@@ -17,6 +17,9 @@ import com.example.localplayer.data.local.files.AudioFileManager
 import com.example.localplayer.data.repository.DownloadRepository
 import com.example.localplayer.data.sync.ImportOutcome
 import com.example.localplayer.data.sync.SyncImporter
+import com.example.localplayer.data.sync.lan.LanSyncPreferences
+import com.example.localplayer.data.sync.lan.LanSyncRepository
+import com.example.localplayer.data.sync.lan.LanSyncState
 import com.example.localplayer.ui.theme.ThemeMode
 import com.example.localplayer.ui.theme.ThemePreferences
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -41,6 +44,8 @@ class SettingsViewModel @Inject constructor(
     private val syncImporter: SyncImporter,
     private val themePreferences: ThemePreferences,
     private val languagePreferences: LanguagePreferences,
+    private val lanSyncRepository: LanSyncRepository,
+    private val lanSyncPreferences: LanSyncPreferences,
 ) : ViewModel() {
 
     val engineState = repository.engineState
@@ -50,6 +55,10 @@ class SettingsViewModel @Inject constructor(
 
     val trackCount: StateFlow<Int> = trackDao.observeDownloadedCount()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    /** Адрес ПК и прогресс LAN-синхронизации (экран «Синхронизация»). */
+    val lanServerUrl: StateFlow<String> = lanSyncPreferences.serverUrl
+    val lanSyncState: StateFlow<LanSyncState> = lanSyncRepository.state
 
     private val _librarySize = MutableStateFlow(0L)
     val librarySize: StateFlow<Long> = _librarySize.asStateFlow()
@@ -126,6 +135,9 @@ class SettingsViewModel @Inject constructor(
             refreshStorage()
         }
     }
+
+    /** Синхронизация с ПК по локальной сети (адрес + PIN сохраняются сами). */
+    fun syncFromPc(url: String, pin: String) = lanSyncRepository.sync(url, pin)
 
     fun importLibrary(uri: Uri) {
         if (_busy.value) return

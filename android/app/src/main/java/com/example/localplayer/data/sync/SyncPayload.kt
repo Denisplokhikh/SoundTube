@@ -1,13 +1,14 @@
 package com.example.localplayer.data.sync
 
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerialName
 
 /**
  * Снимок библиотеки, который отдаёт десктоп (`GET /api/sync/export`).
  *
  * Идентификаторов здесь нет намеренно: телефон считает их сам из ссылки через
- * [com.example.localplayer.domain.util.TrackIds], поэтому десктопу не нужно знать
- * про `yt:` / `sc:`. Лишние поля формы игнорируются при разборе.
+ * [com.example.localplayer.domain.util.TrackIds], поэтому десктопу не нужно
+ * знать про `yt:` / `sc:`. Лишние поля формы игнорируются при разборе.
  */
 @Serializable
 data class SyncPayload(
@@ -22,6 +23,13 @@ data class SyncTrack(
     val title: String = "",
     val artist: String = "",
     val platform: String? = null,
+    /**
+     * Файл трека на ПК: `true` здесь означает, что аудио можно забрать
+     * по локальной сети (`/api/stream?path=`), а не качать через yt-dlp.
+     * `size` — размер в байтах, объект будет обновляться вместе с файлом.
+     */
+    @SerialName("relative_path") val path: String? = null,
+    val size: Long? = null,
 )
 
 @Serializable

@@ -202,6 +202,22 @@
     <string name="msg_no_duplicates">No duplicates found</string>
     <string name="msg_duplicates_removed">Duplicates removed: %1$d</string>
 
+    <!-- Sync from PC over the LAN -->
+    <string name="lan_sync_title">Sync from PC</string>
+    <string name="lan_sync_hint">Tracks are copied over the local network — afterwards they play without the PC and without the internet.</string>
+    <string name="lan_sync_url_label">Address on the PC</string>
+    <string name="lan_sync_pin_label">PIN</string>
+    <string name="lan_sync_action">Sync now</string>
+    <string name="lan_sync_connecting">Connecting…</string>
+    <string name="msg_lan_sync_downloading">Downloading %1$d of %2$d: %3$s</string>
+    <string name="msg_lan_sync_done">Downloaded: %1$d, already on disk: %2$d, tracks imported: %3$d, playlists: %4$d</string>
+    <string name="msg_lan_sync_failed">Sync failed: %1$s</string>
+    <string name="msg_lan_sync_pin_required">Enter the PIN the desktop app shows in Settings → Phone</string>
+    <string name="msg_lan_sync_pin_wrong">The PC rejected this PIN</string>
+    <string name="msg_lan_sync_invalid_url">The address must look like http://192.168.1.5:8765</string>
+    <string name="msg_lan_sync_invalid_payload">The PC sent something other than a library snapshot</string>
+    <string name="msg_lan_sync_unreachable">The PC is unreachable: %1$s</string>
+
     <!-- yt-dlp engine state -->
     <string name="engine_not_initialized">not initialised</string>
     <string name="engine_initializing">initialising…</string>

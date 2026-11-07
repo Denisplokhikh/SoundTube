@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -28,6 +30,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Autorenew
 import androidx.compose.material.icons.rounded.BatterySaver
+import androidx.compose.material.icons.rounded.Computer
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.DownloadForOffline
@@ -41,6 +44,7 @@ import androidx.compose.material.icons.rounded.Storage
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -50,11 +54,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.core.app.NotificationManagerCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -63,6 +69,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.localplayer.BuildConfig
 import com.example.localplayer.R
 import com.example.localplayer.core.AppLog
+import com.example.localplayer.data.sync.lan.LanSyncState
 import com.example.localplayer.core.i18n.LanguageMode
 import com.example.localplayer.ui.components.SectionLabel
 import com.example.localplayer.ui.components.SoundTubeButton
@@ -92,6 +99,8 @@ fun SettingsScreen(
     val messageIsError by viewModel.messageIsError.collectAsStateWithLifecycle()
     val logs by viewModel.logs.collectAsStateWithLifecycle()
     val batteryUnrestricted by viewModel.batteryUnrestricted.collectAsStateWithLifecycle()
+    val lanServerUrl by viewModel.lanServerUrl.collectAsStateWithLifecycle()
+    val lanSyncState by viewModel.lanSyncState.collectAsStateWithLifecycle()
 
     val context = LocalContext.current
     // Смена языка пересоздаёт экран: ресурсы читаются заново из контекста Activity.
@@ -307,6 +316,88 @@ fun SettingsScreen(
             item { SectionLabel(stringResource(R.string.section_sync)) }
             item {
                 SettingsCard {
+                    // LAN-синхронизация: снимок берётся сразу с сервера ПК, а файлы
+                    // качаются через /api/stream — после синхронизации приложение
+                    // играет без ПК и без интернета.
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        SettingsIcon(Icons.Rounded.Computer)
+                        Text(
+                            text = stringResource(R.string.lan_sync_title),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = colors.textPrimary,
+                        )
+                    }
+                    Text(
+                        text = stringResource(R.string.lan_sync_hint),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.textSecondary,
+                        modifier = Modifier.padding(top = 4.dp),
+                    )
+
+                    var lanUrl by remember(lanServerUrl) { mutableStateOf(lanServerUrl) }
+                    var lanPin by rememberSaveable { mutableStateOf("") }
+
+                    OutlinedTextField(
+                        value = lanUrl,
+                        onValueChange = { lanUrl = it },
+                        label = { Text(stringResource(R.string.lan_sync_url_label)) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 10.dp),
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = lanPin,
+                        onValueChange = { lanPin = it },
+                        label = { Text(stringResource(R.string.lan_sync_pin_label)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    SoundTubeButton(
+                        text = stringResource(R.string.lan_sync_action),
+                        modifier = Modifier.fillMaxWidth(),
+                        enabled = lanSyncState !is LanSyncState.Connecting &&
+                            lanSyncState !is LanSyncState.Syncing &&
+                            lanUrl.isNotBlank(),
+                        onClick = { viewModel.syncFromPc(lanUrl, lanPin) },
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    when (val sync = lanSyncState) {
+                        LanSyncState.Idle -> Unit
+                        LanSyncState.Connecting -> SyncStatus(
+                            stringResource(R.string.lan_sync_connecting),
+                            colors.textSecondary,
+                        )
+
+                        is LanSyncState.Syncing -> SyncStatus(
+                            stringResource(R.string.msg_lan_sync_downloading, sync.done, sync.total, sync.current),
+                            colors.textSecondary,
+                        )
+
+                        is LanSyncState.Completed -> SyncStatus(
+                            stringResource(
+                                R.string.msg_lan_sync_done,
+                                sync.downloaded,
+                                sync.alreadyOnDisk,
+                                sync.tracksImported,
+                                sync.playlistsAdded,
+                            ),
+                            colors.textPrimary,
+                        )
+
+                        is LanSyncState.Failed -> SyncStatus(
+                            stringResource(R.string.msg_lan_sync_failed, sync.message),
+                            colors.error,
+                        )
+                    }
+
+                    SettingsDivider()
                     SettingsRow(
                         icon = Icons.Rounded.FileUpload,
                         title = stringResource(R.string.import_title),
@@ -444,6 +535,19 @@ private fun Context.findActivity(): Activity? {
         current = current.baseContext
     }
     return null
+}
+
+/** Строка статуса LAN-синхронизации: прогресс, итог или причина сбоя. */
+@Composable
+private fun SyncStatus(
+    text: String,
+    color: Color,
+) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        color = color,
+    )
 }
 
 @Composable

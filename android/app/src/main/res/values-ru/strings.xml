@@ -202,6 +202,22 @@
     <string name="msg_no_duplicates">Дублей не найдено</string>
     <string name="msg_duplicates_removed">Убрано дублей: %1$d</string>
 
+    <!-- Синхронизация с ПК по локальной сети -->
+    <string name="lan_sync_title">Синхронизация с ПК</string>
+    <string name="lan_sync_hint">Треки скопируются по локальной сети — дальше они играют без ПК и без интернета.</string>
+    <string name="lan_sync_url_label">Адрес сервера на ПК</string>
+    <string name="lan_sync_pin_label">PIN</string>
+    <string name="lan_sync_action">Синхронизировать</string>
+    <string name="lan_sync_connecting">Подключение…</string>
+    <string name="msg_lan_sync_downloading">Качаю %1$d из %2$d: %3$s</string>
+    <string name="msg_lan_sync_done">Скачано: %1$d, уже на диске: %2$d, треков импортировано: %3$d, плейлистов: %4$d</string>
+    <string name="msg_lan_sync_failed">Синхронизация не удалась: %1$s</string>
+    <string name="msg_lan_sync_pin_required">Введите PIN из десктопного приложения: Настройки → Телефон</string>
+    <string name="msg_lan_sync_pin_wrong">ПК отверг этот PIN</string>
+    <string name="msg_lan_sync_invalid_url">Адрес должен быть вида http://192.168.1.5:8765</string>
+    <string name="msg_lan_sync_invalid_payload">ПК прислал не снимок библиотеки</string>
+    <string name="msg_lan_sync_unreachable">ПК не отвечает: %1$s</string>
+
     <!-- Состояние движка yt-dlp -->
     <string name="engine_not_initialized">не инициализирован</string>
     <string name="engine_initializing">инициализация…</string>
