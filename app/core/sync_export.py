@@ -53,6 +53,9 @@ async def build_export(session: AsyncSession) -> dict:
                 "artist": item.artist or source.artist,
                 "platform": source.platform,
                 "relative_path": item.relative_path,
+                # Размер файла в байтах: телефон не качает повторно то, что уже
+                # на диске, и честно оценивает место до начала синхронизации.
+                "size": item.size,
             }
         )
 
