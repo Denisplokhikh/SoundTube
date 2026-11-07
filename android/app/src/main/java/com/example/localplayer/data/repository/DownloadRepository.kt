@@ -14,6 +14,7 @@ import com.example.localplayer.data.downloader.YoutubeDLClient
 import com.example.localplayer.data.local.db.dao.TrackDao
 import com.example.localplayer.data.local.db.entity.TrackEntity
 import com.example.localplayer.data.local.files.AudioFileManager
+import com.example.localplayer.domain.model.DownloadStage
 import com.example.localplayer.domain.model.DownloadState
 import com.example.localplayer.domain.model.DownloadTask
 import com.example.localplayer.domain.model.SourcePlatform
@@ -545,9 +546,9 @@ class DownloadRepository @Inject constructor(
         WorkInfo.State.RUNNING -> DownloadState.Downloading(
             url = track.sourceUrl,
             progress = progress.getFloat(AudioDownloadWorker.KEY_PROGRESS, 0f),
-            etaSeconds = progress.getLong(AudioDownloadWorker.KEY_ETA, -1L).takeIf { it > 0 },
-            status = progress.getString(AudioDownloadWorker.KEY_STATUS)
-                ?: context.getString(R.string.notification_downloading),
+            stage = progress.getString(AudioDownloadWorker.KEY_STAGE)
+                ?.let { name -> DownloadStage.entries.firstOrNull { it.name == name } }
+                ?: DownloadStage.PREPARING,
         )
 
         WorkInfo.State.SUCCEEDED -> when {

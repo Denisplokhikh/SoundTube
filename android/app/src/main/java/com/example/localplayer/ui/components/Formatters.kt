@@ -19,24 +19,6 @@ fun Long.formatDuration(): String {
     }
 }
 
-/**
- * Сколько осталось: `~2:10`; null, если ETA неизвестна.
- *
- * [secondsSuffix] — обозначение секунд («с» или «s»): его даёт ресурс,
- * поэтому сама функция остаётся чистой и тестируемой.
- */
-fun Long?.formatEta(secondsSuffix: String): String? {
-    val seconds = this ?: return null
-    if (seconds <= 0L) return null
-    val minutesPart = seconds / 60L
-    val secondsPart = seconds % 60L
-    return if (minutesPart > 0L) {
-        String.format(Locale.ROOT, "~%d:%02d", minutesPart, secondsPart)
-    } else {
-        "~$secondsPart $secondsSuffix"
-    }
-}
-
 /** Размер библиотеки: «12,4 МБ». */
 @Composable
 fun Long.formatFileSize(): String =

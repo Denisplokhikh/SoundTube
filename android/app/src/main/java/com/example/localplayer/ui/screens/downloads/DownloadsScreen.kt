@@ -71,7 +71,6 @@ import com.example.localplayer.ui.components.SoundTubeIconButton
 import com.example.localplayer.ui.components.SoundTubeTopBar
 import com.example.localplayer.ui.components.ThinProgressBar
 import com.example.localplayer.ui.components.describe
-import com.example.localplayer.ui.components.formatEta
 import com.example.localplayer.ui.player.PlayerViewModel
 import com.example.localplayer.ui.theme.SoundTubeTheme
 
@@ -596,22 +595,12 @@ private fun DownloadTaskCard(
                         color = colors.statusGreen,
                     )
                     Text(
-                        text = state.status,
+                        text = stringResource(state.stage.labelRes),
                         style = MaterialTheme.typography.labelSmall,
                         color = colors.textSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
                     )
-                    state.etaSeconds.formatEta(
-                        stringResource(R.string.eta_seconds_suffix),
-                    )?.let { eta ->
-                        Text(
-                            text = eta,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = colors.textSecondary,
-                        )
-                    }
                 }
             }
 

@@ -119,6 +119,7 @@
     <string name="status_queued">queued</string>
     <string name="status_fetching_metadata">fetching metadata…</string>
     <string name="status_preparing">Preparing</string>
+    <string name="status_downloading">Downloading</string>
     <string name="status_processing">Processing the file</string>
     <string name="status_completed">done</string>
     <string name="status_cancelled">cancelled</string>
@@ -216,7 +217,6 @@
     <string name="notification_channel_downloads">Downloads</string>
     <string name="notification_channel_downloads_description">Downloading tracks and processing files</string>
     <string name="notification_downloaded">Downloaded</string>
-    <string name="notification_downloading">Downloading</string>
 
     <!-- Download errors -->
     <string name="error_network">no internet connection — check your network and try again</string>
@@ -229,9 +229,6 @@
     <string name="error_no_audio">the platform didn’t return audio — try again</string>
     <string name="error_processing">couldn’t process the audio — try updating yt-dlp</string>
     <string name="error_download_failed">couldn’t download the track</string>
-
-    <!-- Formatters -->
-    <string name="eta_seconds_suffix">s</string>
 
     <plurals name="tracks_count">
         <item quantity="one">%d track</item>

@@ -8,13 +8,16 @@ sealed interface DownloadState {
     /** Получаем метаданные по ссылке (--dump-json). */
     data class FetchingMetadata(val url: String) : DownloadState
 
+    /**
+     * Идёт загрузка.
+     *
+     * Показываем только долю и стадию: скорость, ETA и служебные строки yt-dlp
+     * человеку ничего не дают (см. [DownloadStage]).
+     */
     data class Downloading(
         val url: String,
         val progress: Float,
-        val etaSeconds: Long?,
-        val status: String,
-        val downloadedBytes: Long = 0L,
-        val totalBytes: Long = 0L,
+        val stage: DownloadStage,
     ) : DownloadState
 
     data class Completed(val url: String, val trackId: String?) : DownloadState

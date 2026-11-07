@@ -16,13 +16,13 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.example.localplayer.R
 import com.example.localplayer.data.local.db.AppDatabase
 import com.example.localplayer.data.local.db.dao.PlaylistDao
 import com.example.localplayer.data.local.db.dao.TrackDao
 import com.example.localplayer.data.local.db.entity.PlaylistTrackCrossRef
 import com.example.localplayer.data.local.db.entity.TrackEntity
 import com.example.localplayer.data.local.files.AudioFileManager
+import com.example.localplayer.domain.model.DownloadStage
 import com.example.localplayer.domain.model.DownloadState
 import com.example.localplayer.domain.model.SourcePlatform
 import com.example.localplayer.domain.util.DownloadErrors
@@ -103,8 +103,7 @@ class AudioDownloadWorker @AssistedInject constructor(
             DownloadState.Downloading(
                 url = url,
                 progress = 0f,
-                etaSeconds = null,
-                status = applicationContext.getString(R.string.status_preparing),
+                stage = DownloadStage.PREPARING,
             ),
         )
 
@@ -112,14 +111,19 @@ class AudioDownloadWorker @AssistedInject constructor(
         // задержится с перерисовкой уведомления, doWork() всё равно завершится.
         val reporter = progressScope.launch {
             var lastUpdate = 0L
-            var lastStatus = ""
+            var lastStage = DownloadStage.PREPARING
             progress.collect { state ->
                 if (state !is DownloadState.Downloading) return@collect
                 val now = SystemClock.elapsedRealtime()
                 if (now - lastUpdate < PROGRESS_INTERVAL_MS && state.progress < 1f) return@collect
-                if (state.status == lastStatus && state.progress < 1f) return@collect
+                if (state.stage == lastStage && state.progress < 1f) return@collect
                 lastUpdate = now
-                lastStatus = state.status
+                // Смена стадии — самое интересное в журнале: по нему видно, на чём
+                // именно зависла загрузка.
+                if (state.stage != lastStage) {
+                    AppLog.i("${track.title}: ${state.stage.name.lowercase()}")
+                }
+                lastStage = state.stage
 
                 runCatching {
                     setProgress(progressData(state))
@@ -136,21 +140,15 @@ class AudioDownloadWorker @AssistedInject constructor(
             )
 
             val startedAt = SystemClock.elapsedRealtime()
-            val downloaded = client.download(url, fileManager.newWorkDir(track.id), track.id) { fraction, eta, line ->
+            val downloaded = client.download(url, fileManager.newWorkDir(track.id), track.id) { fraction, line ->
                 progress.value = DownloadState.Downloading(
                     url = url,
                     progress = fraction.coerceIn(0f, 1f),
-                    etaSeconds = eta.takeIf { it > 0 },
-                    status = DownloadNotifications.statusLine(applicationContext, line),
+                    // Стадию («Подготовка», «Скачивание», «Обработка файла») берём
+                    // из строки вывода yt-dlp: сырые строки пользователю не нужны.
+                    stage = DownloadStage.of(line, fraction),
                 )
             }
-
-            progress.value = DownloadState.Downloading(
-                url,
-                1f,
-                null,
-                applicationContext.getString(R.string.status_processing),
-            )
 
             // В плоском списке SoundCloud иногда отдаёт ссылки api-v2, и id такого трека
             // не совпадает с id того же трека, импортированного по permalink. Каноническую
@@ -320,7 +318,7 @@ class AudioDownloadWorker @AssistedInject constructor(
         val notification = DownloadNotifications.progress(
             context = applicationContext,
             title = title,
-            status = state.status,
+            stage = state.stage,
             fraction = state.progress,
         )
         return ForegroundInfo(
@@ -332,8 +330,7 @@ class AudioDownloadWorker @AssistedInject constructor(
 
     private fun progressData(state: DownloadState.Downloading): Data = workDataOf(
         KEY_PROGRESS to state.progress,
-        KEY_ETA to (state.etaSeconds ?: -1L),
-        KEY_STATUS to state.status,
+        KEY_STAGE to state.stage.name,
     )
 
     private fun shouldRetry(error: Throwable): Boolean {
@@ -349,8 +346,7 @@ class AudioDownloadWorker @AssistedInject constructor(
         const val KEY_TRACK_ID = "track_id"
         const val KEY_URL = "url"
         const val KEY_PROGRESS = "progress"
-        const val KEY_ETA = "eta"
-        const val KEY_STATUS = "status"
+        const val KEY_STAGE = "stage"
         const val KEY_ERROR = "error"
 
         /** Отметка «трек снят кнопкой Отмена» в outputData задачи. */

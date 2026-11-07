@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.localplayer.MainActivity
 import com.example.localplayer.R
+import com.example.localplayer.domain.model.DownloadStage
 
 /** Уведомления загрузчика: один канал, одно foreground-уведомление на задачу. */
 object DownloadNotifications {
@@ -39,7 +40,7 @@ object DownloadNotifications {
     fun progress(
         context: Context,
         title: String,
-        status: String,
+        stage: DownloadStage,
         fraction: Float,
     ): Notification {
         val percent = (fraction.coerceIn(0f, 1f) * 100).toInt()
@@ -48,7 +49,7 @@ object DownloadNotifications {
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.stat_sys_download)
             .setContentTitle(title)
-            .setContentText(status)
+            .setContentText(context.getString(stage.labelRes))
             .setProgress(100, percent, indeterminate)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -102,11 +103,5 @@ object DownloadNotifications {
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-    }
-
-    /** Строка для уведомления: обрезаем простыню из вывода yt-dlp. */
-    fun statusLine(context: Context, raw: String): String {
-        val cleaned = raw.substringAfter("]").trim().ifEmpty { raw.trim() }
-        return cleaned.take(120).ifEmpty { context.getString(R.string.notification_downloading) }
     }
 }

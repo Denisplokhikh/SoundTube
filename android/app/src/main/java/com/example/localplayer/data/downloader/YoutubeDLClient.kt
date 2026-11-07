@@ -186,14 +186,14 @@ class YoutubeDLClient @Inject constructor(
      * название и исполнителя при чтении ссылки, берём их отсюда — без лишнего запроса.
      *
      * @param trackId id трека; по нему же можно отменить процесс через [cancel].
-     * @param onProgress прогресс 0..1, ETA в секундах, последняя строка вывода yt-dlp.
+     * @param onProgress прогресс 0..1 и последняя строка вывода yt-dlp.
      * @return скачанный файл и метаданные, которые отдал yt-dlp.
      */
     suspend fun download(
         url: String,
         outputDir: File,
         trackId: String,
-        onProgress: (fraction: Float, etaSeconds: Long, line: String) -> Unit,
+        onProgress: (fraction: Float, line: String) -> Unit,
     ): DownloadResult = withContext(Dispatchers.IO) {
         ensureInitialized().getOrThrow()
         outputDir.mkdirs()
@@ -216,8 +216,9 @@ class YoutubeDLClient @Inject constructor(
         val processId = "$trackId#${processSeq.incrementAndGet()}"
         runningProcesses[trackId] = processId
         try {
-            YoutubeDL.getInstance().execute(request, processId) { fraction, eta, line ->
-                onProgress(fraction, eta, line)
+            // ETA из библиотеки не берём: он скачет и в списке загрузок только шумит.
+            YoutubeDL.getInstance().execute(request, processId) { fraction, _, line ->
+                onProgress(fraction, line)
             }
         } finally {
             runningProcesses.remove(trackId, processId)
