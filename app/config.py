@@ -59,6 +59,14 @@ class Settings(BaseSettings):
     # Проверка новых релизов на GitHub (кнопка «Обновление» в интерфейсе).
     update_check: bool = True
 
+    # PIN для доступа к API с других устройств в локальной сети.
+    # Локальные запросы (127.0.0.1) PIN не требуют.
+    lan_auth: bool = True
+    # Если задан, используется вместо PIN из data/lan_auth.json.
+    pin: str | None = None
+    # Ручной выбор адреса для QR/ссылки (если несколько сетевых интерфейсов).
+    lan_ip: str | None = None
+
     @field_validator("audio_format")
     @classmethod
     def _validate_format(cls, value: str) -> str:

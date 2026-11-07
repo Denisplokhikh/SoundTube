@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 import os
 import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from app import __version__
 from app.api.routes import router as api_router
+from app.core import lan_auth
 from app.core.runner import recover_stale_jobs, runner
 from app.core.sources import sync_sources_from_tracks
 from app.core.user_settings import apply_saved_settings
@@ -77,7 +80,22 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
+@app.middleware("http")
+async def lan_pin_guard(request, call_next):
+    """Защищает /api/* паролем для всех, кроме самого ПК."""
+    if lan_auth.should_guard(request) and not lan_auth.authenticated(request):
+        return JSONResponse(
+            status_code=401,
+            content={"detail": "PIN required", "pin_required": True},
+        )
+    return await call_next(request)
+
+
 app.include_router(api_router)
+
+# PWA-манифест должен отдаваться с правильным типом даже на старых Python.
+mimetypes.add_type("application/manifest+json", ".webmanifest")
 
 if WEB_DIR.exists():
     logging.getLogger(__name__).info("frontend: %s", WEB_DIR)

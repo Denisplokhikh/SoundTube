@@ -11,7 +11,9 @@ const UPDATE_CHECK_MS = 30 * 60 * 1000;
 const RELEASES_URL = "https://github.com/Denisplokhikh/SoundTube/releases";
 
 // Виртуализация длинных списков треков.
-const ROW_HEIGHT = 50;
+// Высота строки списка. На телефоне строки выше, поэтому виртуализация
+// должна считать ту же величину, что и CSS.
+let ROW_HEIGHT = document.documentElement.classList.contains("mobile") ? 60 : 50;
 const VIRTUAL_BUFFER = 8;
 let LIST_PADDING_TOP = 6;
 
@@ -187,6 +189,27 @@ const MESSAGES = {
     "trackStatus.done": "ok",
     "trackStatus.failed": "ошибка",
     "trackStatus.skipped": "дубликат",
+    "nav.playlists": "Плейлисты",
+    "playlists.subtitle": "Системные и ваши плейлисты",
+    "lan.title": "Телефон",
+    "lan.hint": "Доступ к библиотеке с телефона по домашней сети. ПК должен быть включён.",
+    "lan.enable": "Разрешить доступ по локальной сети",
+    "lan.url": "Адрес:",
+    "lan.copy": "Копировать",
+    "lan.pin": "PIN:",
+    "lan.newPin": "Новый PIN",
+    "lan.steps": "Откройте адрес в Chrome на телефоне, введите PIN и добавьте страницу на главный экран.",
+    "lan.firewall": "Если телефон не открывает адрес, разрешите порт 8765 для частной сети в брандмауэре Windows.",
+    "lan.restarting": "Перезапускаю сервер…",
+    "lan.restarted": "Доступ по локальной сети включён",
+    "lan.stopped": "Доступ по локальной сети выключен",
+    "lan.failed": "Не удалось переключить режим: {message}",
+    "lan.copied": "Адрес скопирован",
+    "lan.pinChanged": "PIN обновлён",
+    "lan.confirm": "Переключить режим? Активные загрузки прервутся.",
+    "lan.offline": "Нет связи с ПК",
+    "lan.retry": "Повторить",
+    "lan.offlineHint": "Проверьте, что ПК включён и SoundTube запущен в той же Wi-Fi.",
   },
   en: {
     "nav.library": "Library",
@@ -356,6 +379,27 @@ const MESSAGES = {
     "trackStatus.done": "ok",
     "trackStatus.failed": "error",
     "trackStatus.skipped": "duplicate",
+    "nav.playlists": "Playlists",
+    "playlists.subtitle": "System and your playlists",
+    "lan.title": "Phone",
+    "lan.hint": "Access the library from a phone on your home network. The PC must stay on.",
+    "lan.enable": "Allow access over the local network",
+    "lan.url": "Address:",
+    "lan.copy": "Copy",
+    "lan.pin": "PIN:",
+    "lan.newPin": "New PIN",
+    "lan.steps": "Open the address in Chrome on the phone, enter the PIN and add the page to the home screen.",
+    "lan.firewall": "If the phone can't open the address, allow port 8765 for private networks in Windows Firewall.",
+    "lan.restarting": "Restarting the server…",
+    "lan.restarted": "Local network access enabled",
+    "lan.stopped": "Local network access disabled",
+    "lan.failed": "Couldn't switch the mode: {message}",
+    "lan.copied": "Address copied",
+    "lan.pinChanged": "PIN updated",
+    "lan.confirm": "Switch the mode? Active downloads will be interrupted.",
+    "lan.offline": "No connection to the PC",
+    "lan.retry": "Retry",
+    "lan.offlineHint": "Make sure the PC is on and SoundTube is running on the same Wi-Fi.",
   },
 };
 
@@ -692,6 +736,12 @@ function renderTracks() {
 
   container.style.height = `${list.length * ROW_HEIGHT + LIST_PADDING_TOP}px`;
   updateVisibleRows(true);
+}
+
+/** Переключает высоту строк при смене мобильной/десктопной раскладки. */
+function setMobileRowHeight(height) {
+  ROW_HEIGHT = Number(height) || 50;
+  renderTracks();
 }
 
 function updateVisibleRows(force = false) {
@@ -1516,7 +1566,16 @@ function ensureAudioGraph() {
   }
 
   try {
-    const ctx = new AudioCtor();
+    // "playback" — увеличенный буфер вывода. Режим по умолчанию ("interactive")
+    // держит буфер минимальным ради низкой задержки, но на телефоне, а особенно
+    // в Bluetooth-наушниках, он периодически не успевает отдавать сэмплы —
+    // слышно потрескивание. Для музыки задержка не важна, стабильность важнее.
+    let ctx;
+    try {
+      ctx = new AudioCtor({ latencyHint: "playback" });
+    } catch {
+      ctx = new AudioCtor();
+    }
     const source = ctx.createMediaElementSource(audio);
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
@@ -1537,7 +1596,9 @@ function ensureAudioGraph() {
 }
 
 function resumeAudioGraph() {
-  if (vis.ctx && vis.ctx.state === "suspended") {
+  // "interrupted" — состояние, в которое контекст уходит после звонка или
+  // смены аудиовыхода; будим его так же, как и "suspended".
+  if (vis.ctx && vis.ctx.state !== "running" && vis.ctx.state !== "closed") {
     vis.ctx.resume().catch(() => {});
   }
 }
@@ -1732,6 +1793,13 @@ function syncFullscreen() {
 
 function setFullscreen(open) {
   if (state.fullscreen === open) return;
+
+  // Закрытие жестом/кнопкой должно «съесть» историю, а не добавить новую.
+  if (!open && isMobileLayout() && !historyLock && history.state?.fullscreen) {
+    history.back();
+    return;
+  }
+
   state.fullscreen = open;
 
   const node = $("#fullscreen-player");
@@ -1757,6 +1825,13 @@ function setFullscreen(open) {
     stopVisuals();
     node.setAttribute("inert", "");
     $("#expand").focus({ preventScroll: true });
+  }
+
+  if (isMobileLayout() && !historyLock) {
+    const current = history.state || {};
+    if (current.fullscreen !== open) {
+      history.pushState({ view: state.view, fullscreen: open }, "");
+    }
   }
 }
 
@@ -2624,6 +2699,7 @@ async function loadSettings() {
     const current = $("#settings-music-current");
     if (current) current.textContent = error.message;
   }
+  loadLan();
 }
 
 function renderSettings() {
@@ -2649,6 +2725,134 @@ function setSettingsStatus(selector, message, isError = false) {
   node.classList.toggle("is-error", isError);
   node.hidden = false;
 }
+
+/* ---------- доступ с телефона (Tauri only) ---------- */
+
+let lanBusy = false;
+
+function tauriInvoke(command, args = {}) {
+  const tauri = window.__TAURI__;
+  if (!tauri?.core?.invoke) {
+    return Promise.reject(new Error("Tauri API недоступен"));
+  }
+  return tauri.core.invoke(command, args);
+}
+
+function setupLanPanel() {
+  const card = $("#settings-lan-card");
+  if (!card) return;
+  if (!window.__TAURI__) {
+    card.hidden = true;
+    return;
+  }
+
+  card.hidden = false;
+  $("#settings-lan-toggle").addEventListener("change", (event) => {
+    setLanMode(event.target.checked, event.target);
+  });
+  $("#settings-lan-copy").addEventListener("click", copyLanUrl);
+  $("#settings-lan-new-pin").addEventListener("click", regenerateLanPin);
+  $("#settings-lan-qr-img").addEventListener("error", () => {
+    $("#settings-lan-qr-img").hidden = true;
+  });
+}
+
+async function waitForServer(timeout = 20000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    try {
+      const response = await fetch("/api/health", { cache: "no-store" });
+      if (response.ok) return true;
+    } catch {
+      /* сервер перезапускается */
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  return false;
+}
+
+async function setLanMode(enabled, input = null) {
+  if (lanBusy) return;
+  if (!confirm(t("lan.confirm"))) {
+    if (input) input.checked = !enabled;
+    return;
+  }
+
+  lanBusy = true;
+  setSettingsStatus("#settings-lan-status", t("lan.restarting"));
+  try {
+    await tauriInvoke("set_lan_mode", { enabled });
+    if (!(await waitForServer())) throw new Error("Сервер не ответил");
+    setSettingsStatus("#settings-lan-status", enabled ? t("lan.restarted") : t("lan.stopped"));
+    await loadLan();
+    showToast(enabled ? t("lan.restarted") : t("lan.stopped"));
+  } catch (error) {
+    setSettingsStatus(
+      "#settings-lan-status",
+      t("lan.failed", { message: error.message || error }),
+      true,
+    );
+    if (input) input.checked = !enabled;
+  } finally {
+    lanBusy = false;
+  }
+}
+
+async function loadLan() {
+  if (!window.__TAURI__) return;
+
+  let enabled = false;
+  try {
+    enabled = Boolean(await tauriInvoke("get_lan_mode"));
+  } catch {
+    /* старый билд без команды */
+  }
+
+  const toggle = $("#settings-lan-toggle");
+  if (toggle) toggle.checked = enabled;
+  const body = $("#settings-lan-body");
+  if (body) body.hidden = !enabled;
+  if (!enabled) return;
+
+  try {
+    const info = await api("/api/lan");
+    const url = info.url || "";
+    $("#settings-lan-url").textContent = url || "—";
+    $("#settings-lan-pin").textContent = info.pin || "—";
+
+    const image = $("#settings-lan-qr-img");
+    if (url) {
+      image.hidden = false;
+      image.src = `/api/lan/qr.svg?t=${Date.now()}`;
+    } else {
+      image.hidden = true;
+    }
+  } catch (error) {
+    setSettingsStatus("#settings-lan-status", t("lan.failed", { message: error.message }), true);
+  }
+}
+
+async function copyLanUrl() {
+  const url = $("#settings-lan-url").textContent.trim();
+  if (!url || url === "—") return;
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast(t("lan.copied"));
+  } catch {
+    prompt(t("lan.url"), url);
+  }
+}
+
+async function regenerateLanPin() {
+  try {
+    await api("/api/lan/regenerate", { method: "POST" });
+    await loadLan();
+    showToast(t("lan.pinChanged"));
+  } catch (error) {
+    setSettingsStatus("#settings-lan-status", t("lan.failed", { message: error.message }), true);
+  }
+}
+
 
 async function saveMusicDir() {
   setSettingsStatus("#settings-music-status", "");
@@ -2765,6 +2969,29 @@ async function runSettingsImport() {
 
 /* ---------- навигация и события ---------- */
 
+// Мобильная история: экраны и полноэкранный плеер должны закрываться
+// системной кнопкой «Назад», а не выкидывать из приложения.
+let historyLock = false;
+
+function isMobileLayout() {
+  return document.documentElement.classList.contains("mobile");
+}
+
+function initMobileHistory() {
+  if (!isMobileLayout()) return;
+  history.replaceState({ view: state.view, fullscreen: false }, "");
+}
+
+window.addEventListener("popstate", (event) => {
+  if (!isMobileLayout()) return;
+  historyLock = true;
+  const next = event.state || { view: "library", fullscreen: false };
+  if (state.fullscreen && !next.fullscreen) setFullscreen(false);
+  if (next.view && next.view !== state.view) switchView(next.view);
+  if (next.fullscreen && !state.fullscreen) setFullscreen(true);
+  historyLock = false;
+});
+
 function switchView(view) {
   state.view = view;
 
@@ -2774,8 +3001,10 @@ function switchView(view) {
 
   $("#view-tracks").hidden = view !== "library" && view !== "playlist";
   $("#view-downloads").hidden = view !== "downloads";
+  $("#view-playlists").hidden = view !== "playlists";
   $("#view-settings").hidden = view !== "settings";
-  $("#topbar").hidden = view === "downloads" || view === "settings";
+  $("#topbar").hidden =
+    view === "downloads" || view === "settings" || view === "playlists";
 
   const inPlaylist = view === "playlist";
   $("#tracks-title").textContent = inPlaylist ? state.playlistName : t("views.library");
@@ -2797,6 +3026,13 @@ function switchView(view) {
   if (view === "settings") loadSettings();
 
   renderTracks();
+
+  if (isMobileLayout() && !historyLock) {
+    const current = history.state || {};
+    if (current.view !== view || current.fullscreen) {
+      history.pushState({ view, fullscreen: false }, "");
+    }
+  }
 }
 
 async function checkForUpdates() {
@@ -3195,6 +3431,12 @@ function bindEvents() {
     if (audio.src) showToast(t("error.playFile"));
   });
 
+  // Android усыпляет AudioContext, пока страница в фоне: возвращаемся — будим,
+  // иначе после разблокировки экрана звук на время пропадает или щёлкает.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) resumeAudioGraph();
+  });
+
   $("#import-form").addEventListener("submit", submitImport);
   $("#jobs").addEventListener("click", (event) => {
     const target = event.target.closest("[data-action]");
@@ -3231,7 +3473,6 @@ function bindEvents() {
 
 function init() {
   LIST_PADDING_TOP = parseFloat(getComputedStyle($("#track-list")).paddingTop) || 6;
-
   const stored = localStorage.getItem("melodown.volume");
   const volume = stored === null ? 0.8 : Number(stored);
   setVolume(Number.isFinite(volume) ? volume : 0.8);
@@ -3242,6 +3483,7 @@ function init() {
 
   bindEvents();
   setupWindowControls();
+  setupLanPanel();
   applyLanguage();
   setupMediaSession();
   checkForUpdates();
@@ -3249,6 +3491,7 @@ function init() {
   loadJobs();
   loadLibrary();
 
+  initMobileHistory();
   setInterval(checkForUpdates, UPDATE_CHECK_MS);
 }
 

@@ -22,13 +22,14 @@ use tauri_plugin_shell::{
 };
 
 const HOST: &str = "127.0.0.1";
+const LAN_HOST: &str = "0.0.0.0";
 const DEFAULT_PORT: u16 = 8765;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(90);
 /// Версия HTTP-API. Должна совпадать с API_REVISION в app/api/routes.py:
 /// иначе новый интерфейс может открыться поверх старого сервера на том же
 /// порту (например, забытого `uv run uvicorn` из репозитория), и запросы
 /// к новым ручкам будут отдавать 404.
-const API_REVISION: u32 = 5;
+const API_REVISION: u32 = 6;
 /// Сколько портов после основного пробовать, если он занят чужим сервером.
 const PORT_PROBES: u16 = 20;
 
@@ -41,6 +42,7 @@ enum ServerProcess {
 struct ServerState {
     child: Mutex<Option<ServerProcess>>,
     port: Mutex<Option<u16>>,
+    busy: Mutex<()>,
 }
 
 fn port() -> u16 {
@@ -89,6 +91,49 @@ fn expected_data_dir(app: &AppHandle) -> Option<String> {
         .app_local_data_dir()
         .ok()
         .map(|dir| dir.join("data").to_string_lossy().into_owned())
+}
+
+#[derive(serde::Serialize, serde::Deserialize, Default)]
+struct LanConfig {
+    #[serde(default)]
+    enabled: bool,
+}
+
+fn lan_config_path(app: &AppHandle) -> Option<PathBuf> {
+    app.path()
+        .app_local_data_dir()
+        .ok()
+        .map(|dir| dir.join("lan.json"))
+}
+
+fn lan_enabled(app: &AppHandle) -> bool {
+    let Some(path) = lan_config_path(app) else {
+        return false;
+    };
+    let Ok(text) = std::fs::read_to_string(path) else {
+        return false;
+    };
+    serde_json::from_str::<LanConfig>(&text)
+        .map(|config| config.enabled)
+        .unwrap_or(false)
+}
+
+fn save_lan_enabled(app: &AppHandle, enabled: bool) -> Result<(), String> {
+    let path = lan_config_path(app).ok_or("Не удалось найти каталог данных приложения")?;
+    if let Some(parent) = path.parent() {
+        let _ = create_dir_all(parent);
+    }
+    let text = serde_json::to_string_pretty(&LanConfig { enabled })
+        .map_err(|error| format!("Не удалось сохранить режим LAN: {error}"))?;
+    std::fs::write(&path, text).map_err(|error| format!("Не удалось сохранить режим LAN: {error}"))
+}
+
+fn bind_host(app: &AppHandle) -> &'static str {
+    if lan_enabled(app) {
+        LAN_HOST
+    } else {
+        HOST
+    }
 }
 
 fn json_escape(value: &str) -> String {
@@ -160,7 +205,7 @@ fn append_log(path: &Path, text: &str) {
     }
 }
 
-fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<ServerProcess, String> {
+fn spawn_sidecar(app: &AppHandle, port: u16, host: &str) -> Result<ServerProcess, String> {
     let shell = app.shell();
     let mut command = shell
         .sidecar("melodown-server")
@@ -172,7 +217,7 @@ fn spawn_sidecar(app: &AppHandle, port: u16) -> Result<ServerProcess, String> {
     }
 
     command = command
-        .env("MELODOWN_HOST", HOST)
+        .env("MELODOWN_HOST", host)
         .env("MELODOWN_PORT", port.to_string())
         .env("MELODOWN_LOG_FILE", log.to_string_lossy().to_string());
 
@@ -234,14 +279,14 @@ fn dev_python() -> Option<(PathBuf, PathBuf)> {
     python.exists().then_some((python, root))
 }
 
-fn spawn_python(python: &Path, root: &Path, port: u16) -> Result<ServerProcess, String> {
+fn spawn_python(python: &Path, root: &Path, port: u16, host: &str) -> Result<ServerProcess, String> {
     let mut command = Command::new(python);
     command
         .arg("-m")
         .arg("uvicorn")
         .arg("app.main:app")
         .arg("--host")
-        .arg(HOST)
+        .arg(host)
         .arg("--port")
         .arg(port.to_string())
         .current_dir(root)
@@ -263,15 +308,15 @@ fn spawn_python(python: &Path, root: &Path, port: u16) -> Result<ServerProcess, 
         .map_err(|error| format!("не удалось запустить Python: {error}"))
 }
 
-fn start_server(app: &AppHandle, port: u16) -> Result<(), String> {
-    match spawn_sidecar(app, port) {
+fn start_server(app: &AppHandle, port: u16, host: &str) -> Result<(), String> {
+    match spawn_sidecar(app, port, host) {
         Ok(process) => {
             *app.state::<ServerState>().child.lock().unwrap() = Some(process);
             Ok(())
         }
         Err(sidecar_error) => match dev_python() {
             Some((python, root)) => {
-                let process = spawn_python(&python, &root, port)?;
+                let process = spawn_python(&python, &root, port, host)?;
                 *app.state::<ServerState>().child.lock().unwrap() = Some(process);
                 Ok(())
             }
@@ -430,14 +475,67 @@ fn open_window(app: &AppHandle, port: u16) {
         .build();
 }
 
-fn fail(app: &AppHandle, message: &str) {
-    append_log(&log_path(app), &format!("[fatal] {message}\n"));
+fn fail(app: &AppHandle, message: &str) {    append_log(&log_path(app), &format!("[fatal] {message}\n"));
     app.dialog()
         .message(message)
         .title("SoundTube")
         .kind(MessageDialogKind::Error)
         .blocking_show();
     app.exit(1);
+}
+
+#[tauri::command]
+fn get_lan_mode(app: AppHandle) -> bool {
+    lan_enabled(&app)
+}
+
+/// Переключает прослушивание 127.0.0.1 ↔ 0.0.0.0, перезапуская sidecar.
+/// Активные загрузки при этом прерываются — интерфейс предупреждает об этом.
+#[tauri::command]
+fn set_lan_mode(app: AppHandle, enabled: bool) -> Result<bool, String> {
+    if lan_enabled(&app) == enabled {
+        return Ok(enabled);
+    }
+
+    let state = app.state::<ServerState>();
+    let _guard = state.busy.lock().unwrap();
+    save_lan_enabled(&app, enabled)?;
+
+    let port = active_port(&app);
+    stop_server(state.inner());
+
+    let host = if enabled { LAN_HOST } else { HOST };
+    let mut last_error = String::new();
+    let mut started = false;
+    for _ in 0..20 {
+        match start_server(&app, port, host) {
+            Ok(()) => {
+                started = true;
+                break;
+            }
+            Err(error) => {
+                last_error = error;
+                sleep(Duration::from_millis(300));
+            }
+        }
+    }
+
+    if !started {
+        // Вернуть прежний режим, чтобы при следующем запуске всё было как было.
+        let _ = save_lan_enabled(&app, !enabled);
+        let _ = start_server(&app, port, if enabled { HOST } else { LAN_HOST });
+        return Err(last_error);
+    }
+
+    let deadline = Instant::now() + Duration::from_secs(30);
+    while Instant::now() < deadline {
+        if health_ok(port) {
+            return Ok(enabled);
+        }
+        sleep(Duration::from_millis(300));
+    }
+
+    Err("Сервер не ответил после перезапуска".to_string())
 }
 
 fn boot(app: AppHandle) {
@@ -460,7 +558,7 @@ fn boot(app: AppHandle) {
     }
     set_active_port(&app, chosen);
 
-    if let Err(error) = start_server(&app, chosen) {
+    if let Err(error) = start_server(&app, chosen, bind_host(&app)) {
         fail(
             &app,
             &format!("Не удалось запустить локальный сервер.\n\n{error}"),
@@ -495,6 +593,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(ServerState::default())
+        .invoke_handler(tauri::generate_handler![get_lan_mode, set_lan_mode])
         .on_window_event(|window, event| {
             // Крестик скрывает окно в трей на Windows/macOS. На Linux иконка
             // в трее часто недоступна (GNOME без расширения), поэтому закрытие

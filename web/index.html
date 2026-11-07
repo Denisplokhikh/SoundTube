@@ -2,19 +2,31 @@
 <html lang="ru">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#0b0c0b" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>SoundTube</title>
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon-128.png" sizes="128x128" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <!-- Тема ставится до загрузки CSS, чтобы не было вспышки чужой палитры. -->
     <script>
       try {
         const params = new URLSearchParams(window.location.search);
         const theme = params.get("theme") || localStorage.getItem("melodown.theme");
         if (theme) document.documentElement.dataset.theme = theme;
+        // Мобильная раскладка включается до app.js: от этого зависят
+        // history-состояния и поведение кнопки «Назад».
+        if (window.matchMedia("(max-width: 820px)").matches) {
+          document.documentElement.classList.add("mobile");
+        }
       } catch (error) {}
     </script>
     <link rel="stylesheet" href="/themes.css" />
     <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/mobile.css" />
   </head>
   <body>
     <header class="titlebar" id="titlebar" data-tauri-drag-region="deep">
@@ -271,6 +283,16 @@
           <div id="track-list" class="track-list"></div>
         </section>
 
+        <section id="view-playlists" class="view" hidden>
+          <header class="view-head">
+            <div class="view-title">
+              <h1 data-i18n="playlists.title">Плейлисты</h1>
+              <p class="sub" data-i18n="playlists.subtitle">Системные и ваши плейлисты</p>
+            </div>
+          </header>
+          <div class="playlists-mount" id="playlists-mount"></div>
+        </section>
+
         <section id="view-downloads" class="view" hidden>
           <header class="view-head">
             <div class="view-title">
@@ -389,7 +411,7 @@
               </div>
             </div>
 
-            <div class="settings-card">
+            <div class="settings-card" id="settings-folder-card">
               <h2 data-i18n="settings.folder">Папка для скачивания</h2>
               <p class="settings-hint" data-i18n="settings.folderHint">
                 Новые треки сохраняются сюда: Артист/Альбом/…
@@ -415,6 +437,43 @@
                 </button>
               </div>
               <p id="settings-music-status" class="settings-status" hidden></p>
+            </div>
+
+            <div class="settings-card" id="settings-lan-card" hidden>
+              <h2 data-i18n="lan.title">Телефон</h2>
+              <p class="settings-hint" data-i18n="lan.hint">
+                Доступ к библиотеке с телефона по домашней сети. ПК должен быть включён.
+              </p>
+              <label class="lan-toggle">
+                <input id="settings-lan-toggle" type="checkbox" />
+                <span data-i18n="lan.enable">Разрешить доступ по локальной сети</span>
+              </label>
+              <div id="settings-lan-body" hidden>
+                <p class="settings-current">
+                  <span data-i18n="lan.url">Адрес:</span>
+                  <code id="settings-lan-url">…</code>
+                  <button id="settings-lan-copy" class="ghost small" type="button" data-i18n="lan.copy">
+                    Копировать
+                  </button>
+                </p>
+                <div class="lan-qr" id="settings-lan-qr">
+                  <img id="settings-lan-qr-img" alt="QR-код для телефона" />
+                </div>
+                <p class="settings-current">
+                  <span data-i18n="lan.pin">PIN:</span>
+                  <code id="settings-lan-pin">…</code>
+                  <button id="settings-lan-new-pin" class="ghost small" type="button" data-i18n="lan.newPin">
+                    Новый PIN
+                  </button>
+                </p>
+                <p class="settings-hint" data-i18n="lan.steps">
+                  Откройте адрес в Chrome на телефоне, введите PIN и добавьте страницу на главный экран.
+                </p>
+                <p class="settings-hint" data-i18n="lan.firewall">
+                  Если телефон не открывает адрес, разрешите порт 8765 для частной сети в брандмауэре Windows.
+                </p>
+              </div>
+              <p id="settings-lan-status" class="settings-status" hidden></p>
             </div>
 
             <div class="settings-card">
@@ -592,6 +651,11 @@
       aria-hidden="true"
       inert
     >
+      <button id="fs-mobile-close" class="fs-mobile-close" type="button" aria-label="Свернуть плеер">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
       <div class="fs-aurora" aria-hidden="true">
         <span class="fs-blob" data-tone="1"></span>
         <span class="fs-blob" data-tone="2"></span>
@@ -825,8 +889,44 @@
     </div>
 
     <div id="toast" class="toast" hidden></div>
-    <audio id="audio" preload="metadata"></audio>
+    <div id="offline-banner" class="offline-banner" hidden>
+      <span data-i18n="lan.offline">Нет связи с ПК</span>
+      <button id="offline-retry" type="button" class="ghost small" data-i18n="lan.retry">Повторить</button>
+    </div>
+    <audio id="audio" preload="auto"></audio>
 
+    <nav class="mnav" id="mnav" aria-label="Основная навигация">
+      <button class="nav-item mnav-item" data-view="library" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h10" />
+        </svg>
+        <span data-i18n="nav.library">Библиотека</span>
+      </button>
+      <button class="nav-item mnav-item" data-view="playlists" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 6h11M4 12h11M4 18h7" />
+          <path d="M17 6v8.5" />
+          <circle cx="15" cy="16.5" r="2" />
+        </svg>
+        <span data-i18n="playlists.title">Плейлисты</span>
+      </button>
+      <button class="nav-item mnav-item" data-view="downloads" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14" />
+        </svg>
+        <span data-i18n="nav.downloads">Загрузки</span>
+      </button>
+      <button class="nav-item mnav-item" data-view="settings" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <circle cx="12" cy="12" r="3" />
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+        </svg>
+        <span data-i18n="nav.settings">Настройки</span>
+      </button>
+    </nav>
+
+    <script src="/auth.js"></script>
     <script src="/app.js"></script>
+    <script src="/mobile.js"></script>
   </body>
 </html>

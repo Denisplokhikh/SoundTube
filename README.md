@@ -58,6 +58,7 @@ Paste a link — a single track, a 300-song playlist, a SoundCloud set — and i
 - 📝 **Lyrics that follow the song** — Synced lyrics come from LRCLIB and are cached as a `.lrc` next to the audio; if nothing is found, the app falls back to the track description on SoundCloud/YouTube (underground uploads often carry the full text there) and then to lyrics.ovh. Open the two-column full-screen view, click any line to jump to that moment (`L` toggles it).
 - 🔄 **Library everywhere** — Export the whole library as one JSON file and import it on Android: same tracks and playlists, downloaded fresh on the phone. No PC needed afterwards.
 - 🌐 **Two languages** — The interface speaks Russian and English; flip it with the globe button in the top-right corner.
+- 📱 **Your library on the phone** — Turn on *Settings → Phone* and the same library opens on any device in your home network, with a PIN lock and an installable home-screen icon.
 - 🐳 **Docker, if that's your thing** — `docker compose up --build` and you have the same library on a home server.
 
 ---
@@ -84,6 +85,35 @@ Paste a link — a single track, a 300-song playlist, a SoundCloud set — and i
     <td align="center"><sub><b>Now playing</b> — cover, controls and the queue</sub></td>
   </tr>
 </table>
+
+---
+
+## 📱 Phone over your local network
+
+SoundTube is one server plus one interface. The desktop app can serve that interface to your phone as well — no cloud, no account, no extra install on the PC side.
+
+1. On the computer open **Settings → Phone** and switch on *Allow access over the local network*. The server restarts on `0.0.0.0` and the card shows the address, a QR code and the PIN.
+2. On the phone, join the same Wi-Fi, scan the QR (or type the address), enter the PIN and add the page to your home screen — it opens full-screen like an app.
+3. Library, playlists, downloads and the player all work; files stay on the PC.
+
+**PIN.** Requests from the computer itself (`127.0.0.1`) never ask for it, so the desktop app behaves exactly as before. Every other device must log in once and then keeps a signed cookie for 180 days. Five wrong attempts lock that device out for five minutes. *New PIN* on the card rotates it and instantly signs every phone out.
+
+**Nothing listening?** Run `scripts\serve-lan.ps1` — it prints the address and an ASCII QR, or set the environment yourself:
+
+```powershell
+$env:MELODOWN_HOST = "0.0.0.0"
+uv run uvicorn app.main:app --host 0.0.0.0 --port 8765
+```
+
+**If the phone can't open the address**, allow port `8765` for private networks in Windows Firewall (an admin PowerShell does it in one line):
+
+```powershell
+New-NetFirewallRule -DisplayName "SoundTube LAN" -Direction Inbound -Protocol TCP -LocalPort 8765 -Profile Private -Action Allow
+```
+
+**If the QR shows the wrong address** (VPN or WSL adapter in the way), pin it explicitly with `MELODOWN_LAN_IP=192.168.1.182` in `.env`. Related settings: `MELODOWN_LAN_AUTH=0` disables the PIN entirely, `MELODOWN_PIN` fixes it to a value you choose (then it can't be rotated from the UI).
+
+> The phone UI lives in `web/mobile.css`, `web/mobile.js` and `web/auth.js` and only activates below 820 px, so the desktop layout is untouched. It is a plain HTTP page on purpose — a service worker would not work without HTTPS, so there is no offline cache.
 
 ---
 

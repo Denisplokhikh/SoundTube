@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app import __version__
 from app.config import settings
+from app.core import lan_auth
 from app.core.artwork import extract_cover
 from app.core.library import invalidate_cache, resolve_track_path, scan_library
 from app.core.lyrics import get_track_lyrics, lrc_path_for
@@ -25,9 +26,12 @@ from app.db import get_session
 from app.models import Job, LibrarySource, Playlist, PlaylistTrack, Track
 from app.platforms import ResolveError, UnsupportedURL, detect_platform, resolve
 from app.schemas import (
+    AuthLogin,
+    AuthStatus,
     ImportRequest,
     JobOut,
     JobSummary,
+    LanInfo,
     LibraryEntry,
     LibraryResponse,
     LyricsResponse,
@@ -52,19 +56,113 @@ MAX_LIBRARY_ENTRIES = 5000
 # src-tauri/src/lib.rs и не переиспользует сервер с другим значением:
 # иначе новый интерфейс открывается поверх старого бэкенда без нужных роутов.
 # Меняйте вместе с константой в lib.rs.
-API_REVISION = 5
+API_REVISION = 6
 
 
 @router.get("/health")
-async def health() -> dict:
-    return {
+async def health(request: Request) -> dict:
+    payload: dict = {
         "status": "ok",
         "version": __version__,
         "api": API_REVISION,
-        "music_dir": str(settings.music_dir),
-        "data_dir": str(settings.data_dir),
         "queue_running": runner.running,
     }
+    # Пути к папкам нужны desktop-оболочке (она сверяет data_dir), но не
+    # чужим устройствам в локальной сети.
+    if lan_auth.is_local_request(request):
+        payload["music_dir"] = str(settings.music_dir)
+        payload["data_dir"] = str(settings.data_dir)
+    return payload
+
+
+@router.get("/auth/status", response_model=AuthStatus)
+async def auth_status(request: Request) -> AuthStatus:
+    return AuthStatus(
+        authenticated=lan_auth.authenticated(request),
+        local=lan_auth.is_local_request(request),
+        pin_required=lan_auth.pin_required(),
+        lan_enabled=lan_auth.lan_enabled(),
+        url=lan_auth.lan_url(),
+    )
+
+
+@router.post("/auth/login", response_model=AuthStatus)
+async def auth_login(
+    payload: AuthLogin,
+    request: Request,
+    response: Response,
+) -> AuthStatus:
+    if lan_auth.limited(request):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Слишком много попыток. Подождите несколько минут.",
+        )
+    if not lan_auth.check_pin(payload.pin):
+        lan_auth.register_failure(request)
+        raise HTTPException(status_code=401, detail="Неверный PIN")
+    lan_auth.reset_attempts(request)
+    lan_auth.issue_cookie(response)
+    return AuthStatus(
+        authenticated=True,
+        local=lan_auth.is_local_request(request),
+        pin_required=lan_auth.pin_required(),
+        lan_enabled=lan_auth.lan_enabled(),
+        url=lan_auth.lan_url(),
+    )
+
+
+@router.post("/auth/logout", response_model=AuthStatus)
+async def auth_logout(request: Request, response: Response) -> AuthStatus:
+    lan_auth.clear_cookie(response)
+    return AuthStatus(
+        authenticated=False,
+        local=lan_auth.is_local_request(request),
+        pin_required=lan_auth.pin_required(),
+        lan_enabled=lan_auth.lan_enabled(),
+        url=lan_auth.lan_url(),
+    )
+
+
+@router.get("/lan", response_model=LanInfo)
+async def lan_info(request: Request) -> LanInfo:
+    local = lan_auth.is_local_request(request)
+    return LanInfo(
+        enabled=lan_auth.lan_enabled(),
+        host=settings.host,
+        port=settings.port,
+        url=lan_auth.lan_url(),
+        pin=lan_auth.pin() if local else None,
+        candidates=lan_auth.lan_candidates(),
+    )
+
+
+@router.get("/lan/qr.svg")
+async def lan_qr(request: Request) -> Response:
+    if not lan_auth.is_local_request(request):
+        raise HTTPException(status_code=403, detail="QR доступен только с этого компьютера")
+    url = lan_auth.lan_url()
+    if not url:
+        raise HTTPException(status_code=409, detail="Доступ по локальной сети выключен")
+    try:
+        svg = lan_auth.qr_svg(url)
+    except Exception as exc:  # noqa: BLE001 - qrcode может быть не установлен
+        raise HTTPException(status_code=503, detail=f"QR недоступен: {exc}") from exc
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
+@router.post("/lan/regenerate", response_model=LanInfo)
+async def lan_regenerate(request: Request) -> LanInfo:
+    if not lan_auth.is_local_request(request):
+        raise HTTPException(status_code=403, detail="PIN можно сменить только с этого компьютера")
+    try:
+        lan_auth.regenerate_pin()
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return await lan_info(request)
 
 
 @router.get("/update")

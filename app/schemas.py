@@ -133,6 +133,27 @@ class SettingsUpdate(BaseModel):
     music_dir: str | None = Field(default=None, max_length=1024)
 
 
+class AuthLogin(BaseModel):
+    pin: str = Field(min_length=1, max_length=64)
+
+
+class AuthStatus(BaseModel):
+    authenticated: bool
+    local: bool
+    pin_required: bool
+    lan_enabled: bool
+    url: str | None = None
+
+
+class LanInfo(BaseModel):
+    enabled: bool
+    host: str
+    port: int
+    url: str | None = None
+    pin: str | None = None
+    candidates: list[str] = Field(default_factory=list)
+
+
 class SyncTrack(BaseModel):
     url: str = Field(min_length=1, max_length=2048)
     title: str | None = Field(default=None, max_length=1024)

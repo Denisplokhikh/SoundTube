@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import httpx
 import pytest
 from fastapi import HTTPException
@@ -130,8 +132,12 @@ def test_pick_best_candidate_accepts_exact_title_and_duration_despite_junk_artis
 
 
 async def test_health_exposes_api_revision():
-    data = await health()
+    # health() смотрит на адрес клиента, чтобы прятать пути папок от
+    # устройств в локальной сети; здесь эмулируем запрос с самого ПК.
+    request = SimpleNamespace(client=SimpleNamespace(host="127.0.0.1"))
+    data = await health(request)
     assert data["api"] == API_REVISION
+    assert "music_dir" in data
 
 
 async def test_lyrics_reads_local_lrc_without_network(tmp_path, monkeypatch):
