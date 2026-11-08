@@ -190,6 +190,30 @@ interface TrackDao {
     suspend fun deleteHard(id: String)
 
     /**
+     * Треки, у которых файл уже на диске, а длительность неизвестна.
+     *
+     * Так выглядят импортированные с ПК треки: в старых экспортах длительности
+     * не было, а Media3 узнаёт её только при воспроизведении. Читает и записывает
+     * её [com.example.localplayer.data.local.files.DurationBackfill].
+     */
+    @Query(
+        """
+        SELECT * FROM tracks
+        WHERE isDeleted = 0 AND durationMs = 0 AND localFilePath IS NOT NULL
+        """,
+    )
+    suspend fun findMissingDurations(): List<TrackEntity>
+
+    /** Записывает досчитанную длительность, не затирая уже известную. */
+    @Query(
+        """
+        UPDATE tracks SET durationMs = :durationMs, updatedAt = :updatedAt
+        WHERE id = :id AND durationMs = 0
+        """,
+    )
+    suspend fun updateDuration(id: String, durationMs: Long, updatedAt: Long): Int
+
+    /**
      * Чинит названия, сохранённые старыми сборками.
      *
      * Тогда у треков из плоского списка SoundCloud в базу попадал служебный адрес

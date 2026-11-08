@@ -46,4 +46,26 @@ class SyncPayloadTest {
         assertEquals(null, payload.tracks.single().platform)
         assertEquals(emptyList<SyncPlaylist>(), payload.playlists)
     }
+
+    @Test
+    fun `duration from the export becomes milliseconds`() {
+        val payload = json.decodeFromString<SyncPayload>(
+            """{"tracks":[{"url":"https://youtu.be/dQw4w9WgXcQ","duration":187.4}]}""",
+        )
+
+        assertEquals(187_400L, payload.tracks.single().durationMs)
+    }
+
+    @Test
+    fun `missing duration is unknown rather than zero seconds`() {
+        val withoutDuration = json.decodeFromString<SyncPayload>(
+            """{"tracks":[{"url":"https://youtu.be/dQw4w9WgXcQ"}]}""",
+        )
+        val zeroDuration = json.decodeFromString<SyncPayload>(
+            """{"tracks":[{"url":"https://youtu.be/dQw4w9WgXcQ","duration":0}]}""",
+        )
+
+        assertEquals(0L, withoutDuration.tracks.single().durationMs)
+        assertEquals(0L, zeroDuration.tracks.single().durationMs)
+    }
 }

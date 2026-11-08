@@ -5,6 +5,7 @@ import com.example.localplayer.R
 import com.example.localplayer.core.AppLog
 import com.example.localplayer.data.local.db.dao.TrackDao
 import com.example.localplayer.data.local.files.AudioFileManager
+import com.example.localplayer.data.local.files.DurationBackfill
 import com.example.localplayer.data.sync.ImportOutcome
 import com.example.localplayer.data.sync.SyncImporter
 import com.example.localplayer.data.sync.SyncPayload
@@ -43,6 +44,7 @@ class LanSyncRepository @Inject constructor(
     private val syncImporter: SyncImporter,
     private val trackDao: TrackDao,
     private val fileManager: AudioFileManager,
+    private val durationBackfill: DurationBackfill,
 ) {
 
     private val json = Json { ignoreUnknownKeys = true }
@@ -109,6 +111,10 @@ class LanSyncRepository @Inject constructor(
                 fileManager.discardWorkDir(TrackIds.forUrl(item.url))
             }
         }
+
+        // Свежескачанные файлы обычно приходят без длительности: считаем её
+        // из самих файлов, чтобы список библиотеки сразу показывал время.
+        durationBackfill.run()
 
         _state.value = LanSyncState.Completed(
             downloaded = downloaded,

@@ -11,6 +11,7 @@ import coil.memory.MemoryCache
 import com.example.localplayer.core.AppLog
 import com.example.localplayer.core.i18n.AppLocale
 import com.example.localplayer.data.downloader.YoutubeDLClient
+import com.example.localplayer.data.local.files.DurationBackfill
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -34,6 +35,9 @@ class MelodownApp : Application(), Configuration.Provider, ImageLoaderFactory {
     @Inject
     lateinit var youtubeDL: YoutubeDLClient
 
+    @Inject
+    lateinit var durationBackfill: DurationBackfill
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override val workManagerConfiguration: Configuration
@@ -56,6 +60,9 @@ class MelodownApp : Application(), Configuration.Provider, ImageLoaderFactory {
                 onFailure = { AppLog.e("yt-dlp engine failed to start", it) },
             )
         }
+        // Треки, приехавшие с ПК без длительности, досчитываем из самих файлов:
+        // иначе в библиотеке вместо времени остаётся прочерк.
+        appScope.launch { durationBackfill.run() }
     }
 
     /**

@@ -83,6 +83,9 @@ async def test_export_skips_system_playlists_and_unknown_files(session, tmp_path
     assert payload["tracks"][0]["platform"] == "youtube"
     assert payload["tracks"][0]["relative_path"] == "Artist/Album/Artist - One.mp3"
     assert payload["tracks"][1]["relative_path"] == "Artist/Album/Artist - Two.m4a"
+    # У файла-заглушки нет тегов, поэтому длительность неизвестна, но поле есть:
+    # телефон по нему заполняет время в списке библиотеки.
+    assert payload["tracks"][0]["duration"] is None
     assert payload["playlists"] == [
         {
             "name": "Любимое",

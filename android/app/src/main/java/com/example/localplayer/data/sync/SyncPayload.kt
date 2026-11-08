@@ -2,6 +2,7 @@ package com.example.localplayer.data.sync
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
+import kotlin.math.roundToLong
 
 /**
  * Снимок библиотеки, который отдаёт десктоп (`GET /api/sync/export`).
@@ -30,7 +31,17 @@ data class SyncTrack(
      */
     @SerialName("relative_path") val path: String? = null,
     val size: Long? = null,
-)
+    /**
+     * Длительность в секундах из тегов файла на ПК. В старых экспортах её нет,
+     * поэтому для уже приехавших треков телефон досчитывает её из самого файла
+     * ([com.example.localplayer.data.local.files.DurationBackfill]).
+     */
+    val duration: Double? = null,
+) {
+    /** Длительность для базы в миллисекундах; 0 — неизвестна. */
+    val durationMs: Long
+        get() = duration?.takeIf { it > 0.0 }?.let { (it * 1000.0).roundToLong() } ?: 0L
+}
 
 @Serializable
 data class SyncPlaylist(
