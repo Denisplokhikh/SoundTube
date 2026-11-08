@@ -2,25 +2,37 @@ package com.example.localplayer.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.example.localplayer.R
 
 /**
  * Типографика терминала: всё моноширинное, как в десктопном SoundTube.
  *
+ * Шрифт — JetBrains Mono: начертания 400/500/600/700 лежат в res/font и
+ * вшиты в APK, поэтому интерфейс одинаков на любой прошивке (системный
+ * monospace у MIUI, Samsung и чистого Android разный). Лицензия SIL OFL 1.1 —
+ * assets/licenses/jetbrains-mono-OFL.txt.
+ *
  * Заголовки экранов — 22.sp Bold, подпись под ними — 12.sp обычного начертания.
- * Размеры подобраны так, чтобы длинные названия треков и подписи статусов
- * не «прыгали» при смене шрифта.
+ * Размеры подобраны под моноширинный шрифт: длинные названия треков и подписи
+ * статусов не «прыгают» при смене начертания.
  */
-private val Mono = FontFamily.Monospace
+private val AppFont = FontFamily(
+    Font(R.font.jetbrains_mono_regular, FontWeight.Normal),
+    Font(R.font.jetbrains_mono_medium, FontWeight.Medium),
+    Font(R.font.jetbrains_mono_semibold, FontWeight.SemiBold),
+    Font(R.font.jetbrains_mono_bold, FontWeight.Bold),
+)
 
 private fun mono(
     size: Int,
     lineHeight: Int,
     weight: FontWeight = FontWeight.Normal,
 ) = TextStyle(
-    fontFamily = Mono,
+    fontFamily = AppFont,
     fontWeight = weight,
     fontSize = size.sp,
     lineHeight = lineHeight.sp,
