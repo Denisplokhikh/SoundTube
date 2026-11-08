@@ -2,13 +2,11 @@ package com.example.localplayer.ui.player
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.gestures.DraggableState
-import androidx.compose.foundation.gestures.Orientation
-import androidx.compose.foundation.gestures.draggable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,8 +22,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,46 +32,36 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.localplayer.R
 import com.example.localplayer.media.PlayerState
-import com.example.localplayer.ui.components.TrackArtwork
 import com.example.localplayer.ui.components.formatDuration
 import com.example.localplayer.ui.theme.SoundTubeTheme
 
 /**
- * Полоска над нижней навигацией: что играет и пауза/следующий.
+ * Содержимое свёрнутой плашки плеера: прогресс, название, тайминги и кнопки.
  *
- * Фон #0E100E, верхняя рамка 1.dp и тонкий зелёный прогресс 2.dp — как нижний
- * плеер десктопа. Появляется только когда в плеере есть трек, поэтому пустой
- * строкой место не занимает. Тап по строке открывает полноэкранный плеер,
- * а свайп вверх вытягивает его следом за пальцем.
+ * Обложка сюда не входит: это отдельный морфящийся слой
+ * ([ExpandablePlayerHost]), который переезжает из плашки в центр полноэкранного плеера.
+ * Поэтому слева оставлено ровно 48.dp — место под неё.
+ *
+ * Свайп вверх по плашке тянет общий якорный стейт ([ExpandablePlayerState]):
+ * `anchoredDraggable` добавляется к [modifier] снаружи, в [ExpandablePlayerHost],
+ * поэтому скролл списков под плеером жест не перехватывает.
  */
 @Composable
-fun MiniPlayer(
+fun MiniPlayerContent(
     state: PlayerState,
     positionMs: () -> Long,
     onPlayPause: () -> Unit,
     onNext: () -> Unit,
     onExpand: () -> Unit,
-    onDrag: (Float) -> Unit,
-    onDragStop: (Float) -> Unit,
+    interactive: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val colors = SoundTubeTheme.colors
-    // Лямбды приходят заново на каждую рекомпозицию, а DraggableState запоминается
-    // один раз — держим актуальные ссылки, иначе жест будет звать старые.
-    val onDragState = rememberUpdatedState(onDrag)
-    val onDragStopState = rememberUpdatedState(onDragStop)
-    val dragState = remember { DraggableState { delta -> onDragState.value(delta) } }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            // Свайп вверх по полоске вытягивает полноэкранный плеер; тап при этом
-            // остаётся тапом — draggable отдаёт жест только после touch slop.
-            .draggable(
-                state = dragState,
-                orientation = Orientation.Vertical,
-                onDragStopped = { velocity -> onDragStopState.value(velocity) },
-            )
+            .height(MiniPlayerHeight)
             .background(colors.playerSurface)
             .drawBehind {
                 drawLine(
@@ -92,16 +78,14 @@ fun MiniPlayer(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(onClick = onExpand)
-                .padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
+                .weight(1f)
+                .clickable(enabled = interactive, onClick = onExpand)
+                .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            TrackArtwork(
-                artwork = state.artworkUri,
-                modifier = Modifier.size(40.dp),
-                cornerRadius = 4.dp,
-            )
+            // Место под морфящуюся обложку: сам слой рисуется в ExpandablePlayerHost.
+            Spacer(modifier = Modifier.size(48.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -124,13 +108,13 @@ fun MiniPlayer(
                 }
             }
 
-            // Круглая белая кнопка — единственный «светлый» элемент, как play-btn на ПК.
+            // Круглая светлая кнопка — единственный «яркий» элемент плашки.
             Box(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
                     .background(colors.textPrimary)
-                    .clickable(onClick = onPlayPause),
+                    .clickable(enabled = interactive, onClick = onPlayPause),
                 contentAlignment = Alignment.Center,
             ) {
                 if (state.isBuffering) {
@@ -161,7 +145,10 @@ fun MiniPlayer(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
-                    .clickable(enabled = state.hasNext, onClick = onNext),
+                    .clickable(
+                        enabled = interactive && state.hasNext,
+                        onClick = onNext,
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
@@ -182,7 +169,7 @@ fun MiniPlayer(
 /**
  * Прогресс мини-плеера и тайминги вынесены в отдельные композаблы:
  * позиция тикает дважды в секунду, и перерисовываться должны только они,
- * а не вся полоска с обложкой и кнопками.
+ * а не вся плашка с обложкой и кнопками.
  */
 @Composable
 private fun MiniProgressBar(positionMs: () -> Long, durationMs: Long) {

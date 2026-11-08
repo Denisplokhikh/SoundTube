@@ -4,19 +4,27 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.expandVertically
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -30,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -43,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -57,16 +67,17 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.localplayer.R
 import com.example.localplayer.ui.navigation.Routes
-import com.example.localplayer.ui.player.MiniPlayer
-import com.example.localplayer.ui.player.NowPlayingScreen
+import com.example.localplayer.ui.player.ExpandablePlayerHost
+import com.example.localplayer.ui.player.MiniPlayerHeight
 import com.example.localplayer.ui.player.PlayerViewModel
-import com.example.localplayer.ui.player.rememberPlayerSheetState
+import com.example.localplayer.ui.player.rememberExpandablePlayerState
 import com.example.localplayer.ui.screens.downloads.DownloadsScreen
 import com.example.localplayer.ui.screens.playlists.PlaylistDetailScreen
 import com.example.localplayer.ui.screens.playlists.PlaylistsScreen
 import com.example.localplayer.ui.screens.settings.SettingsScreen
 import com.example.localplayer.ui.screens.tracks.TracksScreen
 import com.example.localplayer.ui.theme.SoundTubeTheme
+import kotlin.math.roundToInt
 
 private data class Tab(
     val route: String,
@@ -86,11 +97,16 @@ private val tabs = listOf(
 )
 
 /**
- * Экран приложения целиком: три вкладки, мини-плеер над навигацией
- * и полноэкранные маршруты поверх (плеер, плейлист, настройки).
+ * Экран приложения целиком: три вкладки, выезжающий плеер над нижней навигацией
+ * и полноэкранные маршруты поверх (плейлист, настройки).
  *
  * Плеер один на всё приложение (через [PlayerViewModel]), поэтому он продолжает играть
  * при переключении вкладок и сворачивании.
+ *
+ * Мини-плеер и полноэкранный плеер — один слой ([ExpandablePlayerHost]) с общим
+ * `AnchoredDraggableState`: контейнер едет за пальцем, обложка и тексты морфятся
+ * по нормализованному прогрессу, а нижняя навигация уезжает вниз пропорционально
+ * этому же прогрессу.
  *
  * @param startDestination вкладка, с которой начинаем: по умолчанию треки,
  *   в debug-сборке её можно задать через intent (тапы по экрану MIUI блокирует).
@@ -110,59 +126,78 @@ fun SoundTubeApp(
     val currentRoute = backStackEntry?.destination?.route
     val showChrome = currentRoute == null || tabs.any { it.isSelected(currentRoute) }
 
-    // Полноэкранный плеер — не маршрут, а лист поверх всего экрана: так его можно
-    // вытянуть свайпом из мини-плеера и уронить обратно тем же движением.
-    val sheet = rememberPlayerSheetState()
-    // Высота экрана — это весь путь листа: 0 у нижней кромки, 1 у верхней.
-    var sheetHeightPx by remember { mutableIntStateOf(0) }
+    val playerState = rememberExpandablePlayerState()
+    val density = LocalDensity.current
+
+    // Высота панели навигации нужна якорям плеера: свёрнутый контейнер стоит ровно
+    // над ней. До первого измерения берём оценку по системному отступу, чтобы
+    // не было прыжка при первом кадре.
+    var navBarHeightPx by remember { mutableIntStateOf(0) }
+    val systemBarsBottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val estimatedNavHeight = systemBarsBottom + 54.dp
 
     val openSettings: () -> Unit = {
         navController.navigate(Routes.SETTINGS) { launchSingleTop = true }
     }
 
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .onSizeChanged { sheetHeightPx = it.height },
-    ) {
+    BoxWithConstraints(modifier = modifier.fillMaxSize()) {
+        val screenHeightPx = constraints.maxHeight.toFloat()
+        val miniHeightPx = with(density) { MiniPlayerHeight.toPx() }
+
+        val navHeight = if (navBarHeightPx > 0) {
+            with(density) { navBarHeightPx.toDp() }
+        } else {
+            estimatedNavHeight
+        }
+        val navHeightPx = with(density) { navHeight.toPx() }
+        // Путь контейнера: от «над навигацией видна только плашка» до «весь экран».
+        val collapsedOffsetPx = (screenHeightPx - miniHeightPx - navHeightPx).coerceAtLeast(0f)
+        LaunchedEffect(collapsedOffsetPx) {
+            playerState.updateAnchors(collapsedOffsetPx)
+        }
+
+        val progress: () -> Float = { playerState.expandProgress() }
+        val showPlayer = player.hasTrack && showChrome
+
+        // Списки не должны уезжать под плашку мини-плеера: резервируем её высоту
+        // так же пружинно, как появляется сама плашка.
+        val miniReserve by animateDpAsState(
+            targetValue = if (showPlayer) MiniPlayerHeight else 0.dp,
+            animationSpec = spring(
+                dampingRatio = Spring.DampingRatioNoBouncy,
+                stiffness = Spring.StiffnessMediumLow,
+            ),
+            label = "miniPlayerReserve",
+        )
+
+        // Плеер, свернувшись (трек кончился или мы ушли на служебный экран),
+        // не должен оставаться «раскрытым» при следующем возвращении.
+        LaunchedEffect(showChrome, player.hasTrack) {
+            if (!showChrome || !player.hasTrack) playerState.collapse()
+        }
+
         Scaffold(
             modifier = Modifier.fillMaxSize(),
-            // Статус-бар и навигацию по краям обрабатывают шапки экранов и нижний бар,
-            // иначе получается двойной отступ.
+            // Статус-бар и навигацию по краям обрабатывают шапки экранов и нижний бар.
             contentWindowInsets = WindowInsets(0, 0, 0, 0),
             bottomBar = {
                 if (showChrome) {
-                    Column {
-                        AnimatedVisibility(
-                            visible = player.hasTrack,
-                            enter = expandVertically(expandFrom = Alignment.Bottom) + fadeIn(),
-                            exit = shrinkVertically(shrinkTowards = Alignment.Bottom) + fadeOut(),
-                        ) {
-                            MiniPlayer(
-                                state = player,
-                                positionMs = { positionMs.value },
-                                onPlayPause = playerViewModel::playPause,
-                                onNext = playerViewModel::next,
-                                onExpand = sheet::expand,
-                                onDrag = { delta -> sheet.drag(delta, sheetHeightPx) },
-                                onDragStop = { velocity -> sheet.settle(velocity, sheetHeightPx) },
-                            )
-                        }
-
-                        SoundTubeBottomBar(
-                            currentRoute = currentRoute,
-                            onSelect = { route ->
-                                if (route != currentRoute) navController.switchTab(route)
-                            },
-                        )
-                    }
+                    // Настоящая панель нарисована поверх плеера (ниже по z-порядку в Box),
+                    // здесь только резервируем её высоту для content padding.
+                    Spacer(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(navHeight),
+                    )
                 }
             },
         ) { innerPadding ->
             NavHost(
                 navController = navController,
                 startDestination = startDestination,
-                modifier = Modifier.padding(innerPadding),
+                modifier = Modifier
+                    .padding(innerPadding)
+                    .padding(bottom = if (showChrome) miniReserve else 0.dp),
                 // Переходы мгновенные: по умолчанию Navigation Compose делает
                 // fade + scale, из-за чего новая страница «проявляется» поверх старой.
                 // Здесь экран появляется сразу, как смена кадра в терминале.
@@ -213,27 +248,63 @@ fun SoundTubeApp(
             }
         }
 
-        // Лист едет следом за пальцем: сдвигаем его ровно на столько, на сколько
-        // он ещё не раскрыт. Читается внутри graphicsLayer, поэтому перерисовки
-        // всего экрана на каждый кадр жеста нет.
-        if (sheet.isExpanded) {
-            NowPlayingScreen(
-                onBack = sheet::collapse,
-                onDrag = { delta -> sheet.drag(delta, sheetHeightPx) },
-                onDragStop = { velocity -> sheet.settle(velocity, sheetHeightPx) },
-                sheetProgress = { sheet.progress },
+        // Единый контейнер плеера появляется снизу, когда включается первый трек:
+        // slideInVertically + fadeIn на пружине. Смещение внутри контейнера —
+        // AnchoredDraggable, поэтому свайп вверх раскрывает его на весь экран.
+        AnimatedVisibility(
+            visible = showPlayer,
+            enter = slideInVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+                initialOffsetY = { (miniHeightPx + navHeightPx).roundToInt() },
+            ) + fadeIn(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+            ),
+            exit = slideOutVertically(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+                targetOffsetY = { it },
+            ) + fadeOut(
+                animationSpec = spring(
+                    dampingRatio = Spring.DampingRatioNoBouncy,
+                    stiffness = Spring.StiffnessMediumLow,
+                ),
+            ),
+            modifier = Modifier.fillMaxSize(),
+        ) {
+            ExpandablePlayerHost(
+                playerState = playerState,
                 playerViewModel = playerViewModel,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .graphicsLayer {
-                        translationY = (1f - sheet.progress) * size.height
-                    },
+                positionMs = { positionMs.value },
+                modifier = Modifier.fillMaxSize(),
             )
         }
 
-        // Пока лист раскрыт, системный back возвращает его в мини-плеер,
+        // Нижняя навигация рисуется поверх плеера и уезжает вниз ровно настолько,
+        // насколько раскрыт плеер. Читаем прогресс в graphicsLayer — без рекомпозиции.
+        if (showChrome) {
+            SoundTubeBottomBar(
+                currentRoute = currentRoute,
+                onSelect = { route ->
+                    if (route != currentRoute) navController.switchTab(route)
+                },
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .onSizeChanged { navBarHeightPx = it.height }
+                    .graphicsLayer { translationY = progress() * size.height },
+            )
+        }
+
+        // Пока плеер раскрыт, системный back возвращает его в мини-плеер,
         // а не уводит со вкладки под ним.
-        BackHandler(enabled = sheet.isExpanded, onBack = sheet::collapse)
+        BackHandler(enabled = playerState.isExpanded, onBack = playerState::collapse)
     }
 }
 
@@ -245,11 +316,12 @@ fun SoundTubeApp(
 private fun SoundTubeBottomBar(
     currentRoute: String?,
     onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val colors = SoundTubeTheme.colors
 
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .background(colors.background)
             .drawBehind {

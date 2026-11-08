@@ -100,6 +100,19 @@
     <string name="nothing_playing_title">Ничего не играет</string>
     <string name="nothing_playing_message">Выберите трек в библиотеке или плейлисте.</string>
     <string name="queue">Очередь</string>
+    <string name="lyrics">Текст песни</string>
+    <string name="lyrics_unsynced">Без таймкодов</string>
+    <string name="lyrics_source_lrc">локальный .lrc</string>
+    <string name="lyrics_instrumental_title">Инструментал</string>
+    <string name="lyrics_instrumental_message">В этой записи нет вокала, поэтому текста не будет.</string>
+    <string name="lyrics_not_found_title">Текст не найден</string>
+    <string name="lyrics_not_found_message">Для этого трека текста пока нет — попробуйте позже.</string>
+    <string name="lyrics_error_title">Не удалось загрузить текст</string>
+    <string name="lyrics_error_message">Проверьте подключение к интернету и попробуйте ещё раз.</string>
+    <string name="player_device_this">Это устройство</string>
+    <string name="player_added_to_playlist">Добавлено в плейлист</string>
+    <string name="player_share">Поделиться</string>
+    <string name="player_more">Ещё</string>
 
     <!-- Загрузки -->
     <string name="downloads_title">Загрузки</string>

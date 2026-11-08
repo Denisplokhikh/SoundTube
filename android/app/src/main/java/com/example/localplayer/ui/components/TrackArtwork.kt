@@ -62,7 +62,11 @@ fun TrackArtwork(
     }
 }
 
-private fun artworkModel(raw: String?): Any? {
+/**
+ * Модель для Coil: http(s)-ссылка, content/file-URI или путь к локальному файлу.
+ * Публичная, потому что плеер по ней же вытягивает цвета обложки для фона.
+ */
+internal fun artworkModel(raw: String?): Any? {
     val value = raw?.trim().orEmpty()
     if (value.isEmpty()) return null
     return when {

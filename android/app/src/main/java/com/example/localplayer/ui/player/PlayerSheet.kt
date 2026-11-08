@@ -1,138 +1,161 @@
 package com.example.localplayer.ui.player
 
-import androidx.compose.animation.core.Easing
-import androidx.compose.animation.core.FastOutLinearInEasing
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.animate
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.exponentialDecay
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.gestures.AnchoredDraggableState
+import androidx.compose.foundation.gestures.DraggableAnchors
+import androidx.compose.foundation.gestures.animateTo
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
-/** Раскрытие чуть дольше закрытия: выезд листа не должен выглядеть резким. */
-private const val EXPAND_DURATION_MS = 320
-private const val COLLAPSE_DURATION_MS = 260
+/** Высота свёрнутого мини-плеера. */
+val MiniPlayerHeight = 64.dp
 
-/** Доля экрана, после которой отпущенный лист доезжает до полного экрана. */
-private const val SETTLE_FRACTION = 0.34f
+/** Два якоря единого контейнера плеера. */
+enum class PlayerSheetValue {
+    /** Свёрнут: над нижней навигацией видна только плашка мини-плеера. */
+    Collapsed,
 
-/** Скорость пальца (px/s), при которой направление броска важнее положения листа. */
-private const val FLING_VELOCITY = 900f
+    /** Раскрыт на весь экран. */
+    Expanded,
+}
+
+/** Порог смещения при отпускании пальца: 30% пути до противоположного якоря. */
+private const val SETTLE_POSITION_FRACTION = 0.30f
+
+/** Скорость броска (dp/s), при которой направление жеста важнее положения. */
+private const val SETTLE_VELOCITY_DP = 125f
 
 /**
- * Состояние листа полноэкранного плеера, который выезжает из мини-плеера.
- *
- * [progress] — положение листа: 0 — он целиком за нижней кромкой экрана (виден
- * только мини-плеер), 1 — развёрнут на весь экран. Одна и та же величина двигает
- * лист и во время свайпа, и во время анимации, поэтому после отпускания пальца
- * лист продолжает движение ровно с того места, где его оставили, без рывка.
- *
- * Жест приходит из двух мест: свайп вверх по мини-плееру и свайп вниз по шапке
- * полноэкранного плеера. Оба зовут [drag] и [settle].
+ * Смещение-заглушка до первого измерения: контейнер уезжает далеко за нижнюю кромку,
+ * чтобы на самом первом кадре не мигнуть раскрытым плеером.
  */
+private const val PLACEHOLDER_OFFSET_PX = 100_000f
+
+/**
+ * Состояние выезжающего плеера на [AnchoredDraggableState] с двумя якорями:
+ * [PlayerSheetValue.Collapsed] (виден только мини-плеер) и [PlayerSheetValue.Expanded]
+ * (полноэкранный плеер).
+ *
+ * Контейнер перемещается строго за пальцем: `Modifier.anchoredDraggable` двигает
+ * [AnchoredDraggableState.requireOffset] на дельту жеста, а на отпускании пружина
+ * ([Spring.DampingRatioNoBouncy], [Spring.StiffnessMediumLow]) доводит его до ближайшего
+ * якоря с учётом скорости броска и порога [SETTLE_POSITION_FRACTION].
+ *
+ * Наружу отдаётся не только смещение в пикселях, но и нормализованный
+ * [expandProgress] — по нему морфятся обложка, тексты, кнопки и нижняя навигация.
+ */
+@OptIn(ExperimentalFoundationApi::class)
 @Stable
-class PlayerSheetState internal constructor(
+class ExpandablePlayerState internal constructor(
     private val scope: CoroutineScope,
+    initiallyExpanded: Boolean,
+    velocityThresholdPx: Float,
 ) {
-    var progress by mutableFloatStateOf(0f)
-        private set
+    /** Полный путь контейнера в пикселях; до первого измерения — условная единица. */
+    private var collapsedOffsetPx = PLACEHOLDER_OFFSET_PX
+
+    internal val draggable = AnchoredDraggableState<PlayerSheetValue>(
+        initialValue = if (initiallyExpanded) {
+            PlayerSheetValue.Expanded
+        } else {
+            PlayerSheetValue.Collapsed
+        },
+        anchors = DraggableAnchors {
+            // Пока высота экрана и навигации не измерены, контейнер должен быть за
+            // пределами экрана: смещение-заглушка даёт прогресс 0.
+            PlayerSheetValue.Expanded at 0f
+            PlayerSheetValue.Collapsed at PLACEHOLDER_OFFSET_PX
+        },
+        positionalThreshold = { distance -> distance * SETTLE_POSITION_FRACTION },
+        velocityThreshold = { velocityThresholdPx },
+        snapAnimationSpec = spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+        ),
+        decayAnimationSpec = exponentialDecay(),
+    )
+
+    /** Контейнер сейчас раскрыт (значение якоря, а не промежуточное смещение). */
+    val isExpanded: Boolean
+        get() = draggable.currentValue == PlayerSheetValue.Expanded
 
     /**
-     * Лист в композиции: становится true на первом кадре раскрытия и снимается
-     * только после того, как анимация закрытия доехала до нуля.
+     * Смещение контейнера в пикселях: 0 — раскрыт на весь экран,
+     * [collapsedOffsetPx] — свёрнут до полоски мини-плеера.
+     * Читать можно в фазе отрисовки (`graphicsLayer`, `Modifier.offset`).
      */
-    var isExpanded by mutableStateOf(false)
-        private set
+    fun offsetPx(): Float = draggable.requireOffset()
 
-    private var animation: Job? = null
+    /**
+     * Нормализованный прогресс раскрытия: 0f — свёрнут, 1f — развёрнут на весь экран.
+     * Обратная величина от смещения, поэтому её можно читать прямо в графическом слое
+     * без рекомпозиции кадра.
+     */
+    fun expandProgress(): Float {
+        val collapsed = collapsedOffsetPx
+        if (collapsed <= 0f) return 0f
+        val offset = draggable.requireOffset()
+        return ((collapsed - offset) / collapsed).coerceIn(0f, 1f)
+    }
 
-    /** Раскрыть на весь экран — тап по мини-плееру. */
+    /**
+     * Якоря зависят от высоты экрана и нижней навигации, а они известны только после
+     * первого измерения. Обновляем их, сохраняя текущее состояние и смещение.
+     */
+    internal fun updateAnchors(collapsedOffset: Float) {
+        if (collapsedOffset <= 0f) return
+        if (collapsedOffset == collapsedOffsetPx && draggable.anchors.size == 2) {
+            val current = draggable.anchors.positionOf(PlayerSheetValue.Collapsed)
+            if (current == collapsedOffset) return
+        }
+        collapsedOffsetPx = collapsedOffset
+        val anchors = DraggableAnchors {
+            PlayerSheetValue.Expanded at 0f
+            PlayerSheetValue.Collapsed at collapsedOffset
+        }
+        draggable.updateAnchors(anchors, draggable.currentValue)
+    }
+
+    /** Программно раскрыть плеер (тап по мини-плееру). */
     fun expand() {
-        isExpanded = true
-        animateTo(1f, EXPAND_DURATION_MS, FastOutSlowInEasing)
+        scope.launch { draggable.animateTo(PlayerSheetValue.Expanded) }
     }
 
-    /** Свернуть обратно в мини-плеер — кнопка «назад», системный back, свайп вниз. */
+    /** Программно свернуть плеер (кнопка «вниз», системный back). */
     fun collapse() {
-        if (!isExpanded) return
-        animateTo(0f, COLLAPSE_DURATION_MS, FastOutLinearInEasing) {
-            isExpanded = false
-        }
-    }
-
-    /** Восстановить раскрытый лист после поворота экрана — сразу, без анимации. */
-    internal fun restoreExpanded() {
-        animation?.cancel()
-        progress = 1f
-        isExpanded = true
-    }
-
-    /**
-     * Палец тянет мини-плеер вверх или шапку полноэкранного плеера вниз.
-     * [deltaPx] — смещение за кадр: вверх отрицательное, вниз положительное.
-     * [heightPx] — высота экрана, то есть весь путь листа от 0 до 1.
-     */
-    fun drag(deltaPx: Float, heightPx: Int) {
-        if (heightPx <= 0) return
-        // Вниз от свёрнутого мини-плеера тянуть нечего.
-        if (!isExpanded && deltaPx >= 0f) return
-
-        animation?.cancel()
-        isExpanded = true
-        progress = (progress - deltaPx / heightPx).coerceIn(0f, 1f)
-    }
-
-    /**
-     * Палец отпущен: доезжаем до ближайшего края. Быстрый бросок важнее
-     * положения — иначе лист, чуть переваливший середину, всегда раскрывался бы.
-     */
-    fun settle(velocityPxPerSecond: Float, heightPx: Int) {
-        if (!isExpanded || heightPx <= 0) return
-
-        val expand = when {
-            velocityPxPerSecond < -FLING_VELOCITY -> true
-            velocityPxPerSecond > FLING_VELOCITY -> false
-            else -> progress >= SETTLE_FRACTION
-        }
-        if (expand) expand() else collapse()
-    }
-
-    private fun animateTo(
-        target: Float,
-        durationMs: Int,
-        easing: Easing,
-        onFinished: () -> Unit = {},
-    ) {
-        animation?.cancel()
-        animation = scope.launch {
-            animate(
-                initialValue = progress,
-                targetValue = target,
-                animationSpec = tween(durationMillis = durationMs, easing = easing),
-            ) { value, _ -> progress = value }
-            onFinished()
-        }
+        scope.launch { draggable.animateTo(PlayerSheetValue.Collapsed) }
     }
 }
 
+/**
+ * Запоминает [ExpandablePlayerState]. Раскрытое состояние переживает поворот экрана:
+ * сам лист не лежит в back stack, поэтому флаг сохраняем в `rememberSaveable`.
+ */
 @Composable
-fun rememberPlayerSheetState(): PlayerSheetState {
+fun rememberExpandablePlayerState(): ExpandablePlayerState {
     val scope = rememberCoroutineScope()
-    // Раскрытый плеер переживает поворот экрана: состояние листа не попадает
-    // в back stack (его там больше нет), поэтому запоминаем флаг сами.
+    val velocityThresholdPx = with(LocalDensity.current) { SETTLE_VELOCITY_DP.dp.toPx() }
     val wasExpanded = rememberSaveable { mutableStateOf(false) }
     val state = remember(scope) {
-        PlayerSheetState(scope).also { if (wasExpanded.value) it.restoreExpanded() }
+        ExpandablePlayerState(
+            scope = scope,
+            initiallyExpanded = wasExpanded.value,
+            velocityThresholdPx = velocityThresholdPx,
+        )
     }
     SideEffect { wasExpanded.value = state.isExpanded }
     return state

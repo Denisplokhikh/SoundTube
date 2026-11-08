@@ -100,6 +100,19 @@
     <string name="nothing_playing_title">Nothing is playing</string>
     <string name="nothing_playing_message">Pick a track in the library or a playlist.</string>
     <string name="queue">Queue</string>
+    <string name="lyrics">Lyrics</string>
+    <string name="lyrics_unsynced">No timestamps</string>
+    <string name="lyrics_source_lrc">local .lrc</string>
+    <string name="lyrics_instrumental_title">Instrumental</string>
+    <string name="lyrics_instrumental_message">There is no vocal in this recording, so there are no lyrics.</string>
+    <string name="lyrics_not_found_title">Lyrics not found</string>
+    <string name="lyrics_not_found_message">Nothing for this track yet — try again later.</string>
+    <string name="lyrics_error_title">Couldn’t load the lyrics</string>
+    <string name="lyrics_error_message">Check your internet connection and try again.</string>
+    <string name="player_device_this">This device</string>
+    <string name="player_added_to_playlist">Added to the playlist</string>
+    <string name="player_share">Share</string>
+    <string name="player_more">More</string>
 
     <!-- Downloads -->
     <string name="downloads_title">Downloads</string>
