@@ -121,7 +121,7 @@ class SyncImporter @Inject constructor(
                     id = trackId,
                     title = item.title.trim(),
                     artist = item.artist.trim(),
-                    durationMs = 0L,
+                    durationMs = item.durationMs,
                     sourceUrl = TrackIds.canonicalize(url),
                     sourcePlatform = platformFor(url, item.platform).key,
                     createdAt = now,
