@@ -15,8 +15,8 @@ android {
         applicationId = "com.example.localplayer"
         minSdk = 26
         targetSdk = 35
-        versionCode = 10303
-        versionName = "1.3.3"
+        versionCode = 10400
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
