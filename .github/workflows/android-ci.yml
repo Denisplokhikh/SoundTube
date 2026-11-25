@@ -4,12 +4,13 @@ name: Android CI
 # поэтому и проверка здесь только по андроидной группе.
 on:
   push:
-    branches: [main]
+    branches: [android]
     paths:
       - 'android/**'
       - 'scripts/version.py'
       - '.github/workflows/android-ci.yml'
   pull_request:
+    branches: [android]
     paths:
       - 'android/**'
       - 'scripts/version.py'

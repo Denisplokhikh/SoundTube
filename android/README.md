@@ -162,15 +162,10 @@ gradle :app:testDebugUnitTest
 
 ## Релиз APK
 
-Релиз собирает `.github/workflows/release.yml` по пушу тега. Два вида тегов:
-
-| Тег | Что происходит |
-| --- | --- |
-| `v1.2.1` | Десктоп-инсталляторы (tauri-action) + APK в том же релизе |
-| `android-v1.2.1` | Только APK: десктопная джоба пропускается, релиз создаёт джоба `android` |
-
-Релиз с тегом `android-*` создаётся с `--latest=false`: десктоп ищет обновления через
-`/releases/latest` (`app/core/updates.py`) и не должен получать андроидный релиз вместо своего.
+Для выпуска APK поставьте тег `android-vX.Y.Z` на коммит ветки `android` и отправьте тег на GitHub.
+Сборку и публикацию выполняет [Release Android](../.github/workflows/release-android.yml).
+Релиз APK помечается `--latest=false`, чтобы десктопное приложение продолжало получать
+обновления через `/releases/latest`.
 
 Ключ подписи в git не попадает (`.gitignore`), он лежит в **секретах окружения** `android-env`
 (Settings → Environments → android-env → Environment secrets), а джоба `android` объявляет
