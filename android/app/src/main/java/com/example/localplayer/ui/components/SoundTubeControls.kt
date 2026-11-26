@@ -26,6 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -83,6 +86,7 @@ fun SoundTubeButton(
     compact: Boolean = false,
     icon: ImageVector? = null,
     leading: (@Composable () -> Unit)? = null,
+    minHeight: Dp = if (compact) 28.dp else 34.dp,
 ) {
     val colors = SoundTubeTheme.colors
     val shape = RoundedCornerShape(6.dp)
@@ -95,7 +99,7 @@ fun SoundTubeButton(
 
     Row(
         modifier = modifier
-            .heightIn(min = if (compact) 28.dp else 34.dp)
+            .heightIn(min = minHeight)
             .clip(shape)
             .background(
                 when {
@@ -112,7 +116,7 @@ fun SoundTubeButton(
                     else -> Modifier.border(1.dp, colors.borderStrong, shape)
                 },
             )
-            .clickable(enabled = enabled, onClick = onClick)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(
                 horizontal = if (compact) 10.dp else 14.dp,
                 vertical = if (compact) 2.dp else 4.dp,
@@ -149,6 +153,8 @@ fun SoundTubeIconButton(
     tint: Color = SoundTubeTheme.colors.textSecondary,
     bordered: Boolean = true,
     size: Dp = 34.dp,
+    active: Boolean = false,
+    stateLabel: String? = null,
 ) {
     val colors = SoundTubeTheme.colors
     val shape = RoundedCornerShape(6.dp)
@@ -159,20 +165,21 @@ fun SoundTubeIconButton(
             .then(
                 if (bordered) {
                     Modifier
-                        .background(colors.surfaceRaised)
-                        .border(1.dp, colors.borderStrong, shape)
+                        .background(if (active) colors.primary.copy(alpha = 0.18f) else colors.surfaceRaised)
+                        .border(1.dp, if (active) colors.primary else colors.borderStrong, shape)
                 } else {
                     Modifier
                 },
             )
-            .clickable(enabled = enabled, onClick = onClick),
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+            .semantics { stateLabel?.let { stateDescription = it } },
         contentAlignment = Alignment.Center,
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
             tint = if (enabled) tint else tint.copy(alpha = 0.4f),
-            modifier = Modifier.size(size * 0.5f),
+            modifier = Modifier.size((size * 0.5f).coerceAtMost(24.dp)),
         )
     }
 }

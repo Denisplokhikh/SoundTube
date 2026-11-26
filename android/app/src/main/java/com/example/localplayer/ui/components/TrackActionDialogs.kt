@@ -96,28 +96,10 @@ fun AddToPlaylistDialog(
             HorizontalDivider(thickness = 0.5.dp, color = colors.divider)
 
             if (creating) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text(stringResource(R.string.playlist_name_placeholder)) },
-                    singleLine = true,
-                    shape = RoundedCornerShape(8.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                    keyboardActions = KeyboardActions(
-                        onDone = { if (name.isNotBlank()) onCreate(name) },
-                    ),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedContainerColor = colors.surfaceInput,
-                        unfocusedContainerColor = colors.surfaceInput,
-                        focusedBorderColor = colors.primary,
-                        unfocusedBorderColor = colors.border,
-                        cursorColor = colors.primary,
-                        focusedTextColor = colors.textPrimary,
-                        unfocusedTextColor = colors.textPrimary,
-                        focusedPlaceholderColor = colors.textSecondary,
-                        unfocusedPlaceholderColor = colors.textSecondary,
-                    ),
+                PlaylistNameField(
+                    name = name,
+                    onNameChange = { name = it },
+                    onConfirm = { if (name.isNotBlank()) onCreate(name) },
                 )
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -164,6 +146,40 @@ fun AddToPlaylistDialog(
             }
         }
     }
+}
+
+@Composable
+fun PlaylistNameField(
+    name: String,
+    onNameChange: (String) -> Unit,
+    onConfirm: () -> Unit,
+    enabled: Boolean = true,
+) {
+    val colors = SoundTubeTheme.colors
+    OutlinedTextField(
+        value = name,
+        onValueChange = onNameChange,
+        enabled = enabled,
+        modifier = Modifier.fillMaxWidth(),
+        placeholder = { Text(stringResource(R.string.playlist_name_placeholder)) },
+        singleLine = true,
+        shape = RoundedCornerShape(8.dp),
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(
+            onDone = { onConfirm() },
+        ),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = colors.surfaceInput,
+            unfocusedContainerColor = colors.surfaceInput,
+            focusedBorderColor = colors.primary,
+            unfocusedBorderColor = colors.border,
+            cursorColor = colors.primary,
+            focusedTextColor = colors.textPrimary,
+            unfocusedTextColor = colors.textPrimary,
+            focusedPlaceholderColor = colors.textSecondary,
+            unfocusedPlaceholderColor = colors.textSecondary,
+        ),
+    )
 }
 
 @Composable

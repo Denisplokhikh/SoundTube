@@ -3,6 +3,8 @@ package com.example.localplayer.ui.screens.tracks
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -18,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.Sort
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.LibraryMusic
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -25,6 +28,8 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -39,8 +44,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -80,6 +89,7 @@ fun TracksScreen(
     val action by tracksViewModel.action.collectAsStateWithLifecycle()
     val playlists by tracksViewModel.playlists.collectAsStateWithLifecycle()
     val message by tracksViewModel.message.collectAsStateWithLifecycle()
+    var sortMenuOpen by remember { mutableStateOf(false) }
     var searchVisible by rememberSaveable { mutableStateOf(false) }
 
     val trackIds = remember(ui.tracks) { ui.tracks.map(Track::id) }
@@ -120,6 +130,7 @@ fun TracksScreen(
                         stringResource(R.string.cd_search)
                     },
                     bordered = false,
+                    size = 48.dp,
                     onClick = {
                         searchVisible = !searchVisible
                         if (!searchVisible) tracksViewModel.clearQuery()
@@ -129,6 +140,7 @@ fun TracksScreen(
                     icon = Icons.Rounded.Settings,
                     contentDescription = stringResource(R.string.cd_settings),
                     bordered = false,
+                    size = 48.dp,
                     onClick = onOpenSettings,
                 )
             },
@@ -187,39 +199,84 @@ fun TracksScreen(
         }
 
         if (ui.tracks.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                SoundTubeButton(
-                    text = stringResource(R.string.action_play_all),
-                    icon = Icons.Rounded.PlayArrow,
-                    onClick = { playerViewModel.play(trackIds) },
-                )
+            BoxWithConstraints {
+                val showSortLabel = maxWidth >= 360.dp && LocalDensity.current.fontScale <= 1.15f
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SoundTubeButton(
+                        text = stringResource(R.string.action_play_all),
+                        icon = Icons.Rounded.PlayArrow,
+                        minHeight = 48.dp,
+                        onClick = { playerViewModel.play(trackIds) },
+                    )
 
-                Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.weight(1f))
 
-                SoundTubeButton(
-                    text = stringResource(ui.sort.shortLabelRes),
-                    icon = Icons.AutoMirrored.Rounded.Sort,
-                    primary = false,
-                    compact = true,
-                    onClick = tracksViewModel::cycleSort,
-                )
+                    Box {
+                        val sortDescription = stringResource(
+                            R.string.cd_sort,
+                            stringResource(ui.sort.menuLabelRes),
+                        )
+                        if (showSortLabel) {
+                            SoundTubeButton(
+                                text = stringResource(ui.sort.shortLabelRes),
+                                icon = Icons.AutoMirrored.Rounded.Sort,
+                                primary = false,
+                                compact = true,
+                                minHeight = 48.dp,
+                                modifier = Modifier.semantics { contentDescription = sortDescription },
+                                onClick = { sortMenuOpen = true },
+                            )
+                        } else {
+                            SoundTubeIconButton(
+                                icon = Icons.AutoMirrored.Rounded.Sort,
+                                contentDescription = sortDescription,
+                                size = 48.dp,
+                                onClick = { sortMenuOpen = true },
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = sortMenuOpen,
+                            onDismissRequest = { sortMenuOpen = false },
+                        ) {
+                            TrackSort.entries.forEach { order ->
+                                val selected = order == ui.sort
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(order.menuLabelRes)) },
+                                    trailingIcon = if (selected) {
+                                        { Icon(Icons.Rounded.Check, contentDescription = null) }
+                                    } else {
+                                        null
+                                    },
+                                    modifier = Modifier.semantics {
+                                        this.selected = selected
+                                    },
+                                    onClick = {
+                                        tracksViewModel.setSort(order)
+                                        sortMenuOpen = false
+                                    },
+                                )
+                            }
+                        }
+                    }
 
-                SoundTubeIconButton(
-                    icon = Icons.Rounded.Shuffle,
-                    contentDescription = if (player.shuffle) {
-                        stringResource(R.string.cd_shuffle_on)
-                    } else {
-                        stringResource(R.string.cd_shuffle_off)
-                    },
-                    tint = if (player.shuffle) colors.primary else colors.textSecondary,
-                    onClick = playerViewModel::toggleShuffle,
-                )
+                    SoundTubeIconButton(
+                        icon = Icons.Rounded.Shuffle,
+                        contentDescription = stringResource(R.string.shuffle),
+                        stateLabel = stringResource(
+                            if (player.shuffle) R.string.cd_shuffle_on else R.string.cd_shuffle_off,
+                        ),
+                        active = player.shuffle,
+                        size = 48.dp,
+                        tint = if (player.shuffle) colors.primary else colors.textSecondary,
+                        onClick = playerViewModel::toggleShuffle,
+                    )
+                }
             }
         }
 
@@ -258,7 +315,6 @@ fun TracksScreen(
                 itemsIndexed(ui.tracks, key = { _, track -> track.id }) { index, track ->
                     TrackRow(
                         track = track,
-                        index = index,
                         isCurrent = track.id == player.currentTrackId,
                         isPlaying = player.isPlaying,
                         onClick = { playerViewModel.play(trackIds, index) },
@@ -336,4 +392,11 @@ private val TrackSort.shortLabelRes: Int
         TrackSort.ARTIST -> R.string.sort_short_artist
         TrackSort.TITLE -> R.string.sort_short_title
         TrackSort.RECENT -> R.string.sort_short_recent
+    }
+
+private val TrackSort.menuLabelRes: Int
+    get() = when (this) {
+        TrackSort.ARTIST -> R.string.sort_artist_ascending
+        TrackSort.TITLE -> R.string.sort_title_ascending
+        TrackSort.RECENT -> R.string.sort_recent
     }

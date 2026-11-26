@@ -23,7 +23,7 @@ val Primary = Color(0xFFA8D5A2)
 val OnPrimary = Color(0xFF0A0B0A)
 val StatusGreen = Color(0xFF4ADE80)
 val TextPrimary = Color(0xFFEDEDED)
-val TextSecondary = Color(0xFF7A807A)
+val TextSecondary = Color(0xFFA7ADA7)
 
 // --- Производные оттенки: поля ввода, второстепенные кнопки, плеер ---
 val SurfaceInput = Color(0xFF111311)

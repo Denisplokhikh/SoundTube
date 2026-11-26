@@ -94,7 +94,10 @@ fun PlaylistDetailScreen(
                 EmptyState(
                     icon = Icons.AutoMirrored.Rounded.QueueMusic,
                     title = stringResource(R.string.playlist_empty_title),
-                    message = stringResource(R.string.playlist_empty_message),
+                    message = stringResource(
+                        if (current.isSystem) R.string.playlist_empty_message
+                        else R.string.playlist_empty_user_message,
+                    ),
                     modifier = Modifier.weight(1f),
                 )
             } else {

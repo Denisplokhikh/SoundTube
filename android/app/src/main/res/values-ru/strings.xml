@@ -90,7 +90,7 @@
     <!-- Плейлисты -->
     <string name="playlists_title">Плейлисты</string>
     <string name="playlists_empty_title">Плейлистов нет</string>
-    <string name="playlists_empty_message">Скачанные треки автоматически попадают в плейлисты площадок.</string>
+    <string name="playlists_empty_message">Создайте плейлист для своих треков.</string>
     <string name="playlist_title">Плейлист</string>
     <string name="playlist_empty_title">Плейлист пуст</string>
     <string name="playlist_empty_message">Скачанные треки этой площадки появятся здесь автоматически.</string>
@@ -118,14 +118,14 @@
     <string name="downloads_title">Загрузки</string>
     <string name="downloads_subtitle">движок: %1$s</string>
     <string name="new_download">Новая загрузка</string>
-    <string name="url_placeholder">music.youtube.com, youtube.com, soundcloud.com</string>
+    <string name="url_placeholder">Вставьте ссылку</string>
     <string name="downloading_preparing">Готовим…</string>
-    <string name="download_hint">YouTube, SoundCloud, плейлисты и сеты. Файлы сохраняются на устройство.</string>
+    <string name="download_hint">Треки, плейлисты и сеты с YouTube и SoundCloud.</string>
     <string name="notifications_off_title">Уведомления выключены</string>
     <string name="notifications_off_message">Без них не видно прогресс в шторке.</string>
     <string name="completed_title">Готово</string>
     <string name="queue_empty_title">Очередь пуста</string>
-    <string name="queue_empty_message">Вставьте ссылку на YouTube или SoundCloud — загрузка начнётся сразу.</string>
+    <string name="queue_empty_message">Загрузки появятся здесь после нажатия «Скачать».</string>
     <string name="completed_shown">Показаны последние %1$d из %2$d</string>
     <string name="dialog_clear_queue_title">Очистить очередь?</string>
     <string name="dialog_clear_queue_message">Текущие загрузки будут остановлены, а незавершённые задачи — убраны из очереди. Скачанные файлы и история останутся на месте.</string>
@@ -258,6 +258,25 @@
     <string name="error_no_audio">площадка не отдала аудио — попробуй ещё раз</string>
     <string name="error_processing">не удалось обработать аудио — попробуй обновить yt-dlp</string>
     <string name="error_download_failed">не удалось скачать трек</string>
+
+    <string name="shuffle">Перемешивание</string>
+    <string name="cd_sort">Сортировка. Текущий порядок: %1$s</string>
+    <string name="sort_artist_ascending">По артисту ↑</string>
+    <string name="sort_title_ascending">По названию ↑</string>
+    <string name="action_paste">Вставить</string>
+    <string name="clipboard_empty">В буфере обмена нет текста</string>
+    <string name="playlists_personal">Мои плейлисты</string>
+    <string name="playlists_sources">По источникам</string>
+    <string name="playlist_created">Плейлист создан</string>
+    <string name="playlist_create_failed">Не удалось создать плейлист. Попробуйте ещё раз.</string>
+    <string name="playlist_empty_user_message">Откройте меню трека в библиотеке и выберите «В плейлист».</string>
+    <string name="player_open">Открыть плеер</string>
+    <string name="player_show_remaining">Показать оставшееся время</string>
+    <string name="player_show_duration">Показать длительность трека</string>
+    <string name="player_queue">Очередь воспроизведения</string>
+    <string name="player_added_to_named_playlist">Добавлено в плейлист «%1$s»</string>
+    <string name="lyrics_follow">К текущей строке</string>
+    <string name="lyrics_seek_to_line">Воспроизвести с этой строки</string>
 
     <plurals name="tracks_count">
         <item quantity="one">%d трек</item>

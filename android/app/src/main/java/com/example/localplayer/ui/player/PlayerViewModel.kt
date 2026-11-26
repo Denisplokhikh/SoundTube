@@ -137,7 +137,14 @@ class PlayerViewModel @Inject constructor(
     fun addCurrentToPlaylist(playlistId: String) = viewModelScope.launch {
         val trackId = controller.state.value.currentTrackId ?: return@launch
         if (library.addToPlaylist(playlistId, trackId)) {
-            _notice.value = context.getString(R.string.player_added_to_playlist)
+            val playlistName = playlists.value.firstOrNull { it.id == playlistId }?.name
+            _notice.value = if (playlistName == null) {
+                context.getString(R.string.player_added_to_playlist)
+            } else {
+                context.getString(R.string.player_added_to_named_playlist, playlistName)
+            }
+        } else {
+            _notice.value = context.getString(R.string.notice_playlist_add_failed)
         }
     }
 

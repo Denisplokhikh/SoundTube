@@ -181,12 +181,8 @@ class TracksViewModel @Inject constructor(
         query.value = ""
     }
 
-    fun cycleSort() {
-        sort.value = when (sort.value) {
-            TrackSort.ARTIST -> TrackSort.TITLE
-            TrackSort.TITLE -> TrackSort.RECENT
-            TrackSort.RECENT -> TrackSort.ARTIST
-        }
+    fun setSort(order: TrackSort) {
+        sort.value = order
     }
 
     private fun List<Track>.sortedBy(order: TrackSort): List<Track> = when (order) {

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.SkipNext
@@ -28,6 +29,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.example.localplayer.R
@@ -79,74 +81,106 @@ fun MiniPlayerContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .clickable(enabled = interactive, onClick = onExpand)
-                .padding(start = 12.dp, end = 8.dp, top = 6.dp, bottom = 8.dp),
+                .padding(end = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            // Место под морфящуюся обложку: сам слой рисуется в ExpandablePlayerHost.
-            Spacer(modifier = Modifier.size(48.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = state.title.ifBlank { stringResource(R.string.untitled) },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.textPrimary,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        text = state.artist.ifBlank { stringResource(R.string.unknown_artist) },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = colors.textSecondary,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f),
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxHeight()
+                    .clickable(
+                        enabled = interactive,
+                        role = Role.Button,
+                        onClickLabel = stringResource(R.string.player_open),
+                        onClick = onExpand,
                     )
-                    MiniTime(positionMs = positionMs, durationMs = state.durationMs)
+                    .padding(start = 12.dp, top = 4.dp, bottom = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Обложка рисуется отдельным слоем в ExpandablePlayerHost.
+                Spacer(modifier = Modifier.size(48.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    val title = state.title.ifBlank { stringResource(R.string.untitled) }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = colors.textPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Icon(
+                            imageVector = Icons.Rounded.KeyboardArrowUp,
+                            contentDescription = null,
+                            tint = colors.textSecondary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = state.artist.ifBlank { stringResource(R.string.unknown_artist) },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.textSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        MiniTime(positionMs = positionMs, durationMs = state.durationMs)
+                    }
                 }
             }
 
             // Круглая светлая кнопка — единственный «яркий» элемент плашки.
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
-                    .background(colors.textPrimary)
-                    .clickable(enabled = interactive, onClick = onPlayPause),
+                    .clickable(enabled = interactive, role = Role.Button, onClick = onPlayPause),
                 contentAlignment = Alignment.Center,
             ) {
-                if (state.isBuffering) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = colors.background,
-                    )
-                } else {
-                    Icon(
-                        imageVector = if (state.isPlaying) {
-                            Icons.Rounded.Pause
-                        } else {
-                            Icons.Rounded.PlayArrow
-                        },
-                        contentDescription = if (state.isPlaying) {
-                            stringResource(R.string.cd_pause)
-                        } else {
-                            stringResource(R.string.cd_play)
-                        },
-                        tint = colors.background,
-                        modifier = Modifier.size(20.dp),
-                    )
+                Box(
+                    modifier = Modifier.size(36.dp).background(colors.textPrimary, CircleShape),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (state.isBuffering) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = colors.background,
+                        )
+                    } else {
+                        Icon(
+                            imageVector = if (state.isPlaying) {
+                                Icons.Rounded.Pause
+                            } else {
+                                Icons.Rounded.PlayArrow
+                            },
+                            contentDescription = if (state.isPlaying) {
+                                stringResource(R.string.cd_pause)
+                            } else {
+                                stringResource(R.string.cd_play)
+                            },
+                            tint = colors.background,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
                 }
             }
 
             Box(
                 modifier = Modifier
-                    .size(36.dp)
+                    .size(48.dp)
                     .clip(CircleShape)
                     .clickable(
                         enabled = interactive && state.hasNext,
+                        role = Role.Button,
                         onClick = onNext,
                     ),
                 contentAlignment = Alignment.Center,
@@ -195,7 +229,7 @@ private fun MiniTime(positionMs: () -> Long, durationMs: Long) {
     Text(
         text = "${positionMs().formatDuration()} / ${durationMs.formatDuration()}",
         style = MaterialTheme.typography.labelSmall,
-        color = SoundTubeTheme.colors.textSecondary,
+        color = SoundTubeTheme.colors.textPrimary,
         maxLines = 1,
     )
 }

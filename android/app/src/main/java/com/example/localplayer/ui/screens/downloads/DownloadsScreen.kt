@@ -1,12 +1,16 @@
 package com.example.localplayer.ui.screens.downloads
 
 import android.Manifest
+import android.content.ClipboardManager
 import android.os.Build
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -23,6 +27,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.CloudDownload
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.DeleteSweep
@@ -131,13 +136,16 @@ fun DownloadsScreen(
     ) {
         SoundTubeTopBar(
             title = stringResource(R.string.downloads_title),
-            subtitle = stringResource(R.string.downloads_subtitle, engine.describe()),
-            subtitleDot = if (engine is EngineState.Ready) colors.statusGreen else colors.warning,
+            subtitle = if (engine is EngineState.Ready) null else {
+                stringResource(R.string.downloads_subtitle, engine.describe())
+            },
+            subtitleDot = colors.warning,
             actions = {
                 SoundTubeIconButton(
                     icon = Icons.Rounded.Settings,
                     contentDescription = stringResource(R.string.cd_settings),
                     bordered = false,
+                    size = 48.dp,
                     onClick = onOpenSettings,
                 )
             },
@@ -157,7 +165,21 @@ fun DownloadsScreen(
                     },
                     busy = busy,
                     onSubmit = submit,
-                    onClear = { url = "" },
+                    onPaste = {
+                        val clip = context.getSystemService(ClipboardManager::class.java)?.primaryClip
+                        val pasted = clip?.takeIf { it.itemCount > 0 }
+                            ?.getItemAt(0)?.text?.toString()?.trim()
+                        if (pasted.isNullOrEmpty()) {
+                            Toast.makeText(context, R.string.clipboard_empty, Toast.LENGTH_SHORT).show()
+                        } else {
+                            url = pasted
+                            viewModel.clearMessage()
+                        }
+                    },
+                    onClear = {
+                        url = ""
+                        viewModel.clearMessage()
+                    },
                 )
             }
 
@@ -186,14 +208,19 @@ fun DownloadsScreen(
                 SectionHeader(
                     title = stringResource(R.string.queue),
                     count = active.size,
-                    action = {
-                        SoundTubeButton(
-                            text = stringResource(R.string.action_clear),
-                            primary = false,
-                            compact = true,
-                            enabled = active.isNotEmpty() && !busy,
-                            onClick = viewModel::askClearQueue,
-                        )
+                    action = if (active.isNotEmpty()) {
+                        {
+                            SoundTubeButton(
+                                text = stringResource(R.string.action_clear),
+                                primary = false,
+                                compact = true,
+                                minHeight = 48.dp,
+                                enabled = !busy,
+                                onClick = viewModel::askClearQueue,
+                            )
+                        }
+                    } else {
+                        null
                     },
                 )
             }
@@ -258,12 +285,14 @@ fun DownloadsScreen(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DownloadInputCard(
     url: String,
     onUrlChange: (String) -> Unit,
     busy: Boolean,
     onSubmit: () -> Unit,
+    onPaste: () -> Unit,
     onClear: () -> Unit,
 ) {
     val colors = SoundTubeTheme.colors
@@ -308,9 +337,9 @@ private fun DownloadInputCard(
             ),
         )
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        FlowRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             SoundTubeButton(
                 text = if (busy) {
@@ -319,15 +348,26 @@ private fun DownloadInputCard(
                     stringResource(R.string.action_download)
                 },
                 onClick = onSubmit,
+                minHeight = 48.dp,
                 enabled = !busy && url.isNotBlank(),
                 icon = if (busy) null else Icons.Rounded.Download,
                 leading = if (busy) busyIndicator else null,
             )
 
+            if (!busy) {
+                SoundTubeButton(
+                    text = stringResource(R.string.action_paste),
+                    icon = Icons.Rounded.ContentPaste,
+                    primary = false,
+                    minHeight = 48.dp,
+                    onClick = onPaste,
+                )
+            }
             if (url.isNotBlank() && !busy) {
                 SoundTubeButton(
                     text = stringResource(R.string.action_clear),
                     primary = false,
+                    minHeight = 48.dp,
                     onClick = onClear,
                 )
             }

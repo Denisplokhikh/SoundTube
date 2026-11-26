@@ -90,7 +90,7 @@
     <!-- Playlists -->
     <string name="playlists_title">Playlists</string>
     <string name="playlists_empty_title">No playlists</string>
-    <string name="playlists_empty_message">Downloaded tracks are added to platform playlists automatically.</string>
+    <string name="playlists_empty_message">Create a playlist to organize your tracks.</string>
     <string name="playlist_title">Playlist</string>
     <string name="playlist_empty_title">The playlist is empty</string>
     <string name="playlist_empty_message">Downloaded tracks from this platform will show up here automatically.</string>
@@ -118,14 +118,14 @@
     <string name="downloads_title">Downloads</string>
     <string name="downloads_subtitle">engine: %1$s</string>
     <string name="new_download">New download</string>
-    <string name="url_placeholder">music.youtube.com, youtube.com, soundcloud.com</string>
+    <string name="url_placeholder">Paste a link</string>
     <string name="downloading_preparing">Preparing…</string>
-    <string name="download_hint">YouTube, SoundCloud, playlists and sets. Files are saved on the device.</string>
+    <string name="download_hint">YouTube and SoundCloud tracks, playlists and sets.</string>
     <string name="notifications_off_title">Notifications are off</string>
     <string name="notifications_off_message">Without them, download progress won’t appear in the shade.</string>
     <string name="completed_title">Completed</string>
     <string name="queue_empty_title">The queue is empty</string>
-    <string name="queue_empty_message">Paste a YouTube or SoundCloud link — the download starts right away.</string>
+    <string name="queue_empty_message">Downloads will appear here after you tap Download.</string>
     <string name="completed_shown">Showing the last %1$d of %2$d</string>
     <string name="dialog_clear_queue_title">Clear the queue?</string>
     <string name="dialog_clear_queue_message">Current downloads will be stopped and unfinished tasks removed from the queue. Downloaded files and history stay on the device.</string>
@@ -258,6 +258,25 @@
     <string name="error_no_audio">the platform didn’t return audio — try again</string>
     <string name="error_processing">couldn’t process the audio — try updating yt-dlp</string>
     <string name="error_download_failed">couldn’t download the track</string>
+
+    <string name="shuffle">Shuffle</string>
+    <string name="cd_sort">Sort. Current order: %1$s</string>
+    <string name="sort_artist_ascending">By artist ↑</string>
+    <string name="sort_title_ascending">By title ↑</string>
+    <string name="action_paste">Paste</string>
+    <string name="clipboard_empty">No text to paste</string>
+    <string name="playlists_personal">My playlists</string>
+    <string name="playlists_sources">By source</string>
+    <string name="playlist_created">Playlist created</string>
+    <string name="playlist_create_failed">Could not create the playlist. Try again.</string>
+    <string name="playlist_empty_user_message">Open a track’s menu in Library and choose Add to playlist.</string>
+    <string name="player_open">Open player</string>
+    <string name="player_show_remaining">Show remaining time</string>
+    <string name="player_show_duration">Show track duration</string>
+    <string name="player_queue">Play queue</string>
+    <string name="player_added_to_named_playlist">Added to “%1$s”</string>
+    <string name="lyrics_follow">Go to current line</string>
+    <string name="lyrics_seek_to_line">Play from this line</string>
 
     <plurals name="tracks_count">
         <item quantity="one">%d track</item>

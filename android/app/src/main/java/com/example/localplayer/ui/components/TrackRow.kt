@@ -29,6 +29,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -54,7 +55,7 @@ import com.example.localplayer.ui.theme.SoundTubeTheme
 @Composable
 fun TrackRow(
     track: Track,
-    index: Int,
+    index: Int? = null,
     isCurrent: Boolean,
     isPlaying: Boolean,
     onClick: () -> Unit,
@@ -101,32 +102,52 @@ fun TrackRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Box(
-            modifier = Modifier.width(20.dp),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (isCurrent && isPlaying) {
-                Icon(
-                    imageVector = Icons.Rounded.GraphicEq,
-                    contentDescription = stringResource(R.string.cd_playing),
-                    tint = colors.primary,
-                    modifier = Modifier.size(14.dp),
-                )
-            } else {
-                Text(
-                    text = (index + 1).toString(),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (isCurrent) colors.primary else colors.textSecondary,
-                    textAlign = TextAlign.End,
-                )
+        if (index != null) {
+            Box(
+                modifier = Modifier.width(20.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (isCurrent && isPlaying) {
+                    Icon(
+                        imageVector = Icons.Rounded.GraphicEq,
+                        contentDescription = stringResource(R.string.cd_playing),
+                        tint = colors.primary,
+                        modifier = Modifier.size(14.dp),
+                    )
+                } else {
+                    Text(
+                        text = (index + 1).toString(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = if (isCurrent) colors.primary else colors.textSecondary,
+                        textAlign = TextAlign.End,
+                    )
+                }
             }
         }
 
-        TrackArtwork(
-            artwork = track.thumbnailPath,
-            modifier = Modifier.size(40.dp),
-            cornerRadius = 4.dp,
-        )
+        Box {
+            TrackArtwork(
+                artwork = track.thumbnailPath,
+                modifier = Modifier.size(40.dp),
+                cornerRadius = 4.dp,
+            )
+            if (index == null && isCurrent && isPlaying) {
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color.Black.copy(alpha = 0.60f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.GraphicEq,
+                        contentDescription = stringResource(R.string.cd_playing),
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+        }
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -181,7 +202,7 @@ private fun TrackOverflowMenu(
             icon = Icons.Rounded.MoreVert,
             contentDescription = stringResource(R.string.cd_track_actions),
             bordered = false,
-            size = 30.dp,
+            size = 48.dp,
             onClick = { expanded = true },
         )
 

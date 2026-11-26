@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
@@ -25,7 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
-import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.automirrored.rounded.PlaylistAdd
 import androidx.compose.material.icons.rounded.IosShare
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.MoreHoriz
@@ -48,7 +50,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -58,6 +59,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +71,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -78,6 +81,7 @@ import com.example.localplayer.R
 import com.example.localplayer.domain.model.RepeatMode
 import com.example.localplayer.ui.components.AddToPlaylistDialog
 import com.example.localplayer.ui.components.EmptyState
+import com.example.localplayer.ui.components.ThinProgressBar
 import com.example.localplayer.ui.components.TrackArtwork
 import com.example.localplayer.ui.components.formatDuration
 import com.example.localplayer.ui.theme.DarkSoundTubeColors
@@ -114,8 +118,8 @@ fun NowPlayingScreen(
 
     // Активная строка текста: пересчёт идёт по тику позиции, а перерисовку
     // вызывает только смена строки.
-    var activeLine by remember { mutableStateOf(-1) }
-    LaunchedEffect(lyricsState) {
+    var activeLine by remember(state.currentTrackId, lyricsState) { mutableStateOf(-1) }
+    LaunchedEffect(state.currentTrackId, lyricsState) {
         val loaded = lyricsState as? LyricsUiState.Loaded
         if (loaded == null || !loaded.lyrics.synced) {
             activeLine = -1
@@ -146,7 +150,7 @@ fun NowPlayingScreen(
             onPrimary = Color(0xFF0A1410),
             statusGreen = palette.accent,
             textPrimary = Color.White,
-            textSecondary = Color.White.copy(alpha = 0.68f),
+            textSecondary = Color.White.copy(alpha = 0.78f),
             playerSurface = palette.middle,
             divider = Color.White.copy(alpha = 0.12f),
             navActive = Color.White.copy(alpha = 0.10f),
@@ -163,7 +167,7 @@ fun NowPlayingScreen(
             onBackground = Color.White,
             onSurface = Color.White,
             surfaceVariant = Color.White.copy(alpha = 0.10f),
-            onSurfaceVariant = Color.White.copy(alpha = 0.68f),
+            onSurfaceVariant = Color.White.copy(alpha = 0.78f),
             outline = Color.White.copy(alpha = 0.24f),
             outlineVariant = Color.White.copy(alpha = 0.16f),
             error = Color(0xFFFF9C92),
@@ -196,11 +200,11 @@ fun NowPlayingScreen(
                 val usableHeight = maxHeight -
                     insets.calculateTopPadding() -
                     insets.calculateBottomPadding()
-                val compact = usableHeight < 600.dp
+                val compact = usableHeight < 600.dp || density.fontScale >= 1.3f
                 val coverSize = if (compact) {
                     minOf(
                         maxWidth - 32.dp,
-                        (usableHeight - 260.dp).coerceAtLeast(96.dp),
+                        (usableHeight - 280.dp).coerceAtLeast(72.dp),
                     )
                 } else {
                     minOf(
@@ -395,13 +399,18 @@ fun NowPlayingScreen(
             if (showLyrics) {
                 ModalBottomSheet(
                     onDismissRequest = { showLyrics = false },
+                    dragHandle = null,
                     containerColor = playerColors.surface,
                     contentColor = Color.White,
                     sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
                 ) {
                     PlayerLyricsSheetContent(
+                        player = state,
                         state = lyricsState,
                         activeLine = activeLine,
+                        onClose = { showLyrics = false },
+                        onPlayPause = playerViewModel::playPause,
+                        modifier = Modifier.fillMaxHeight(),
                         onSeek = playerViewModel::seekTo,
                         onRetry = playerViewModel::retryLyrics,
                     )
@@ -484,7 +493,7 @@ private fun PlayerTopBar(
                             text = { Text(stringResource(R.string.action_add_to_playlist)) },
                             leadingIcon = {
                                 Icon(
-                                    Icons.Rounded.Add,
+                                    Icons.AutoMirrored.Rounded.PlaylistAdd,
                                     contentDescription = null,
                                     modifier = Modifier.size(18.dp),
                                 )
@@ -557,7 +566,7 @@ private fun PlayerMeta(title: String, artist: String, onAddToPlaylist: () -> Uni
             Text(
                 text = artist,
                 style = MaterialTheme.typography.bodyMedium,
-                color = Color.White.copy(alpha = 0.68f),
+                color = Color.White.copy(alpha = 0.78f),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -567,23 +576,26 @@ private fun PlayerMeta(title: String, artist: String, onAddToPlaylist: () -> Uni
 
         Box(
             modifier = Modifier
-                .size(40.dp)
+                .size(48.dp)
                 .clip(CircleShape)
-                .background(SoundTubeTheme.colors.primary)
-                .clickable(onClick = onAddToPlaylist),
+                .clickable(role = Role.Button, onClick = onAddToPlaylist),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
-                imageVector = Icons.Rounded.Add,
+                imageVector = Icons.AutoMirrored.Rounded.PlaylistAdd,
                 contentDescription = stringResource(R.string.action_add_to_playlist),
-                tint = Color(0xFF0A1410),
-                modifier = Modifier.size(22.dp),
+                tint = SoundTubeTheme.colors.onPrimary,
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(SoundTubeTheme.colors.primary, CircleShape)
+                    .padding(8.dp),
             )
         }
     }
 }
 
 /** Перемотка: слева прошедшее время, справа остаток со знаком минус. */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun PlayerSeekBar(
     positionMs: () -> Long,
@@ -592,6 +604,7 @@ private fun PlayerSeekBar(
     onSeek: (Long) -> Unit,
 ) {
     var dragged by remember(trackId) { mutableStateOf<Float?>(null) }
+    var showDuration by rememberSaveable { mutableStateOf(false) }
     val position = positionMs()
     val progress = if (durationMs > 0L) {
         (position / durationMs.toFloat()).coerceIn(0f, 1f)
@@ -600,6 +613,7 @@ private fun PlayerSeekBar(
     }
     val value = dragged ?: progress
     val shownPosition = dragged?.let { (it * durationMs).toLong() } ?: position
+    val secondary = SoundTubeTheme.colors.textSecondary
 
     Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
         Slider(
@@ -611,34 +625,55 @@ private fun PlayerSeekBar(
             },
             enabled = durationMs > 0L,
             modifier = Modifier.fillMaxWidth(),
-            colors = SliderDefaults.colors(
-                thumbColor = Color.White,
-                activeTrackColor = Color.White,
-                inactiveTrackColor = Color.White.copy(alpha = 0.24f),
-                activeTickColor = Color.Transparent,
-                inactiveTickColor = Color.Transparent,
-                disabledThumbColor = Color.White.copy(alpha = 0.5f),
-                disabledActiveTrackColor = Color.White.copy(alpha = 0.5f),
-                disabledInactiveTrackColor = Color.White.copy(alpha = 0.18f),
-            ),
+            thumb = {
+                Box(
+                    modifier = Modifier
+                        .size(14.dp)
+                        .background(
+                            if (durationMs > 0L) Color.White else secondary,
+                            CircleShape,
+                        ),
+                )
+            },
+            track = { slider ->
+                ThinProgressBar(
+                    progress = slider.value,
+                    modifier = Modifier.clip(CircleShape),
+                    color = Color.White,
+                    trackColor = Color.White.copy(alpha = 0.30f),
+                    height = 4.dp,
+                )
+            },
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
                 text = shownPosition.formatDuration(),
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.58f),
+                style = MaterialTheme.typography.labelMedium,
+                color = secondary,
+            )
+            val timerLabel = stringResource(
+                if (showDuration) R.string.player_show_remaining else R.string.player_show_duration,
             )
             Text(
-                text = if (durationMs > 0L) {
-                    formatRemaining((durationMs - shownPosition).coerceAtLeast(0L))
-                } else {
-                    "--:--"
+                text = when {
+                    durationMs <= 0L -> "--:--"
+                    showDuration -> durationMs.formatDuration()
+                    else -> formatRemaining((durationMs - shownPosition).coerceAtLeast(0L))
                 },
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.58f),
+                style = MaterialTheme.typography.labelMedium,
+                color = secondary,
+                modifier = Modifier
+                    .clickable(
+                        enabled = durationMs > 0L,
+                        role = Role.Button,
+                        onClickLabel = timerLabel,
+                        onClick = { showDuration = !showDuration },
+                    )
+                    .padding(start = 8.dp, top = 4.dp, bottom = 4.dp),
             )
         }
     }
@@ -663,7 +698,7 @@ private fun PlayerControls(
     val regular = Color.White.copy(alpha = 0.92f)
     val playSize = if (compact) 52.dp else 64.dp
     val iconSize = if (compact) 20.dp else 24.dp
-    val buttonSize = if (compact) 40.dp else 48.dp
+    val buttonSize = 48.dp
 
     Row(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -751,7 +786,7 @@ private fun PlayerControls(
 /** «Это устройство» слева и кнопки «поделиться»/«очередь» справа. */
 @Composable
 private fun PlayerDeviceRow(onShare: () -> Unit, onQueue: () -> Unit) {
-    val accent = SoundTubeTheme.colors.primary
+    val secondary = SoundTubeTheme.colors.textSecondary
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -762,20 +797,20 @@ private fun PlayerDeviceRow(onShare: () -> Unit, onQueue: () -> Unit) {
         Icon(
             imageVector = Icons.Rounded.Speaker,
             contentDescription = null,
-            tint = accent,
+            tint = secondary,
             modifier = Modifier.size(18.dp),
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = stringResource(R.string.player_device_this),
             style = MaterialTheme.typography.labelMedium,
-            color = accent,
+            color = secondary,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
         Spacer(modifier = Modifier.weight(1f))
 
-        IconButton(onClick = onShare, modifier = Modifier.size(44.dp)) {
+        IconButton(onClick = onShare, modifier = Modifier.size(48.dp)) {
             Icon(
                 imageVector = Icons.Rounded.IosShare,
                 contentDescription = stringResource(R.string.player_share),
@@ -783,10 +818,10 @@ private fun PlayerDeviceRow(onShare: () -> Unit, onQueue: () -> Unit) {
                 modifier = Modifier.size(22.dp),
             )
         }
-        IconButton(onClick = onQueue, modifier = Modifier.size(44.dp)) {
+        IconButton(onClick = onQueue, modifier = Modifier.size(48.dp)) {
             Icon(
                 imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
-                contentDescription = stringResource(R.string.queue),
+                contentDescription = stringResource(R.string.player_queue),
                 tint = Color.White,
                 modifier = Modifier.size(24.dp),
             )
@@ -794,55 +829,34 @@ private fun PlayerDeviceRow(onShare: () -> Unit, onQueue: () -> Unit) {
     }
 }
 
-/** Нижняя карточка-ручка для текста песни. */
 @Composable
 private fun PlayerLyricsCard(onClick: () -> Unit) {
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp)
-            .height(64.dp)
-            .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+            .heightIn(min = 52.dp)
+            .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
             .background(Color.White.copy(alpha = 0.10f))
-            .clickable(onClick = onClick),
+            .clickable(role = Role.Button, onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 10.dp)
-                .width(88.dp)
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(Color.White.copy(alpha = 0.35f)),
-        )
         Text(
             text = stringResource(R.string.lyrics),
             style = MaterialTheme.typography.titleMedium,
             color = Color.White,
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 20.dp),
+            modifier = Modifier.weight(1f),
         )
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .padding(end = 16.dp)
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.14f)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = Icons.Rounded.OpenInFull,
-                contentDescription = stringResource(R.string.lyrics),
-                tint = Color.White,
-                modifier = Modifier.size(18.dp),
-            )
-        }
+        Icon(
+            imageVector = Icons.Rounded.OpenInFull,
+            contentDescription = null,
+            tint = Color.White,
+            modifier = Modifier.size(20.dp),
+        )
     }
 }
 
-/** «-2:36»: остаток до конца трека. Часы появляются только у длинных записей. */
 private fun formatRemaining(remainingMs: Long): String {
     val totalSeconds = (remainingMs / 1000L).coerceAtLeast(0L)
     val hours = totalSeconds / 3600L

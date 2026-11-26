@@ -12,7 +12,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -24,10 +23,13 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
@@ -54,6 +56,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -336,6 +341,7 @@ private fun SoundTubeBottomBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
+                .selectableGroup()
                 .navigationBarsPadding()
                 .padding(horizontal = 8.dp, vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -349,10 +355,11 @@ private fun SoundTubeBottomBar(
                         .weight(1f)
                         .clip(RoundedCornerShape(6.dp))
                         .background(if (selected) colors.navActive else Color.Transparent)
-                        .clickable { onSelect(tab.route) }
-                        .padding(vertical = 6.dp),
+                        .heightIn(min = 48.dp)
+                        .selectable(selected = selected, role = Role.Tab) { onSelect(tab.route) }
+                        .padding(horizontal = 2.dp, vertical = 6.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically),
                 ) {
                     Icon(
                         imageVector = tab.icon,
@@ -364,7 +371,9 @@ private fun SoundTubeBottomBar(
                         text = stringResource(tab.labelRes),
                         style = MaterialTheme.typography.labelSmall,
                         color = contentColor,
-                        maxLines = 1,
+                        textAlign = TextAlign.Center,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
             }

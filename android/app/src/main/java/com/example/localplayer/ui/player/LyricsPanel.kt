@@ -1,5 +1,6 @@
 package com.example.localplayer.ui.player
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudOff
 import androidx.compose.material.icons.rounded.MusicNote
@@ -20,7 +22,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -174,12 +181,19 @@ private fun LyricLineRow(
     Text(
         text = line.text,
         style = MaterialTheme.typography.bodyLarge,
-        fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
+        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
         color = if (isActive) colors.textPrimary else colors.textSecondary,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 6.dp),
+            .clip(RoundedCornerShape(6.dp))
+            .background(if (isActive) colors.primary.copy(alpha = 0.14f) else Color.Transparent)
+            .clickable(
+                role = Role.Button,
+                onClickLabel = stringResource(R.string.lyrics_seek_to_line),
+                onClick = onClick,
+            )
+            .semantics { selected = isActive }
+            .padding(horizontal = 8.dp, vertical = 7.dp),
     )
 }
 
