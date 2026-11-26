@@ -466,6 +466,10 @@ def main(argv: list[str]) -> int:
         for path in changed:
             print(f"обновлён {path.relative_to(ROOT)}")
 
+    if android and not desktop:
+        print(f"android: versionName={android_version()} versionCode={android_code()}")
+        return 0 if check("android") else 1
+
     _print_report()
     return 0
 
