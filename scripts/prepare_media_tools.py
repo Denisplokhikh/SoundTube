@@ -114,6 +114,9 @@ def prepare(target: str, output: Path, cache: Path, *, deno_only: bool) -> None:
 
 
 def main() -> None:
+    # При перенаправлении вывода Windows может выбрать кодировку без кириллицы.
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", choices=DENO_HASHES)
     parser.add_argument("--output", required=True, type=Path)
