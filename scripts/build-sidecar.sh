@@ -31,8 +31,10 @@ case "$triple" in
 esac
 
 echo "Собираю Python-сервер (PyInstaller)..."
-uv sync --python 3.13 --extra dev
-uv run pyinstaller --noconfirm --clean melodown-server.spec
+uv sync --locked --python 3.13 --extra dev
+media_tools="$root/build/media-tools/$triple"
+uv run --no-sync python scripts/prepare_media_tools.py --target "$triple" --output "$media_tools"
+MELODOWN_BUILD_MEDIA_TOOLS="$media_tools" uv run --no-sync pyinstaller --noconfirm --clean melodown-server.spec
 
 source="dist/melodown-server$suffix"
 if [ ! -f "$source" ]; then

@@ -180,7 +180,10 @@ class SyncImportResponse(BaseModel):
     tracks_added: int = 0
     tracks_skipped: int = 0
     sources_updated: int = 0
+    # Одна задача «Импорт библиотеки» на все отсутствующие треки.
     download_jobs_created: int = 0
+    tracks_queued: int = 0
+    job_id: str | None = None
 
 
 class LyricLineOut(BaseModel):

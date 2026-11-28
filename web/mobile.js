@@ -6,7 +6,6 @@
 
 (() => {
   const mq = window.matchMedia("(max-width: 820px)");
-  const audio = document.querySelector("#audio");
   const player = document.querySelector("#player");
   const fsPlayer = document.querySelector("#fullscreen-player");
   const fsBody = document.querySelector(".fs-body");
@@ -246,12 +245,12 @@
 
   /* ---------- события аудио ---------- */
 
-  if (audio) {
+  for (const element of audioElements) {
     for (const event of ["loadstart", "loadedmetadata", "durationchange", "emptied", "play"]) {
-      audio.addEventListener(event, syncPlayer);
+      element.addEventListener(event, () => {
+        if (element === audio) syncPlayer();
+      });
     }
-    audio.addEventListener("timeupdate", updateProgress);
-    audio.addEventListener("seeked", updateProgress);
   }
 
   /* ---------- старт ---------- */

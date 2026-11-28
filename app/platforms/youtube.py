@@ -47,7 +47,8 @@ def _track_from_entry(entry: dict) -> TrackSpec | None:
     if not entry:
         return None
     video_id = entry.get("id")
-    url = entry.get("url") or entry.get("webpage_url")
+    # url полного результата может вести прямо на временный аудиопоток.
+    url = entry.get("webpage_url") or entry.get("url")
     if not url and video_id:
         url = f"https://www.youtube.com/watch?v={video_id}"
     if not url:

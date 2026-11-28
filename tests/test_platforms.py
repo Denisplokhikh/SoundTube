@@ -46,6 +46,20 @@ def test_youtube_entry_without_title_is_skipped():
     assert youtube_track({"id": "abc123"}) is None
 
 
+def test_youtube_download_uses_track_page_instead_of_media_url():
+    page = "https://www.youtube.com/watch?v=abc123"
+    track = youtube_track(
+        {
+            "id": "abc123",
+            "title": "Song",
+            "webpage_url": page,
+            "url": "https://audio.googlevideo.com/videoplayback",
+        }
+    )
+    assert track is not None
+    assert track.url == page
+
+
 def test_soundcloud_entry_keeps_url():
     track = soundcloud_track(
         {
@@ -58,6 +72,20 @@ def test_soundcloud_entry_keeps_url():
     assert track is not None
     assert track.url == "https://soundcloud.com/artist/song"
     assert track.source_id == "42"
+
+
+def test_soundcloud_download_uses_track_page_instead_of_media_url():
+    page = "https://soundcloud.com/artist/song"
+    track = soundcloud_track(
+        {
+            "id": 42,
+            "title": "Song",
+            "webpage_url": page,
+            "url": "https://media.sndcdn.com/playlist.m3u8",
+        }
+    )
+    assert track is not None
+    assert track.url == page
 
 
 STATION_ENTRY = {

@@ -25,7 +25,7 @@
       } catch (error) {}
     </script>
     <link rel="stylesheet" href="/themes.css" />
-    <link rel="stylesheet" href="/styles.css" />
+    <link rel="stylesheet" href="/styles.css?v=1.5.0" />
     <link rel="stylesheet" href="/mobile.css" />
   </head>
   <body>
@@ -330,7 +330,7 @@
           <header class="view-head">
             <div class="view-title">
               <h1 data-i18n="settings.title">Настройки</h1>
-              <p class="sub" data-i18n="settings.subtitle">Язык, тема, папка и перенос библиотеки</p>
+              <p class="sub" data-i18n="settings.subtitle">Воспроизведение, оформление и перенос библиотеки</p>
             </div>
           </header>
 
@@ -408,6 +408,19 @@
                     aria-label="Бумага"
                   ></button>
                 </div>
+              </div>
+            </div>
+
+            <div class="settings-card">
+              <h2 data-i18n="settings.crossfade">Плавный переход</h2>
+              <label class="crossfade-toggle">
+                <input id="crossfade-enabled" type="checkbox" checked />
+                <span data-i18n="settings.crossfadeToggle">Плавно смешивать треки</span>
+              </label>
+              <div class="crossfade-duration">
+                <label for="crossfade-duration" data-i18n="settings.crossfadeDuration">Длительность перехода</label>
+                <output id="crossfade-value" for="crossfade-duration">5 с</output>
+                <input id="crossfade-duration" type="range" min="3" max="10" step="1" value="5" />
               </div>
             </div>
 
@@ -894,6 +907,7 @@
       <button id="offline-retry" type="button" class="ghost small" data-i18n="lan.retry">Повторить</button>
     </div>
     <audio id="audio" preload="auto"></audio>
+    <audio id="audio-next" preload="auto"></audio>
 
     <nav class="mnav" id="mnav" aria-label="Основная навигация">
       <button class="nav-item mnav-item" data-view="library" type="button">
@@ -926,7 +940,7 @@
     </nav>
 
     <script src="/auth.js"></script>
-    <script src="/app.js"></script>
-    <script src="/mobile.js"></script>
+    <script src="/app.js?v=1.5.0"></script>
+    <script src="/mobile.js?v=1.5.0"></script>
   </body>
 </html>

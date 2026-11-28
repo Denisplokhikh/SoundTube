@@ -30,7 +30,8 @@ def _entry_id(entry: dict) -> str | None:
 def _track_from_entry(entry: dict) -> TrackSpec | None:
     if not entry:
         return None
-    url = entry.get("url") or entry.get("webpage_url")
+    # Ссылка на страницу сохраняет метаданные при следующем вызове yt-dlp.
+    url = entry.get("webpage_url") or entry.get("url")
     if not url:
         return None
     title = clean_text(entry.get("track")) or clean_text(entry.get("title"))

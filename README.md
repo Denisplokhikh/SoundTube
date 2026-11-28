@@ -56,7 +56,7 @@ Paste a link — a single track, a 300-song playlist, a SoundCloud set — and i
 - 🔁 **No duplicates** — Every track is tracked by its source URL. Already downloaded? It gets skipped, not downloaded twice.
 - 🌈 **Living artwork** — A full-screen player whose waves borrow the palette from the cover and pulse with the beat.
 - 📝 **Lyrics that follow the song** — Synced lyrics come from LRCLIB and are cached as a `.lrc` next to the audio; if nothing is found, the app falls back to the track description on SoundCloud/YouTube (underground uploads often carry the full text there) and then to lyrics.ovh. Open the two-column full-screen view, click any line to jump to that moment (`L` toggles it).
-- 🔄 **Library everywhere** — Export the whole library as one JSON file and import it on Android: same tracks and playlists, downloaded fresh on the phone. No PC needed afterwards.
+- 🔄 **Library everywhere** — Export the whole library as one JSON file and import it on Android or on another PC: same tracks and playlists — missing files are downloaded fresh, on the desktop as a single expandable “Library import” task.
 - 🌐 **Two languages** — The interface speaks Russian and English; flip it with the globe button in the top-right corner.
 - 📱 **Your library on the phone** — Turn on *Settings → Phone* and the same library opens on any device in your home network, with a PIN lock and an installable home-screen icon.
 - 🐳 **Docker, if that's your thing** — `docker compose up --build` and you have the same library on a home server.
@@ -119,7 +119,7 @@ New-NetFirewallRule -DisplayName "SoundTube LAN" -Direction Inbound -Protocol TC
 
 ## 📥 Download & Install
 
-Everything ships through **[GitHub Releases](https://github.com/Denisplokhikh/SoundTube/releases/latest)** — binaries are built by CI from the tagged source, not uploaded by hand.
+Everything ships through **[GitHub Releases](https://github.com/Denisplokhikh/SoundTube/releases/latest)**. CI builds desktop packages and attaches the third-party sources and licenses to a draft. The draft is published after the packages are verified.
 
 ### 🪟 Windows
 
@@ -135,9 +135,11 @@ Download, run, done. Windows 10 and 11 already include WebView2.
 | File | What it is |
 | :--- | :--- |
 | `SoundTube_<version>_amd64.AppImage` | Portable, no installation — `chmod +x` and run |
-| `SoundTube_<version>_amd64.deb` | Debian / Ubuntu package, pulls `ffmpeg` automatically |
+| `SoundTube_<version>_amd64.deb` | Debian / Ubuntu package |
 
-> On older distributions the AppImage may need `libfuse2`. `ffmpeg` is required at runtime and is bundled as a dependency in the `.deb`.
+> On older distributions the AppImage may need `libfuse2`.
+
+Windows and Linux desktop packages include Deno, FFmpeg and FFprobe. Docker also includes all three tools. [Desktop third-party notices](THIRD_PARTY_NOTICES.md)
 
 ### 🤖 Android
 
@@ -225,7 +227,8 @@ soundtube/
 | [Python](https://python.org) + [uv](https://docs.astral.sh/uv/) | 3.11+ | Backend and sidecar |
 | [Node.js](https://nodejs.org) | 20+ | Tauri CLI |
 | [Rust](https://rustup.rs) | 1.77.2+ | Desktop shell |
-| [ffmpeg](https://ffmpeg.org) | recent, on `PATH` | Download and conversion |
+| [Deno](https://docs.deno.com/runtime/getting_started/installation/) | 2.3+, on `PATH` | YouTube downloads when running the Python server directly |
+| [FFmpeg and FFprobe](https://ffmpeg.org/download.html) | recent, on `PATH` | Audio processing when running the Python server directly |
 | JDK | 17 | Android |
 | Android SDK | API 35 | Android |
 
@@ -251,7 +254,9 @@ powershell -ExecutionPolicy Bypass -File scripts\build-desktop.ps1
 # → src-tauri\target\release\bundle\
 ```
 
-Just the backend, with hot reload:
+Only one copy runs per user: clicking the desktop or taskbar shortcut again brings the existing window back (from the tray, if it was hidden) instead of starting a second app and a second server.
+
+For a backend-only run, install Deno, FFmpeg and FFprobe and make them available on `PATH`. Then start the server with hot reload.
 
 ```powershell
 uv run uvicorn app.main:app --reload --port 8765
@@ -293,7 +298,7 @@ uv run pytest
 - [x] Desktop application on Tauri 2
 - [x] Native Android app with offline playback
 - [x] Library export from the desktop app and import button on Android (JSON)
-- [ ] Import JSON from PC to PC
+- [x] Import JSON from PC to PC — missing tracks are re-downloaded as one “Library import” job
 - [ ] Add another sources of download
 - [ ] Android widgets
 - [ ] Mobile design improvement

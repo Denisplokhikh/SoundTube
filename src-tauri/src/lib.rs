@@ -21,7 +21,11 @@ use tauri_plugin_shell::{
     ShellExt,
 };
 
+mod single_instance;
+
 const HOST: &str = "127.0.0.1";
+/// Заголовок окна. По нему же второй экземпляр находит окно первого.
+const WINDOW_TITLE: &str = "SoundTube";
 const LAN_HOST: &str = "0.0.0.0";
 const DEFAULT_PORT: u16 = 8765;
 const STARTUP_TIMEOUT: Duration = Duration::from_secs(90);
@@ -29,7 +33,7 @@ const STARTUP_TIMEOUT: Duration = Duration::from_secs(90);
 /// иначе новый интерфейс может открыться поверх старого сервера на том же
 /// порту (например, забытого `uv run uvicorn` из репозитория), и запросы
 /// к новым ручкам будут отдавать 404.
-const API_REVISION: u32 = 6;
+const API_REVISION: u32 = 8;
 /// Сколько портов после основного пробовать, если он занят чужим сервером.
 const PORT_PROBES: u16 = 20;
 
@@ -418,7 +422,7 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let mut builder = TrayIconBuilder::with_id("main-tray")
         .menu(&menu)
         .show_menu_on_left_click(false)
-        .tooltip("SoundTube")
+        .tooltip(WINDOW_TITLE)
         .on_menu_event(|app, event| match event.id.as_ref() {
             "open" => show_main_window(app),
             "quit" => app.exit(0),
@@ -459,7 +463,7 @@ fn open_window(app: &AppHandle, port: u16) {
     let handle = app.clone();
 
     let _ = WebviewWindowBuilder::new(app, "main", WebviewUrl::External(url))
-        .title("SoundTube")
+        .title(WINDOW_TITLE)
         .inner_size(1180.0, 820.0)
         .min_inner_size(520.0, 560.0)
         .decorations(false)
@@ -478,7 +482,7 @@ fn open_window(app: &AppHandle, port: u16) {
 fn fail(app: &AppHandle, message: &str) {    append_log(&log_path(app), &format!("[fatal] {message}\n"));
     app.dialog()
         .message(message)
-        .title("SoundTube")
+        .title(WINDOW_TITLE)
         .kind(MessageDialogKind::Error)
         .blocking_show();
     app.exit(1);
@@ -538,14 +542,30 @@ fn set_lan_mode(app: AppHandle, enabled: bool) -> Result<bool, String> {
     Err("Сервер не ответил после перезапуска".to_string())
 }
 
+/// Ищет работающий совместимый сервер: сначала на основном порту, затем на
+/// PORT_PROBES следующих. Одного основного порта мало: если его когда-то занял
+/// чужой сервер, наш sidecar поднялся на 8766, и без поиска по диапазону каждый
+/// следующий запуск оболочки плодил бы ещё один сервер.
+fn find_compatible_port(app: &AppHandle, preferred: u16) -> Option<u16> {
+    std::iter::once(preferred)
+        .chain((1..=PORT_PROBES).map(|offset| preferred.saturating_add(offset)))
+        .find(|candidate| server_is_compatible(app, *candidate))
+}
+
 fn boot(app: AppHandle) {
     let preferred = port();
 
     // Переиспользуем только свой сервер: чужой (устаревший или из другой
     // копии проекта) отдаст старый API и сломает новые экраны.
-    if server_is_compatible(&app, preferred) {
-        set_active_port(&app, preferred);
-        open_window(&app, preferred);
+    if let Some(existing) = find_compatible_port(&app, preferred) {
+        if existing != preferred {
+            append_log(
+                &log_path(&app),
+                &format!("[boot] переиспользую сервер с порта {existing}\n"),
+            );
+        }
+        set_active_port(&app, existing);
+        open_window(&app, existing);
         return;
     }
 
@@ -588,6 +608,13 @@ fn boot(app: AppHandle) {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Второй экземпляр блокировку не получит: показываем окно уже работающего
+    // приложения и выходим, не поднимая второй сервер, трей и окно.
+    if !single_instance::acquire() {
+        single_instance::focus_existing(WINDOW_TITLE);
+        return;
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())

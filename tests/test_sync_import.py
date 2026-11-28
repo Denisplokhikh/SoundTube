@@ -124,14 +124,175 @@ async def test_import_creates_download_job_for_missing_track(session, isolated_d
     body = response.json()
     assert body["sources_updated"] == 0
     assert body["download_jobs_created"] == 1
+    assert body["tracks_queued"] == 1
     assert len(enqueued) == 1
+    assert body["job_id"] == enqueued[0]
 
     job = await session.get(Job, enqueued[0])
     assert job is not None
     assert job.platform == "youtube"
-    assert job.kind == "track"
+    assert job.kind == "sync"
+    assert job.title.startswith("Импорт библиотеки")
     assert len(job.tracks) == 1
     assert job.tracks[0].source_url == "https://youtu.be/missing"
+
+
+async def test_import_groups_missing_tracks_into_single_job(session, isolated_dirs, monkeypatch):
+    """Все отсутствующие треки — одна задача, а не по карточке на трек."""
+    client, enqueued = _client(session, monkeypatch)
+    try:
+        response = await client.post(
+            "/api/sync/import",
+            json={
+                "version": 1,
+                "tracks": [
+                    {"url": "https://soundcloud.com/a/one", "title": "One"},
+                    {"url": "https://soundcloud.com/a/two", "title": "Two"},
+                    {"url": "https://www.youtube.com/watch?v=three", "title": "Three"},
+                ],
+            },
+        )
+    finally:
+        await client.aclose()
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["download_jobs_created"] == 1
+    assert body["tracks_queued"] == 3
+    assert len(enqueued) == 1
+
+    job = await session.get(Job, enqueued[0])
+    assert job is not None
+    assert job.kind == "sync"
+    assert job.total == 3
+    # Площадки в экспорте могут быть смешаны — это одна задача.
+    assert job.platform == "mixed"
+    assert [track.source_url for track in job.tracks] == [
+        "https://soundcloud.com/a/one",
+        "https://soundcloud.com/a/two",
+        "https://www.youtube.com/watch?v=three",
+    ]
+    assert [track.position for track in job.tracks] == [0, 1, 2]
+
+
+async def test_import_redownloads_track_whose_file_disappeared(
+    session, isolated_dirs, monkeypatch
+):
+    """Старая запись «скачано» не должна скрывать пропавший с диска файл.
+
+    Регрессия: после очистки папки музыки импорт писал «песни не найдены»,
+    потому что done-трек из старой задачи молча пропускался.
+    """
+    stale = Job(
+        url="https://soundcloud.com/old",
+        platform="soundcloud",
+        kind="set",
+        title="Старая задача",
+        total=1,
+        completed=1,
+        status="done",
+    )
+    stale.tracks.append(
+        Track(
+            position=0,
+            title="Gone",
+            source_url="https://soundcloud.com/a/gone",
+            status="done",
+            file_path="Artist/Album/Artist - Gone.m4a",
+        )
+    )
+    session.add(stale)
+    session.add(
+        LibrarySource(
+            relative_path="Artist/Album/Artist - Gone.m4a",
+            source_url="https://soundcloud.com/a/gone",
+            platform="soundcloud",
+        )
+    )
+    await session.commit()
+
+    client, enqueued = _client(session, monkeypatch)
+    try:
+        response = await client.post(
+            "/api/sync/import",
+            json={
+                "tracks": [
+                    {
+                        "url": "https://soundcloud.com/a/gone",
+                        "title": "Gone",
+                        "artist": "Artist",
+                        "platform": "soundcloud",
+                        "relative_path": "Artist/Album/Artist - Gone.m4a",
+                    }
+                ]
+            },
+        )
+    finally:
+        await client.aclose()
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["sources_updated"] == 0
+    assert body["download_jobs_created"] == 1
+    assert body["tracks_queued"] == 1
+
+    job = await session.get(Job, enqueued[0])
+    assert job is not None
+    assert job.kind == "sync"
+    assert [track.source_url for track in job.tracks] == ["https://soundcloud.com/a/gone"]
+
+
+async def test_import_keeps_done_track_when_file_is_on_disk(
+    session, isolated_dirs, monkeypatch
+):
+    """Если файл на месте, повторная загрузка не нужна — обновляем источник."""
+    music = isolated_dirs / "music"
+    _track_file(music, "Artist/Album/Artist - Here.m4a")
+
+    stale = Job(
+        url="https://soundcloud.com/old",
+        platform="soundcloud",
+        kind="set",
+        title="Старая задача",
+        total=1,
+        completed=1,
+        status="done",
+    )
+    stale.tracks.append(
+        Track(
+            position=0,
+            title="Here",
+            source_url="https://soundcloud.com/a/here",
+            status="done",
+            file_path="Artist/Album/Artist - Here.m4a",
+        )
+    )
+    session.add(stale)
+    await session.commit()
+
+    client, enqueued = _client(session, monkeypatch)
+    try:
+        response = await client.post(
+            "/api/sync/import",
+            json={
+                "tracks": [
+                    {
+                        "url": "https://soundcloud.com/a/here",
+                        "title": "Here",
+                        "platform": "soundcloud",
+                        "relative_path": "Artist/Album/Artist - Here.m4a",
+                    }
+                ]
+            },
+        )
+    finally:
+        await client.aclose()
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["sources_updated"] == 1
+    assert body["download_jobs_created"] == 0
+    assert enqueued == []
 
 
 async def test_import_restores_playlists_using_relative_path(session, isolated_dirs, monkeypatch):

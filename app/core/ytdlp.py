@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import os
+import sys
+from pathlib import Path
 from typing import Any
 
 import yt_dlp
@@ -21,6 +24,14 @@ def base_options(platform: str, *, flat: bool = False, limit: int | None = None)
     }
     if flat:
         options["playlistend"] = limit or settings.limit_tracks
+
+    bundle = getattr(sys, "_MEIPASS", None)
+    if bundle is not None:
+        tools = Path(bundle) / "media-tools"
+        options["ffmpeg_location"] = str(tools)
+        if platform == "youtube":
+            deno = tools / ("deno.exe" if os.name == "nt" else "deno")
+            options["js_runtimes"] = {"deno": {"path": str(deno)}}
 
     cookies = settings.cookies_for(platform)
     if cookies:

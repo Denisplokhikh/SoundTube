@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import FileResponse
@@ -56,7 +57,7 @@ MAX_LIBRARY_ENTRIES = 5000
 # src-tauri/src/lib.rs и не переиспользует сервер с другим значением:
 # иначе новый интерфейс открывается поверх старого бэкенда без нужных роутов.
 # Меняйте вместе с константой в lib.rs.
-API_REVISION = 6
+API_REVISION = 8
 
 
 @router.get("/health")
@@ -360,7 +361,11 @@ async def import_library(
     """Восстанавливает библиотеку из файла экспорта (см. GET /sync/export).
 
     - Треки, уже присутствующие на диске, обновляют `library_sources`.
-    - Отсутствующие треки ставятся в очередь на скачивание.
+    - Отсутствующие треки ставятся в очередь одной задачей «Импорт библиотеки»
+      (kind="sync"), чтобы её можно было раскрыть, контролировать и отменить
+      целиком, как импорт плейлиста.
+    - Запись о старой загрузке не отменяет скачивание: если файла на диске
+      нет, трек качается заново.
     - Плейлисты восстанавливаются для треков, уже имеющихся на диске.
       После завершения загрузки недостающих треков повторный импорт того же
       файла добавит их в плейлисты.
@@ -374,42 +379,50 @@ async def import_library(
             url_to_relative[source.source_url] = relative
 
     sources_updated = 0
-    download_jobs_created = 0
-    pending_jobs: list[Job] = []
+    # Треки, которых нет на диске: соберём их в одну задачу, чтобы в
+    # «Загрузках» был один раскрывающийся пункт «Импорт библиотеки», как у
+    # плейлиста, а не десятки отдельных карточек по одному треку.
+    queued: list[tuple[str, str, str, str]] = []  # url, title, artist, platform
+    seen_urls: set[str] = set()
 
     for track in payload.tracks:
         url = track.url.strip()
-        if not url:
+        if not url or url in seen_urls:
             continue
-        relative = track.relative_path.strip() if track.relative_path else None
+        seen_urls.add(url)
+        relative = track.relative_path.strip() if track.relative_path else ""
+        title = (track.title or "").strip()
+        artist = (track.artist or "").strip()
 
         # Явный relative_path из экспорта — самый надёжный способ привязки.
-        if relative:
-            path = resolve_track_path(relative)
-            if path is not None:
-                await remember_source(
-                    session,
-                    file_path=path,
-                    url=url,
-                    platform=track.platform or "",
-                    title=track.title or "",
-                    artist=track.artist or "",
-                )
-                url_to_relative[url] = relative
-                sources_updated += 1
-                continue
+        path = resolve_track_path(relative) if relative else None
+        if path is not None:
+            await remember_source(
+                session,
+                file_path=path,
+                url=url,
+                platform=track.platform or "",
+                title=title,
+                artist=artist,
+            )
+            url_to_relative[url] = relative
+            sources_updated += 1
+            continue
 
         # Если relative_path не указан или файл не найден, ищем по URL
         # среди уже известных источников.
         existing_relative = url_to_relative.get(url)
-        if existing_relative and resolve_track_path(existing_relative):
+        existing_path = (
+            resolve_track_path(existing_relative) if existing_relative else None
+        )
+        if existing_path is not None:
             await remember_source(
                 session,
-                file_path=existing_relative,
+                file_path=existing_path,
                 url=url,
                 platform=track.platform or "",
-                title=track.title or "",
-                artist=track.artist or "",
+                title=title,
+                artist=artist,
             )
             url_to_relative[url] = existing_relative
             sources_updated += 1
@@ -425,7 +438,9 @@ async def import_library(
         if active is not None:
             continue
 
-        # Уже скачан ранее — обновим источник, если файл на месте.
+        # Скачан ранее — обновим источник, только если файл действительно
+        # на месте. Раньше запись о старой загрузке молча «съедала» трек:
+        # файл удалён, а импорт ничего не добавлял в очередь.
         done = await session.scalar(
             select(Track)
             .where(Track.source_url == url)
@@ -434,49 +449,54 @@ async def import_library(
             .limit(1)
         )
         if done is not None and done.file_path:
-            if resolve_track_path(done.file_path):
+            done_path = resolve_track_path(done.file_path)
+            if done_path is not None:
                 await remember_source(
                     session,
-                    file_path=done.file_path,
+                    file_path=done_path,
                     url=url,
                     platform=track.platform or "",
-                    title=track.title or "",
-                    artist=track.artist or "",
+                    title=title,
+                    artist=artist,
                 )
                 url_to_relative[url] = done.file_path
                 sources_updated += 1
-            continue
+                continue
 
-        # Ставим отсутствующий трек в очередь на скачивание.
+        # Файла нет (нет записи на диске, старый источник мёртв) — качаем заново.
         platform = detect_platform(url) or (track.platform or "")
         if not platform:
             continue
 
+        queued.append((url, title or url, artist, platform))
+
+    job: Job | None = None
+    if queued:
+        platforms = sorted({entry[3] for entry in queued})
         job = Job(
-            url=url,
-            platform=platform,
-            kind="track",
-            title=track.title or url,
+            url="soundtube://library-import",
+            platform=platforms[0] if len(platforms) == 1 else "mixed",
+            kind="sync",
+            title=f"Импорт библиотеки · {datetime.now().strftime('%d.%m %H:%M')}",
             audio_format=settings.audio_format,
-            total=1,
+            total=len(queued),
             status="pending",
         )
-        job.tracks.append(
-            Track(
-                position=0,
-                title=track.title or "",
-                artist=track.artist,
-                source_url=url,
-                status="pending",
+        for position, (url, title, artist, _platform) in enumerate(queued):
+            job.tracks.append(
+                Track(
+                    position=position,
+                    title=title,
+                    artist=artist or None,
+                    source_url=url,
+                    status="pending",
+                )
             )
-        )
         session.add(job)
-        pending_jobs.append(job)
-        download_jobs_created += 1
 
     await session.commit()
 
-    for job in pending_jobs:
+    if job is not None:
         await session.refresh(job)
         await runner.enqueue(job.id)
 
@@ -542,7 +562,9 @@ async def import_library(
         tracks_added=added,
         tracks_skipped=skipped,
         sources_updated=sources_updated,
-        download_jobs_created=download_jobs_created,
+        download_jobs_created=1 if job is not None else 0,
+        tracks_queued=len(queued),
+        job_id=job.id if job is not None else None,
     )
 
 

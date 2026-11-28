@@ -21,8 +21,17 @@ $triple = Get-TargetTriple
 $suffix = if ($triple -like "*-windows-*") { ".exe" } else { "" }
 
 Write-Host "Собираю Python-сервер (PyInstaller)..." -ForegroundColor Cyan
-Invoke-Native uv @("sync", "--extra", "dev")
-Invoke-Native uv @("run", "pyinstaller", "--noconfirm", "--clean", "melodown-server.spec")
+Invoke-Native uv @("sync", "--locked", "--extra", "dev")
+$mediaTools = Join-Path $root "build\media-tools\$triple"
+Invoke-Native uv @("run", "--no-sync", "python", "scripts/prepare_media_tools.py", "--target", $triple, "--output", $mediaTools)
+
+$previousMediaTools = $env:MELODOWN_BUILD_MEDIA_TOOLS
+$env:MELODOWN_BUILD_MEDIA_TOOLS = $mediaTools
+try {
+    Invoke-Native uv @("run", "--no-sync", "pyinstaller", "--noconfirm", "--clean", "melodown-server.spec")
+} finally {
+    $env:MELODOWN_BUILD_MEDIA_TOOLS = $previousMediaTools
+}
 
 $source = "dist\melodown-server$suffix"
 if (-not (Test-Path $source)) {

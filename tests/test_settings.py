@@ -142,6 +142,8 @@ async def test_import_restores_playlists_from_export(isolated_dirs, session):
         "tracks_skipped": 1,
         "sources_updated": 0,
         "download_jobs_created": 0,
+        "tracks_queued": 0,
+        "job_id": None,
     }
 
     from sqlalchemy import select
@@ -211,4 +213,6 @@ async def test_import_into_existing_playlist_counts_updated(isolated_dirs, sessi
         "tracks_skipped": 0,
         "sources_updated": 0,
         "download_jobs_created": 0,
+        "tracks_queued": 0,
+        "job_id": None,
     }

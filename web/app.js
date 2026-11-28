@@ -1,5 +1,13 @@
 const $ = (selector) => document.querySelector(selector);
-const audio = $("#audio");
+const audioElements = [$("#audio"), $("#audio-next")];
+let [audio, spareAudio] = audioElements;
+const crossfadeGains = new Map();
+let crossfade = null;
+let crossfadeTimer = null;
+let crossfadeEnabled = localStorage.getItem("melodown.crossfade.enabled") !== "0";
+let crossfadeDuration = clamp(
+  Math.round(Number(localStorage.getItem("melodown.crossfade.seconds")) || 5), 3, 10,
+);
 /** Окно Tauri; в браузере остаётся null, и кнопки окна не показываются. */
 let appWindow = null;
 
@@ -120,7 +128,11 @@ const MESSAGES = {
     "theme.ultraviolet": "Ультрафиолет",
     "theme.paper": "Бумага",
     "settings.title": "Настройки",
-    "settings.subtitle": "Язык, тема, папка и перенос библиотеки",
+    "settings.subtitle": "Воспроизведение, оформление и перенос библиотеки",
+    "settings.crossfade": "Плавный переход",
+    "settings.crossfadeToggle": "Плавно смешивать треки",
+    "settings.crossfadeDuration": "Длительность перехода",
+    "settings.crossfadeSeconds": "{seconds} с",
     "settings.language": "Язык",
     "settings.theme": "Цветовая тема",
     "settings.folder": "Папка для скачивания",
@@ -142,7 +154,9 @@ const MESSAGES = {
     "settings.noFile": "Сначала выберите файл",
     "settings.importBadFile": "Это не похоже на файл экспорта SoundTube",
     "settings.imported":
-      "Плейлистов: {created} новых, {updated} обновлено. Треков добавлено: {added}, пропущено: {skipped}. Источников обновлено: {sources}. В очередь на скачивание: {jobs}.",
+      "Плейлистов: {created} новых, {updated} обновлено. Треков добавлено: {added}, пропущено: {skipped}. Источников обновлено: {sources}.",
+    "settings.importedQueued":
+      "В очередь на скачивание: {queued} — одной задачей «Импорт библиотеки» в «Загрузках»: её можно раскрыть, посмотреть треки и отменить.",
     "empty.notFound": "Ничего не найдено",
     "empty.tryAnother": "Попробуйте изменить запрос.",
     "empty.playlistEmpty": "Плейлист пуст",
@@ -172,6 +186,8 @@ const MESSAGES = {
     "kind.playlist": "плейлист",
     "kind.set": "сет",
     "kind.track": "трек",
+    "kind.sync": "импорт библиотеки",
+    "platform.mixed": "разные площадки",
     "jobs.doneToast": "Скачано: {title}",
     "jobs.partialToast": "Часть треков не скачалась: {title}",
     "jobs.deleteConfirm": "Удалить задачу из списка? Скачанные файлы останутся.",
@@ -310,7 +326,11 @@ const MESSAGES = {
     "theme.ultraviolet": "Ultraviolet",
     "theme.paper": "Paper",
     "settings.title": "Settings",
-    "settings.subtitle": "Language, theme, folder and library transfer",
+    "settings.subtitle": "Playback, appearance and library transfer",
+    "settings.crossfade": "Crossfade",
+    "settings.crossfadeToggle": "Blend between tracks",
+    "settings.crossfadeDuration": "Transition duration",
+    "settings.crossfadeSeconds": "{seconds} s",
     "settings.language": "Language",
     "settings.theme": "Color theme",
     "settings.folder": "Download folder",
@@ -332,7 +352,9 @@ const MESSAGES = {
     "settings.noFile": "Choose a file first",
     "settings.importBadFile": "This doesn't look like a SoundTube export file",
     "settings.imported":
-      "Playlists: {created} new, {updated} updated. Tracks added: {added}, skipped: {skipped}. Sources updated: {sources}. Queued for download: {jobs}.",
+      "Playlists: {created} new, {updated} updated. Tracks added: {added}, skipped: {skipped}. Sources updated: {sources}.",
+    "settings.importedQueued":
+      "Queued for download: {queued} — as one “Library import” job in Downloads: expand it to see the tracks or cancel it.",
     "empty.notFound": "Nothing found",
     "empty.tryAnother": "Try a different search.",
     "empty.playlistEmpty": "Playlist is empty",
@@ -362,6 +384,8 @@ const MESSAGES = {
     "kind.playlist": "playlist",
     "kind.set": "set",
     "kind.track": "track",
+    "kind.sync": "library import",
+    "platform.mixed": "mixed platforms",
     "jobs.doneToast": "Downloaded: {title}",
     "jobs.partialToast": "Some tracks failed: {title}",
     "jobs.deleteConfirm": "Delete this task from the list? Downloaded files will stay.",
@@ -519,6 +543,7 @@ function applyLanguage() {
   updateRepeatUI();
   updateLyricsUI();
   syncVolumeUI();
+  syncCrossfadeSettings();
   if (state.updateInfo !== null) renderUpdateBadge(state.updateInfo);
 
   $("#tracks-title").textContent = state.view === "playlist" ? state.playlistName : t("views.library");
@@ -835,6 +860,7 @@ function trackRow(track, index, style = "") {
 }
 
 function resetNowPlaying() {
+  clearCrossfade();
   state.currentId = null;
   state.queue = [];
   state.queueIndex = -1;
@@ -888,6 +914,7 @@ async function deleteTrack(trackId) {
 
   const queueIndex = state.queue.findIndex((item) => item.id === trackId);
   if (queueIndex >= 0) {
+    clearCrossfade();
     state.queue.splice(queueIndex, 1);
     if (queueIndex < state.queueIndex) state.queueIndex -= 1;
   }
@@ -917,7 +944,9 @@ async function loadLibrary(force = false) {
 /* ---------- воспроизведение ---------- */
 
 function startTrack(track) {
-  state.currentId = track.id;
+  clearCrossfade();
+  if (crossfadeEnabled) ensureAudioGraph();
+  resumeAudioGraph();
   audio.src = streamUrl(track);
   audio
     .play()
@@ -927,9 +956,104 @@ function startTrack(track) {
       }
     });
 
+  showPlayingTrack(track);
+}
+
+function showPlayingTrack(track) {
+  state.currentId = track.id;
   updateNowPlaying(track);
   markCurrentRow();
   document.title = `${track.title} — ${track.artist}`;
+}
+
+function syncCrossfadeSettings() {
+  const input = $("#crossfade-duration");
+  $("#crossfade-enabled").checked = crossfadeEnabled;
+  input.disabled = !crossfadeEnabled;
+  input.value = crossfadeDuration;
+  const label = t("settings.crossfadeSeconds", { seconds: crossfadeDuration });
+  input.setAttribute("aria-valuetext", label);
+  $("#crossfade-value").textContent = label;
+}
+
+function releaseAudio(element) {
+  element.pause();
+  if (element.hasAttribute("src")) {
+    element.removeAttribute("src");
+    element.load();
+  }
+}
+
+function clearCrossfade() {
+  clearInterval(crossfadeTimer);
+  crossfadeTimer = null;
+  crossfade = null;
+  releaseAudio(spareAudio);
+  if (vis.ctx) {
+    const now = vis.ctx.currentTime;
+    for (const [element, gain] of crossfadeGains) {
+      gain.cancelScheduledValues(now);
+      gain.setValueAtTime(element === audio ? 1 : 0, now);
+    }
+  }
+}
+
+function updateCrossfade() {
+  if (!crossfadeEnabled || audio.paused || audio.seeking || state.seeking ||
+      vis.ctx?.state !== "running" || !Number.isFinite(audio.duration)) return;
+
+  const remaining = audio.duration - audio.currentTime;
+  if (remaining <= 0 || (!crossfade && remaining > crossfadeDuration + 5)) return;
+  if (!crossfade) {
+    const index = nextQueueIndex(true);
+    if (state.repeat === "one" || index === null || state.queue[index].id === state.currentId) return;
+    crossfade = { index, attempted: false, start: null };
+    spareAudio.src = streamUrl(state.queue[index]);
+  }
+
+  const transition = crossfade;
+  // Оставляем у следующего трека запас до конца на смену аудиоэлементов.
+  const duration = Math.min(crossfadeDuration, spareAudio.duration - 0.25);
+  if (!transition.attempted && spareAudio.readyState >= 3 && remaining <= duration) {
+    transition.attempted = true;
+    spareAudio.play().then(() => {
+      if (crossfade !== transition) return;
+      transition.start = audio.currentTime;
+      crossfadeTimer = setInterval(updateCrossfade, 25);
+    }).catch(() => {
+      if (crossfade === transition) interruptCrossfade();
+    });
+  }
+
+  if (transition.start !== null) {
+    const progress = clamp(
+      (audio.currentTime - transition.start) / (audio.duration - transition.start), 0, 1,
+    );
+    const now = vis.ctx.currentTime;
+    crossfadeGains.get(audio).setTargetAtTime(1 - progress, now, 0.02);
+    crossfadeGains.get(spareAudio).setTargetAtTime(progress, now, 0.02);
+  }
+}
+
+function interruptCrossfade() {
+  if (!crossfade?.attempted) return;
+  const index = crossfade.index;
+  clearCrossfade();
+  // При сбое следующая песня всё равно запускается обычным способом.
+  crossfade = { index, attempted: true, start: null };
+}
+
+function finishTrack() {
+  if (crossfade?.start != null && !spareAudio.paused && !spareAudio.ended) {
+    state.queueIndex = crossfade.index;
+    [audio, spareAudio] = [spareAudio, audio];
+    clearCrossfade();
+    showPlayingTrack(state.queue[state.queueIndex]);
+    syncAudioDuration();
+    setPlaying(true);
+    return;
+  }
+  nextTrack(true);
 }
 
 /** Обновляет подсветку текущего трека без перерисовки всего списка. */
@@ -1268,7 +1392,6 @@ const PALETTE_LIMIT = 60;
 const vis = {
   ctx: null,
   analyser: null,
-  source: null,
   bins: null,
   raf: 0,
   updatedAt: 0,
@@ -1555,7 +1678,7 @@ async function refreshVisualPalette(track) {
   paintPalette(tones);
 }
 
-/** Один общий AudioContext: элемент звука отдаёт данные анализатору. */
+/** Анализатор получает общий сигнал с обоих аудиоэлементов. */
 function ensureAudioGraph() {
   if (vis.analyser || vis.failed) return vis.analyser;
 
@@ -1576,15 +1699,18 @@ function ensureAudioGraph() {
     } catch {
       ctx = new AudioCtor();
     }
-    const source = ctx.createMediaElementSource(audio);
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 1024;
     analyser.smoothingTimeConstant = 0.5;
-    source.connect(analyser);
     analyser.connect(ctx.destination);
+    for (const element of audioElements) {
+      const gain = ctx.createGain();
+      gain.gain.value = element === audio ? 1 : 0;
+      ctx.createMediaElementSource(element).connect(gain).connect(analyser);
+      crossfadeGains.set(element, gain.gain);
+    }
 
     vis.ctx = ctx;
-    vis.source = source;
     vis.analyser = analyser;
     vis.bins = new Uint8Array(analyser.frequencyBinCount);
     vis.prev = new Uint8Array(analyser.frequencyBinCount);
@@ -1919,18 +2045,8 @@ function playAll() {
   startTrack(state.queue[0]);
 }
 
-function nextTrack(auto = false) {
-  if (!state.queue.length) {
-    if (!auto) showToast(t("queue.empty"));
-    return;
-  }
-
-  if (auto && state.repeat === "one") {
-    audio.currentTime = 0;
-    audio.play();
-    return;
-  }
-
+function nextQueueIndex(auto) {
+  if (!state.queue.length) return null;
   let index;
   if (state.shuffle) {
     if (state.queue.length === 1) index = 0;
@@ -1944,14 +2060,33 @@ function nextTrack(auto = false) {
   }
 
   if (index >= state.queue.length) {
-    if (auto && state.repeat !== "all") {
-      audio.pause();
-      audio.currentTime = 0;
-      return;
-    }
+    if (auto && state.repeat !== "all") return null;
     index = 0;
   }
 
+  return index;
+}
+
+function nextTrack(auto = false) {
+  if (!state.queue.length) {
+    if (!auto) showToast(t("queue.empty"));
+    return;
+  }
+
+  if (auto && state.repeat === "one") {
+    audio.currentTime = 0;
+    audio.play();
+    return;
+  }
+
+  const index = (auto ? crossfade?.index : null) ?? nextQueueIndex(auto);
+  if (index === null) {
+    clearCrossfade();
+    audio.pause();
+    audio.currentTime = 0;
+    setPlaying(false);
+    return;
+  }
   state.queueIndex = index;
   startTrack(state.queue[index]);
 }
@@ -2011,12 +2146,14 @@ function updateRepeatUI() {
 }
 
 function cycleRepeat() {
+  clearCrossfade();
   state.repeat = state.repeat === "off" ? "all" : state.repeat === "all" ? "one" : "off";
   localStorage.setItem("melodown.repeat", state.repeat);
   updateRepeatUI();
 }
 
 function toggleShuffle() {
+  clearCrossfade();
   state.shuffle = !state.shuffle;
   localStorage.setItem("melodown.shuffle", state.shuffle ? "1" : "0");
   for (const button of document.querySelectorAll("#shuffle, #fs-shuffle")) {
@@ -2040,7 +2177,15 @@ function updateTimeline() {
   const ratio = duration ? current / duration : 0;
 
   renderTimeline(ratio, current);
+  $("#player").style.setProperty("--progress", String(ratio));
   if (state.fullscreen && state.lyricsOpen) syncLyricsProgress();
+}
+
+function syncAudioDuration() {
+  const total = formatTime(audio.duration);
+  $("#total-time").textContent = total;
+  $("#fs-total-time").textContent = total;
+  updateTimeline();
 }
 
 /** Общая громкость: синхронизирует ползунки и кнопки звука в обоих плеерах. */
@@ -2062,14 +2207,17 @@ function syncVolumeUI() {
 
 function setVolume(value) {
   const volume = Math.min(1, Math.max(0, value));
-  audio.volume = volume;
-  if (volume > 0) audio.muted = false;
+  for (const element of audioElements) {
+    element.volume = volume;
+    if (volume > 0) element.muted = false;
+  }
   localStorage.setItem("melodown.volume", String(volume));
   syncVolumeUI();
 }
 
 function toggleMute() {
-  audio.muted = !audio.muted;
+  const muted = !audio.muted;
+  for (const element of audioElements) element.muted = muted;
   syncVolumeUI();
 }
 
@@ -2128,7 +2276,7 @@ function jobCard(job) {
         <button class="job-toggle" data-action="toggle" data-id="${esc(job.id)}" type="button">
           <div class="job-title">${esc(job.title || job.url)}</div>
           <div class="job-meta">
-            <span class="badge">${esc(job.platform)}</span>
+            <span class="badge">${esc(label("platform", job.platform))}</span>
             <span>${esc(label("kind", job.kind))}</span>
             <span>${trackCountLabel(job.total)}</span>
             <span class="status-${esc(job.status)}">${esc(label("status", job.status))}</span>
@@ -2946,18 +3094,30 @@ async function runSettingsImport() {
       method: "POST",
       body: JSON.stringify(parsed),
     });
-    const message = t("settings.imported", {
+    const queued = result.tracks_queued || 0;
+    let message = t("settings.imported", {
       created: result.playlists_created,
       updated: result.playlists_updated,
       added: result.tracks_added,
       skipped: result.tracks_skipped,
       sources: result.sources_updated || 0,
-      jobs: result.download_jobs_created || 0,
     });
+    if (queued) message += " " + t("settings.importedQueued", { queued });
     setSettingsStatus("#settings-import-status", message);
     showToast(message);
+
+    // Скачивание идёт одной задачей — показываем её сразу в «Загрузках»,
+    // раскрытой, чтобы прогресс и отмену было видно без поисков.
+    if (result.job_id) {
+      state.jobDetails.delete(result.job_id);
+      state.jobDetailSignatures.delete(result.job_id);
+      state.expandedJobs.add(result.job_id);
+      switchView("downloads");
+      await loadJobs();
+      await loadJobDetail(result.job_id);
+    }
+
     await loadPlaylists();
-    await loadJobs();
   } catch (error) {
     setSettingsStatus(
       "#settings-import-status",
@@ -3162,6 +3322,22 @@ function setupWindowControls() {
 }
 
 function bindEvents() {
+  $("#crossfade-enabled").addEventListener("change", (event) => {
+    crossfadeEnabled = event.target.checked;
+    localStorage.setItem("melodown.crossfade.enabled", crossfadeEnabled ? "1" : "0");
+    if (crossfadeEnabled && !audio.paused) {
+      ensureAudioGraph();
+      resumeAudioGraph();
+    } else {
+      clearCrossfade();
+    }
+    syncCrossfadeSettings();
+  });
+  $("#crossfade-duration").addEventListener("input", (event) => {
+    crossfadeDuration = Number(event.target.value);
+    localStorage.setItem("melodown.crossfade.seconds", String(crossfadeDuration));
+    syncCrossfadeSettings();
+  });
   document.querySelectorAll(".nav-item[data-view]").forEach((button) => {
     button.addEventListener("click", () => switchView(button.dataset.view));
   });
@@ -3406,30 +3582,42 @@ function bindEvents() {
   $("#mute").addEventListener("click", toggleMute);
   $("#fs-mute").addEventListener("click", toggleMute);
 
-  audio.addEventListener("volumechange", syncVolumeUI);
-
-  audio.addEventListener("play", () => {
-    resumeAudioGraph();
-    setPlaying(true);
-  });
-
-  audio.addEventListener("pause", () => setPlaying(false));
-  audio.addEventListener("ended", () => nextTrack(true));
-
-  audio.addEventListener("timeupdate", () => {
-    if (!state.seeking) updateTimeline();
-  });
-
-  audio.addEventListener("loadedmetadata", () => {
-    const total = formatTime(audio.duration);
-    $("#total-time").textContent = total;
-    $("#fs-total-time").textContent = total;
-    updateTimeline();
-  });
-
-  audio.addEventListener("error", () => {
-    if (audio.src) showToast(t("error.playFile"));
-  });
+  for (const element of audioElements) {
+    const onCurrent = (event, handler) => {
+      element.addEventListener(event, () => {
+        if (element === audio) handler();
+      });
+    };
+    onCurrent("volumechange", syncVolumeUI);
+    onCurrent("play", () => {
+      resumeAudioGraph();
+      setPlaying(true);
+    });
+    onCurrent("pause", () => {
+      if (element.ended || !element.paused) return;
+      clearCrossfade();
+      setPlaying(false);
+    });
+    onCurrent("ended", finishTrack);
+    onCurrent("seeking", clearCrossfade);
+    onCurrent("waiting", interruptCrossfade);
+    onCurrent("timeupdate", () => {
+      if (!state.seeking) updateTimeline();
+      updateCrossfade();
+    });
+    onCurrent("loadedmetadata", syncAudioDuration);
+    element.addEventListener("waiting", () => {
+      if (element !== audio && crossfade?.start != null) interruptCrossfade();
+    });
+    element.addEventListener("error", () => {
+      if (element === audio && element.src) {
+        clearCrossfade();
+        showToast(t("error.playFile"));
+      } else if (element === spareAudio) {
+        interruptCrossfade();
+      }
+    });
+  }
 
   // Android усыпляет AudioContext, пока страница в фоне: возвращаемся — будим,
   // иначе после разблокировки экрана звук на время пропадает или щёлкает.

@@ -8,3 +8,8 @@ desktop/node_modules
 desktop/dist
 .pytest_cache
 .gitignore
+/build
+/dist
+/node_modules
+/src-tauri/target
+/src-tauri/binaries

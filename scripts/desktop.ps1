@@ -17,7 +17,9 @@ $sidecar = "src-tauri\binaries\melodown-server-$triple$suffix"
 $stale = -not (Test-Path $sidecar)
 if (-not $stale) {
     $sidecarTime = (Get-Item $sidecar).LastWriteTimeUtc
-    $newestSource = Get-ChildItem -Recurse -File web, app, "scripts\server_entry.py" |
+    $inputs = @("web", "app", "uv.lock", "pyproject.toml", "melodown-server.spec",
+        "scripts\server_entry.py", "scripts\prepare_media_tools.py", "scripts\build-sidecar.ps1")
+    $newestSource = Get-ChildItem -Recurse -File -Path $inputs |
         Sort-Object LastWriteTimeUtc -Descending |
         Select-Object -First 1
     if ($newestSource -and $newestSource.LastWriteTimeUtc -gt $sidecarTime) {

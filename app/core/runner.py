@@ -2,17 +2,19 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from pathlib import Path
 
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import selectinload
 
 from app.config import settings
 from app.core.downloader import download_track
-from app.core.library import invalidate_cache
+from app.core.library import invalidate_cache, resolve_track_path
 from app.core.platform_playlists import add_to_platform_playlist
 from app.core.sources import remember_source
 from app.db import SessionLocal
 from app.models import Job, Track
+from app.platforms import detect_platform
 from app.platforms.base import TrackSpec
 
 logger = logging.getLogger(__name__)
@@ -90,7 +92,7 @@ class JobRunner:
         self,
         job_id: str,
         track_id: int,
-        platform: str,
+        fallback_platform: str,
         audio_format: str,
     ) -> None:
         async with SessionLocal() as session:
@@ -99,6 +101,11 @@ class JobRunner:
                 return
             if track.status == "done" and track.file_path:
                 return
+
+            # В одной задаче могут быть треки разных площадок («Импорт
+            # библиотеки»), поэтому площадку определяем по ссылке самого
+            # трека, а поле задачи — только запасной вариант.
+            platform = detect_platform(track.source_url) or fallback_platform
 
             duplicate = await session.scalar(
                 select(Track)
@@ -109,7 +116,13 @@ class JobRunner:
                 )
                 .limit(1)
             )
-            if duplicate is not None:
+            # Старая запись о загрузке — не дубликат, если файла уже нет:
+            # иначе потерянная библиотека не восстановится из экспорта.
+            if duplicate is not None and (
+                not duplicate.file_path or resolve_track_path(duplicate.file_path) is None
+            ):
+                duplicate = None
+            if duplicate is not None and duplicate.file_path:
                 track.status = "skipped"
                 track.file_path = duplicate.file_path
                 track.error = "Уже есть в библиотеке"
@@ -156,23 +169,27 @@ class JobRunner:
 
         async with SessionLocal() as session:
             track = await session.get(Track, track_id)
-            if track is not None:
-                track.status = "done"
-                track.file_path = str(result.path)
-                track.title = result.title
-                track.artist = result.artist
-                track.album = result.album
-                track.duration = result.duration
-                track.error = None
-                await add_to_platform_playlist(session, platform, result.path)
-                await remember_source(
-                    session,
-                    file_path=result.path,
-                    url=track.source_url,
-                    platform=platform,
-                    title=track.title,
-                    artist=track.artist or "",
-                )
+            if track is None:
+                # Задачу («Импорт библиотеки» целиком) удалили во время
+                # скачивания — не оставляем файл-сироту в библиотеке.
+                await asyncio.to_thread(_remove_quietly, result.path)
+                return
+            track.status = "done"
+            track.file_path = str(result.path)
+            track.title = result.title
+            track.artist = result.artist
+            track.album = result.album
+            track.duration = result.duration
+            track.error = None
+            await add_to_platform_playlist(session, platform, result.path)
+            await remember_source(
+                session,
+                file_path=result.path,
+                url=track.source_url,
+                platform=platform,
+                title=track.title,
+                artist=track.artist or "",
+            )
             await session.commit()
         await self._refresh_counters(job_id)
         invalidate_cache()
@@ -221,6 +238,14 @@ class JobRunner:
 
 
 runner = JobRunner()
+
+
+def _remove_quietly(path: Path) -> None:
+    """Удаляет файл, если он ещё есть: отменённая загрузка не должна мусорить."""
+    try:
+        Path(path).unlink(missing_ok=True)
+    except OSError:
+        logger.debug("Не удалось удалить файл отменённой загрузки %s", path, exc_info=True)
 
 
 async def recover_stale_jobs() -> None:
